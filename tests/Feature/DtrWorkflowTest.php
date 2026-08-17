@@ -1,0 +1,223 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\AccountStatus;
+use App\Enums\EmploymentStatus;
+use App\Enums\UserRole;
+use App\Models\Attendance;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\User;
+use App\Models\WorkSchedule;
+use App\Support\ManilaTime;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class DtrWorkflowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private WorkSchedule $schedule;
+
+    private Department $department;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->schedule = WorkSchedule::query()->create([
+            'name' => 'Regular',
+            'start_time' => '08:00:00',
+            'end_time' => '17:00:00',
+            'grace_period_minutes' => 10,
+            'break_start' => '12:00:00',
+            'break_end' => '13:00:00',
+            'required_minutes' => 480,
+            'work_days' => [1, 2, 3, 4, 5],
+            'is_default' => true,
+            'status' => AccountStatus::Active,
+        ]);
+
+        $this->department = Department::query()->create([
+            'name' => 'IT Department',
+            'status' => AccountStatus::Active,
+        ]);
+    }
+
+    public function test_employee_can_login_and_time_in_once(): void
+    {
+        $employee = $this->makeEmployee('juan');
+
+        $this->post('/login', ['login' => 'juan', 'password' => 'password'])
+            ->assertRedirect(route('home'));
+
+        $this->actingAs($employee->user)
+            ->postJson(route('attendance.time-in'))
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $this->actingAs($employee->user)
+            ->postJson(route('attendance.time-in'))
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('attendance', 1);
+    }
+
+    public function test_employee_cannot_time_out_without_time_in(): void
+    {
+        $employee = $this->makeEmployee('maria');
+
+        $this->actingAs($employee->user)
+            ->postJson(route('attendance.time-out'))
+            ->assertStatus(422);
+    }
+
+    public function test_employee_can_time_out_once_after_time_in(): void
+    {
+        $employee = $this->makeEmployee('pedro');
+
+        $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
+        $this->actingAs($employee->user)->postJson(route('attendance.time-out'))->assertOk();
+        $this->actingAs($employee->user)->postJson(route('attendance.time-out'))->assertStatus(422);
+    }
+
+    public function test_employee_cannot_view_another_employee_dtr(): void
+    {
+        $a = $this->makeEmployee('alpha');
+        $b = $this->makeEmployee('beta');
+
+        $this->actingAs($a->user)
+            ->get(route('employee.dtr.show', $b))
+            ->assertForbidden();
+
+        $this->actingAs($a->user)
+            ->get(route('admin.employees.show', $b))
+            ->assertForbidden();
+    }
+
+    public function test_employee_cannot_access_admin_pages(): void
+    {
+        $employee = $this->makeEmployee('staff');
+
+        $this->actingAs($employee->user)
+            ->get(route('admin.dashboard'))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_view_dashboard_and_edit_dtr_with_reason(): void
+    {
+        $admin = User::factory()->admin()->create(['username' => 'admin']);
+        $employee = $this->makeEmployee('worker');
+
+        $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
+        $record = Attendance::query()->first();
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
+
+        $this->actingAs($admin)
+            ->put(route('admin.dtr.update', $record), [
+                'time_in' => '08:03',
+                'time_out' => '17:02',
+                'reason' => 'Employee forgot to clock out.',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('attendance_edits', [
+            'attendance_id' => $record->id,
+            'reason' => 'Employee forgot to clock out.',
+        ]);
+    }
+
+    public function test_duplicate_attendance_cannot_be_created_directly(): void
+    {
+        $employee = $this->makeEmployee('dup');
+        $date = ManilaTime::todayDate();
+
+        Attendance::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+            'time_in' => ManilaTime::now(),
+            'status' => 'incomplete',
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        Attendance::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+            'time_in' => ManilaTime::now(),
+            'status' => 'incomplete',
+        ]);
+    }
+
+    public function test_employee_cannot_clock_in_for_another_employee(): void
+    {
+        $a = $this->makeEmployee('one');
+        $b = $this->makeEmployee('two');
+
+        $this->actingAs($a->user)
+            ->postJson(route('attendance.time-in'), ['employee_id' => $b->id])
+            ->assertOk();
+
+        $this->assertDatabaseHas('attendance', ['employee_id' => $a->id]);
+        $this->assertDatabaseMissing('attendance', ['employee_id' => $b->id]);
+    }
+
+    public function test_employee_cannot_edit_dtr_through_admin_endpoint(): void
+    {
+        $employee = $this->makeEmployee('hacker');
+        $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
+        $record = Attendance::query()->first();
+
+        $this->actingAs($employee->user)
+            ->put(route('admin.dtr.update', $record), [
+                'time_in' => '08:00',
+                'time_out' => '17:00',
+                'reason' => 'tamper',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_guest_cannot_access_protected_endpoints(): void
+    {
+        $this->postJson(route('attendance.time-in'))->assertUnauthorized();
+        $this->get(route('admin.dashboard'))->assertRedirect(route('login'));
+    }
+
+    public function test_employee_can_change_password(): void
+    {
+        $employee = $this->makeEmployee('pwd');
+
+        $this->actingAs($employee->user)
+            ->put(route('profile.password.update'), [
+                'current_password' => 'password',
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue(password_verify('new-password', $employee->user->fresh()->password));
+    }
+
+    private function makeEmployee(string $username): Employee
+    {
+        $user = User::factory()->create([
+            'username' => $username,
+            'email' => $username.'@bacs.test',
+            'name' => ucfirst($username).' Test',
+        ]);
+
+        return Employee::query()->create([
+            'user_id' => $user->id,
+            'employee_number' => strtoupper($username).'-001',
+            'first_name' => ucfirst($username),
+            'last_name' => 'Test',
+            'email' => $user->email,
+            'department_id' => $this->department->id,
+            'position' => 'Staff',
+            'employment_status' => EmploymentStatus::Regular,
+            'work_schedule_id' => $this->schedule->id,
+        ]);
+    }
+}
