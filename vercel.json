@@ -1,0 +1,68 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "regions": ["sin1"],
+    "builds": [
+        {
+            "src": "/api/index.php",
+            "use": "vercel-php@0.8.0"
+        },
+        {
+            "src": "/public/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/build/assets/(.*)",
+            "dest": "/public/build/assets/$1"
+        },
+        {
+            "src": "/favicon.(.*)",
+            "dest": "/public/favicon.$1"
+        },
+        {
+            "src": "/robots.txt",
+            "dest": "/public/robots.txt"
+        },
+        {
+            "src": "/sw-station.js",
+            "dest": "/public/sw-station.js"
+        },
+        {
+            "src": "/station-icon.svg",
+            "dest": "/public/station-icon.svg"
+        },
+        {
+            "src": "/station.webmanifest",
+            "dest": "/public/station.webmanifest"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/api/index.php"
+        }
+    ],
+    "env": {
+        "APP_NAME": "BACS DTR",
+        "APP_ENV": "production",
+        "APP_DEBUG": "false",
+        "APP_URL": "https://bacs-murex.vercel.app",
+        "APP_TIMEZONE": "Asia/Manila",
+        "APP_CONFIG_CACHE": "/tmp/config.php",
+        "APP_EVENTS_CACHE": "/tmp/events.php",
+        "APP_PACKAGES_CACHE": "/tmp/packages.php",
+        "APP_ROUTES_CACHE": "/tmp/routes.php",
+        "APP_SERVICES_CACHE": "/tmp/services.php",
+        "VIEW_COMPILED_PATH": "/tmp",
+        "CACHE_STORE": "array",
+        "CACHE_DRIVER": "array",
+        "LOG_CHANNEL": "stderr",
+        "LOG_LEVEL": "error",
+        "SESSION_DRIVER": "cookie",
+        "SESSION_SECURE_COOKIE": "true",
+        "QUEUE_CONNECTION": "sync",
+        "MAIL_MAILER": "log",
+        "DB_CONNECTION": "sqlite",
+        "DB_DATABASE": "/tmp/database.sqlite",
+        "DB_FOREIGN_KEYS": "true"
+    }
+}

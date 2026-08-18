@@ -1,0 +1,51 @@
+{
+  "__commonjsHelpers-BiB7-vA3.js": {
+    "file": "assets/_commonjsHelpers-BiB7-vA3.js",
+    "name": "_commonjsHelpers"
+  },
+  "_browser-D0gHrrWz.js": {
+    "file": "assets/browser-D0gHrrWz.js",
+    "name": "browser",
+    "imports": [
+      "__commonjsHelpers-BiB7-vA3.js"
+    ]
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-B43aYK1f.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-4UeUIMj1.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "__commonjsHelpers-BiB7-vA3.js",
+      "_browser-D0gHrrWz.js"
+    ]
+  },
+  "resources/js/qrcode-page.js": {
+    "file": "assets/qrcode-page-DTQhwLqI.js",
+    "name": "qrcode-page",
+    "src": "resources/js/qrcode-page.js",
+    "isEntry": true,
+    "imports": [
+      "__commonjsHelpers-BiB7-vA3.js",
+      "_browser-D0gHrrWz.js"
+    ]
+  },
+  "resources/js/station.js": {
+    "file": "assets/station-BrjoUHMy.js",
+    "name": "station",
+    "src": "resources/js/station.js",
+    "isEntry": true,
+    "imports": [
+      "__commonjsHelpers-BiB7-vA3.js"
+    ]
+  }
+}

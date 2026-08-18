@@ -15,7 +15,9 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        if (($_ENV['VERCEL'] ?? getenv('VERCEL')) === '1') {
+            $this->app->useStoragePath('/tmp/storage');
+        }
     }
 
     public function boot(): void
@@ -23,7 +25,9 @@ class AppServiceProvider extends ServiceProvider
         date_default_timezone_set(config('app.timezone', 'Asia/Manila'));
 
         try {
-            DB::statement("SET time_zone = '+08:00'");
+            if (DB::connection()->getDriverName() === 'mysql') {
+                DB::statement("SET time_zone = '+08:00'");
+            }
         } catch (\Throwable) {
             // Database may be unavailable during package discovery.
         }
