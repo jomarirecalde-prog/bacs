@@ -19,7 +19,16 @@ foreach ([
 
 $sqlite = '/tmp/database.sqlite';
 $seed = __DIR__.'/../database/vercel.sqlite';
-if ((! file_exists($sqlite) || filesize($sqlite) < 1024) && file_exists($seed)) {
+$needsSeed = ! file_exists($sqlite) || filesize($sqlite) < 1024;
+if (! $needsSeed && file_exists($sqlite)) {
+    try {
+        $pdo = new PDO('sqlite:'.$sqlite);
+        $needsSeed = ! $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='calendar_events'")->fetchColumn();
+    } catch (Throwable) {
+        $needsSeed = true;
+    }
+}
+if ($needsSeed && file_exists($seed)) {
     copy($seed, $sqlite);
 }
 

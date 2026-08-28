@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Holiday;
 use App\Support\HolidayInfo;
 use App\Support\ManilaTime;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Single point of truth for "is this date a non-working day, and what is it called?".
@@ -28,6 +29,8 @@ class HolidayResolver
 
     /** @var array<int, Employee|null> */
     private array $employees = [];
+
+    private ?bool $calendarReady = null;
 
     public function forDate(string $date, Employee|int|null $for = null): ?HolidayInfo
     {
@@ -113,34 +116,41 @@ class HolidayResolver
                 );
             });
 
-        $query = CalendarEvent::query()
-            ->nonWorking()
-            ->overlapping($startDate, $endDate);
+        if ($this->calendarEventsReady()) {
+            $query = CalendarEvent::query()
+                ->nonWorking()
+                ->overlapping($startDate, $endDate);
 
-        if ($employeeId !== null) {
-            $query->visibleToEmployee($this->employee($employeeId));
+            if ($employeeId !== null) {
+                $query->visibleToEmployee($this->employee($employeeId));
+            }
+
+            $query->get()->each(function (CalendarEvent $event) use (&$map, $startDate, $endDate) {
+                $cursor = $event->start_date->copy();
+                $stop = $event->end_date;
+
+                while ($cursor->lte($stop)) {
+                    $date = $cursor->toDateString();
+                    if ($date >= $startDate && $date <= $endDate) {
+                        $map[$date] = new HolidayInfo(
+                            date: $date,
+                            name: $event->title,
+                            source: 'calendar',
+                            effect: $event->attendance_effect,
+                            eventId: $event->id,
+                        );
+                    }
+                    $cursor->addDay();
+                }
+            });
         }
 
-        $query->get()->each(function (CalendarEvent $event) use (&$map, $startDate, $endDate) {
-            $cursor = $event->start_date->copy();
-            $stop = $event->end_date;
-
-            while ($cursor->lte($stop)) {
-                $date = $cursor->toDateString();
-                if ($date >= $startDate && $date <= $endDate) {
-                    $map[$date] = new HolidayInfo(
-                        date: $date,
-                        name: $event->title,
-                        source: 'calendar',
-                        effect: $event->attendance_effect,
-                        eventId: $event->id,
-                    );
-                }
-                $cursor->addDay();
-            }
-        });
-
         return $this->months[$cacheKey] = $map;
+    }
+
+    private function calendarEventsReady(): bool
+    {
+        return $this->calendarReady ??= Schema::hasTable('calendar_events');
     }
 
     private function employeeId(Employee|int|null $for): ?int

@@ -12,6 +12,7 @@ use App\Services\AttendanceService;
 use App\Services\CalendarService;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -40,7 +41,9 @@ class DashboardController extends Controller
             'statuses' => AttendanceStatus::cases(),
             'filters' => $request->only(['q', 'department_id', 'employee_id', 'status', 'date']),
             'date' => $date,
-            'upcomingEvents' => $this->calendar->upcoming(CalendarEvent::query()->published(), days: 90, limit: 6),
+            'upcomingEvents' => Schema::hasTable('calendar_events')
+                ? $this->calendar->upcoming(CalendarEvent::query()->published(), days: 90, limit: 6)
+                : collect(),
         ]);
     }
 

@@ -9,6 +9,7 @@ use App\Services\CalendarService;
 use App\Services\HolidayResolver;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -36,11 +37,13 @@ class DashboardController extends Controller
             'year' => $year,
             'canTimeIn' => ! $today?->hasTimeIn(),
             'canTimeOut' => $today?->hasTimeIn() && ! $today?->hasTimeOut(),
-            'upcomingEvents' => $this->calendar->upcoming(
-                CalendarEvent::query()->visibleToEmployee($employee),
-                days: 90,
-                limit: 4
-            ),
+            'upcomingEvents' => Schema::hasTable('calendar_events')
+                ? $this->calendar->upcoming(
+                    CalendarEvent::query()->visibleToEmployee($employee),
+                    days: 90,
+                    limit: 4
+                )
+                : collect(),
             'todayHoliday' => $this->holidays->forDate(ManilaTime::todayDate(), $employee),
         ]);
     }
