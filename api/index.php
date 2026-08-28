@@ -17,19 +17,22 @@ foreach ([
     }
 }
 
+$useSqlite = ($_ENV['DB_CONNECTION'] ?? getenv('DB_CONNECTION') ?: 'pgsql') === 'sqlite';
 $sqlite = '/tmp/database.sqlite';
 $seed = __DIR__.'/../database/vercel.sqlite';
-$needsSeed = ! file_exists($sqlite) || filesize($sqlite) < 1024;
-if (! $needsSeed && file_exists($sqlite)) {
-    try {
-        $pdo = new PDO('sqlite:'.$sqlite);
-        $needsSeed = ! $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='calendar_events'")->fetchColumn();
-    } catch (Throwable) {
-        $needsSeed = true;
+if ($useSqlite) {
+    $needsSeed = ! file_exists($sqlite) || filesize($sqlite) < 1024;
+    if (! $needsSeed && file_exists($sqlite)) {
+        try {
+            $pdo = new PDO('sqlite:'.$sqlite);
+            $needsSeed = ! $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='calendar_events'")->fetchColumn();
+        } catch (Throwable) {
+            $needsSeed = true;
+        }
     }
-}
-if ($needsSeed && file_exists($seed)) {
-    copy($seed, $sqlite);
+    if ($needsSeed && file_exists($seed)) {
+        copy($seed, $sqlite);
+    }
 }
 
 require __DIR__.'/../public/index.php';
