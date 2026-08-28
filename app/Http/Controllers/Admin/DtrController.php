@@ -91,6 +91,11 @@ class DtrController extends Controller
         $data = $request->validate([
             'employee_id' => ['required', 'exists:employees,id'],
             'attendance_date' => ['required', 'date'],
+            'am_time_in' => ['nullable', 'date_format:H:i'],
+            'am_time_out' => ['nullable', 'date_format:H:i'],
+            'pm_time_in' => ['nullable', 'date_format:H:i'],
+            'pm_time_out' => ['nullable', 'date_format:H:i'],
+            'overtime_in' => ['nullable', 'date_format:H:i'],
             'time_in' => ['nullable', 'date_format:H:i'],
             'time_out' => ['nullable', 'date_format:H:i'],
             'status' => ['nullable', Rule::enum(AttendanceStatus::class)],
@@ -118,6 +123,11 @@ class DtrController extends Controller
         $this->authorize('update', $attendance);
 
         $data = $request->validate([
+            'am_time_in' => ['nullable', 'date_format:H:i'],
+            'am_time_out' => ['nullable', 'date_format:H:i'],
+            'pm_time_in' => ['nullable', 'date_format:H:i'],
+            'pm_time_out' => ['nullable', 'date_format:H:i'],
+            'overtime_in' => ['nullable', 'date_format:H:i'],
             'time_in' => ['nullable', 'date_format:H:i'],
             'time_out' => ['nullable', 'date_format:H:i'],
             'forced_status' => ['nullable', Rule::in([

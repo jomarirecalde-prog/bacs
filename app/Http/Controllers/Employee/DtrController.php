@@ -4,72 +4,58 @@ namespace App\Http\Controllers\Employee;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
-use App\Models\Setting;
-use App\Services\AttendanceService;
-use App\Services\ReportService;
-use App\Support\ManilaTime;
+use App\Services\OfficialDtrPdfService;
+use App\Services\OfficialDtrService;
+use App\Support\DtrPeriod;
 use Illuminate\Http\Request;
 
 class DtrController extends Controller
 {
     public function __construct(
-        private readonly AttendanceService $attendanceService,
-        private readonly ReportService $reports,
+        private readonly OfficialDtrService $dtr,
+        private readonly OfficialDtrPdfService $pdf,
     ) {}
 
     public function index(Request $request)
     {
         $employee = $this->ownEmployee($request);
-        $year = $request->integer('year') ?: (int) ManilaTime::now()->year;
-        $month = $request->integer('month') ?: (int) ManilaTime::now()->month;
-        $rows = $this->attendanceService->monthlyDtr($employee, $year, $month);
+        $period = DtrPeriod::fromRequest($request);
+        $sheet = $this->dtr->sheet($employee, $period);
 
-        return view('employee.dtr', compact('employee', 'rows', 'year', 'month'));
+        return view('employee.dtr', [
+            'employee' => $sheet['employee'],
+            'period' => $sheet['period'],
+            'days' => $sheet['days'],
+            'totals' => $sheet['totals'],
+            'periods' => DtrPeriod::options(),
+        ]);
     }
 
     public function export(Request $request)
     {
         $employee = $this->ownEmployee($request);
-        $year = $request->integer('year') ?: (int) ManilaTime::now()->year;
-        $month = $request->integer('month') ?: (int) ManilaTime::now()->month;
-        $rows = collect($this->attendanceService->monthlyDtr($employee, $year, $month));
-        $rows->each(fn ($row) => $row->setRelation('employee', $employee));
-
+        $period = DtrPeriod::fromRequest($request);
+        $sheet = $this->dtr->sheet($employee, $period);
         $format = $request->string('format')->toString() ?: 'pdf';
+        $stamp = $period->start.'_'.$period->end;
 
         if ($format === 'excel') {
-            return $this->reports->exportExcel($rows, "my-dtr-{$year}-{$month}.xlsx");
+            return $this->dtr->exportExcel($employee, $period, $sheet['days'], "my-dtr-{$stamp}.xlsx");
         }
         if ($format === 'csv') {
-            return $this->reports->exportCsv($rows, "my-dtr-{$year}-{$month}.csv");
+            return $this->dtr->exportCsv($employee, $period, $sheet['days'], "my-dtr-{$stamp}.csv");
         }
 
-        return $this->reports->exportPdf('reports.pdf.monthly-dtr', [
-            'title' => 'Monthly Daily Time Record',
-            'employee' => $employee,
-            'rows' => $rows,
-            'year' => $year,
-            'month' => $month,
-            'company' => Setting::get('company_name', 'BACS'),
-            'address' => Setting::get('company_address', ''),
-        ], "my-dtr-{$year}-{$month}.pdf");
+        return $this->pdf->download($employee, $period, $sheet['days']);
     }
 
     public function print(Request $request)
     {
         $employee = $this->ownEmployee($request);
-        $year = $request->integer('year') ?: (int) ManilaTime::now()->year;
-        $month = $request->integer('month') ?: (int) ManilaTime::now()->month;
-        $rows = $this->attendanceService->monthlyDtr($employee, $year, $month);
+        $period = DtrPeriod::fromRequest($request);
+        $sheet = $this->dtr->sheet($employee, $period);
 
-        return view('reports.print.monthly-dtr', [
-            'employee' => $employee,
-            'rows' => $rows,
-            'year' => $year,
-            'month' => $month,
-            'company' => Setting::get('company_name', 'BACS'),
-            'address' => Setting::get('company_address', ''),
-        ]);
+        return $this->pdf->stream($employee, $period, $sheet['days']);
     }
 
     public function show(Request $request, Employee $employee)
@@ -84,6 +70,10 @@ class DtrController extends Controller
         $employee = $request->user()->employee;
         abort_unless($employee, 403);
 
-        return $employee->load(['department', 'user']);
+        if ($request->filled('employee_id')) {
+            abort_unless((int) $request->input('employee_id') === (int) $employee->id, 403);
+        }
+
+        return $employee->load(['department', 'user', 'workSchedule']);
     }
 }

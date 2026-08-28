@@ -5,8 +5,8 @@ import jsQR from 'jsqr';
 window.Alpine = Alpine;
 
 function toneFor(code) {
-    if (code === 'TIME_IN' || code === 'TIME_OUT') return 'text-brand-300';
-    if (code === 'ALREADY_TIMED_IN' || code === 'ATTENDANCE_COMPLETED') return 'text-warn-300';
+    if (['AM_TIME_IN', 'AM_TIME_OUT', 'PM_TIME_IN', 'PM_TIME_OUT', 'OVERTIME'].includes(code)) return 'text-brand-300';
+    if (['DUPLICATE_SCAN', 'ATTENDANCE_COMPLETED'].includes(code)) return 'text-warn-300';
     return 'text-critical-300';
 }
 
@@ -141,22 +141,24 @@ document.addEventListener('alpine:init', () => {
         showResult(data) {
             this.result = {
                 code: data.code,
-                codeLabel: data.code || 'SCAN',
+                codeLabel: data.action_label || data.code || 'SCAN',
                 title: data.title || 'Scan Result',
                 message: data.message || '',
                 name: data.employee?.name || '',
+                employeeNumber: data.employee?.employee_number || '',
                 department: data.employee?.department || '',
                 position: data.employee?.position || '',
                 photo: data.employee?.photo || '',
-                action: data.action ? data.action.replace('_', ' ') : '',
+                action: data.action_label || '',
+                nextAction: data.next_action_label || '',
                 time: data.time || '',
-                timeIn: data.attendance?.time_in || '',
-                timeOut: data.attendance?.time_out || '',
-                status: data.attendance?.status || '',
+                date: data.date || '',
+                progress: data.attendance?.progress || [],
+                status: data.attendance?.attendance_status || data.attendance?.status || '',
             };
             this.resultTone = toneFor(data.code);
             clearTimeout(this.resultTimer);
-            this.resultTimer = setTimeout(() => { this.result = null; }, 4500);
+            this.resultTimer = setTimeout(() => { this.result = null; }, 6000);
         },
         resultTone: 'text-brand-300',
     }));

@@ -21,28 +21,20 @@
                 <dt class="text-muted">Department</dt>
                 <dd class="text-right">{{ $attendance->employee?->department?->name ?? '—' }}</dd>
             </div>
-            <div class="flex justify-between gap-4 py-2.5">
-                <dt class="text-muted">Time In</dt>
-                <dd class="text-right font-bold text-brand-700 tabular-nums">{{ $attendance->time_in?->format('h:i A') ?? '—' }}</dd>
-            </div>
-            @if ($attendance->time_in_station_name)
-                <div class="flex justify-between gap-4 py-2.5 text-xs">
-                    <dt class="text-muted">Time In Station</dt>
-                    <dd class="text-right">{{ $attendance->time_in_station_name }}<br><span class="text-muted">{{ $attendance->time_in_station_location }}</span></dd>
+            @foreach ([
+                'AM Time In' => $attendance->am_time_in,
+                'AM Time Out' => $attendance->am_time_out,
+                'PM Time In' => $attendance->pm_time_in,
+                'PM Time Out' => $attendance->pm_time_out,
+                'Overtime' => $attendance->overtime_in,
+            ] as $label => $value)
+                <div class="flex justify-between gap-4 py-2.5">
+                    <dt class="text-muted">{{ $label }}</dt>
+                    <dd class="text-right font-bold text-ink tabular-nums">{{ $value?->format('h:i A') ?? '—' }}</dd>
                 </div>
-            @endif
+            @endforeach
             <div class="flex justify-between gap-4 py-2.5">
-                <dt class="text-muted">Time Out</dt>
-                <dd class="text-right font-bold text-info-700 tabular-nums">{{ $attendance->time_out?->format('h:i A') ?? '—' }}</dd>
-            </div>
-            @if ($attendance->time_out_station_name)
-                <div class="flex justify-between gap-4 py-2.5 text-xs">
-                    <dt class="text-muted">Time Out Station</dt>
-                    <dd class="text-right">{{ $attendance->time_out_station_name }}<br><span class="text-muted">{{ $attendance->time_out_station_location }}</span></dd>
-                </div>
-            @endif
-            <div class="flex justify-between gap-4 py-2.5">
-                <dt class="text-muted">Hours</dt>
+                <dt class="text-muted">Regular Hours</dt>
                 <dd class="text-right font-semibold text-ink tabular-nums">{{ $attendance->totalHoursLabel() }}</dd>
             </div>
             <div class="flex justify-between gap-4 py-2.5">
@@ -54,7 +46,7 @@
                 <dd class="text-right tabular-nums {{ $attendance->undertime_minutes > 0 ? 'font-bold text-warn-700' : '' }}">{{ $attendance->undertime_minutes }} min</dd>
             </div>
             <div class="flex justify-between gap-4 py-2.5">
-                <dt class="text-muted">Overtime</dt>
+                <dt class="text-muted">Overtime Hours</dt>
                 <dd class="text-right tabular-nums {{ $attendance->overtime_minutes > 0 ? 'font-bold text-gold-700' : '' }}">{{ $attendance->overtimeHoursLabel() }}</dd>
             </div>
             <div class="py-3">
@@ -83,20 +75,33 @@
         </div>
         <div class="table-wrap">
             <table class="data-table">
-                <thead><tr><th>Original In</th><th>Original Out</th><th>New In</th><th>New Out</th><th>Reason</th><th>Modified By</th><th>When</th></tr></thead>
+                <thead><tr><th>Field</th><th>Original</th><th>New</th><th>Reason</th><th>Modified By</th><th>When</th></tr></thead>
                 <tbody>
                     @forelse ($attendance->edits as $edit)
-                        <tr>
-                            <td class="tabular-nums text-muted">{{ $edit->original_time_in?->format('h:i A') ?? '—' }}</td>
-                            <td class="tabular-nums text-muted">{{ $edit->original_time_out?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-semibold text-brand-700 tabular-nums">{{ $edit->new_time_in?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-semibold text-info-700 tabular-nums">{{ $edit->new_time_out?->format('h:i A') ?? '—' }}</td>
-                            <td>{{ $edit->reason }}</td>
-                            <td class="font-medium text-ink">{{ $edit->modifier?->name }}</td>
-                            <td class="whitespace-nowrap text-muted">{{ $edit->modified_at?->format('M d, Y g:i A') }}</td>
-                        </tr>
+                        @php($changes = $edit->field_changes ?: [])
+                        @if (count($changes))
+                            @foreach ($changes as $change)
+                                <tr>
+                                    <td class="font-medium text-ink">{{ str_replace('_', ' ', ucfirst($change['attendance_type'] ?? $change['field'] ?? '—')) }}</td>
+                                    <td class="tabular-nums text-muted">{{ isset($change['original']) ? \Carbon\Carbon::parse($change['original'])->format('h:i A') : '—' }}</td>
+                                    <td class="font-semibold text-brand-700 tabular-nums">{{ isset($change['new']) ? \Carbon\Carbon::parse($change['new'])->format('h:i A') : '—' }}</td>
+                                    <td>{{ $loop->first ? $edit->reason : '' }}</td>
+                                    <td class="font-medium text-ink">{{ $loop->first ? $edit->modifier?->name : '' }}</td>
+                                    <td class="whitespace-nowrap text-muted">{{ $loop->first ? $edit->modified_at?->format('M d, Y g:i A') : '' }}</td>
+                                </tr>
+                            @endforeach
+                        @else
+                            <tr>
+                                <td>Legacy</td>
+                                <td class="tabular-nums text-muted">{{ $edit->original_time_in?->format('h:i A') ?? '—' }} / {{ $edit->original_time_out?->format('h:i A') ?? '—' }}</td>
+                                <td class="font-semibold text-brand-700 tabular-nums">{{ $edit->new_time_in?->format('h:i A') ?? '—' }} / {{ $edit->new_time_out?->format('h:i A') ?? '—' }}</td>
+                                <td>{{ $edit->reason }}</td>
+                                <td class="font-medium text-ink">{{ $edit->modifier?->name }}</td>
+                                <td class="whitespace-nowrap text-muted">{{ $edit->modified_at?->format('M d, Y g:i A') }}</td>
+                            </tr>
+                        @endif
                     @empty
-                        <tr><td colspan="7" class="p-0"><x-empty-state title="No edits" message="This DTR has not been modified." icon="shield" /></td></tr>
+                        <tr><td colspan="6" class="p-0"><x-empty-state title="No edits" message="This DTR has not been modified." icon="shield" /></td></tr>
                     @endforelse
                 </tbody>
             </table>

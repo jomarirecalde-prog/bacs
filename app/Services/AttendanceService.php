@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\AttendancePunchType;
 use App\Enums\AttendanceStatus;
 use App\Models\Attendance;
+use App\Models\AttendanceCorrectionRequest;
 use App\Models\AttendanceEdit;
 use App\Models\AttendanceStation;
 use App\Models\Employee;
-use App\Models\Leave;
 use App\Models\User;
 use App\Support\ManilaTime;
 use Carbon\Carbon;
@@ -28,6 +29,7 @@ class AttendanceService
 
     public function __construct(
         private readonly AttendanceCalculator $calculator,
+        private readonly AttendanceSequenceService $sequence,
         private readonly AuditLogger $auditLogger,
         private readonly NotificationService $notifications,
         private readonly LeaveResolver $leaves,
@@ -36,103 +38,19 @@ class AttendanceService
 
     public function clockIn(User $user): Attendance
     {
-        $employee = $this->requireActiveEmployee($user);
-        $now = ManilaTime::now();
-        $date = $now->toDateString();
-
-        return DB::transaction(function () use ($employee, $user, $now, $date) {
-            $record = Attendance::query()
-                ->where('employee_id', $employee->id)
-                ->onDate($date)
-                ->lockForUpdate()
-                ->first();
-
-            if ($record?->time_in) {
-                throw ValidationException::withMessages([
-                    'time_in' => 'You have already recorded Time In for today.',
-                ]);
-            }
-
-            $computed = $this->calculator->calculate(
-                $date,
-                $now,
-                null,
-                $employee->schedule(),
-                $employee->id
-            );
-
-            $payload = array_merge($computed, [
-                'employee_id' => $employee->id,
-                'attendance_date' => $date,
-                'time_in' => $now,
-                'time_out' => null,
-                'status' => $computed['status']->value,
-                'is_manual' => false,
-            ]);
-
-            if ($record) {
-                $record->update($payload);
-            } else {
-                $record = Attendance::query()->create($payload);
-            }
-
-            $this->auditLogger->log($user, 'time_in', 'Attendance', $record->id, "Time In recorded for {$employee->fullName()} at {$now->format('h:i A')}.");
-            $this->notifications->notify($user, 'Time In recorded', 'Your Time In was recorded at '.$now->format('h:i A').'.', 'success', route('employee.dashboard'));
-            $this->flagPreviousIncomplete($employee, $date);
-
-            return $record->fresh();
-        });
+        return $this->recordNextPunch($user, null);
     }
 
     public function clockOut(User $user): Attendance
     {
+        return $this->recordNextPunch($user, null);
+    }
+
+    public function recordNextPunch(User $user, ?AttendanceStation $station = null): Attendance
+    {
         $employee = $this->requireActiveEmployee($user);
-        $now = ManilaTime::now();
-        $date = $now->toDateString();
 
-        return DB::transaction(function () use ($employee, $user, $now, $date) {
-            $record = Attendance::query()
-                ->where('employee_id', $employee->id)
-                ->onDate($date)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $record || ! $record->time_in) {
-                throw ValidationException::withMessages([
-                    'time_out' => 'You must record Time In before Time Out.',
-                ]);
-            }
-
-            if ($record->time_out) {
-                throw ValidationException::withMessages([
-                    'time_out' => 'You have already recorded Time Out for today.',
-                ]);
-            }
-
-            if ($now->lte($record->time_in)) {
-                throw ValidationException::withMessages([
-                    'time_out' => 'Time Out cannot be earlier than Time In.',
-                ]);
-            }
-
-            $computed = $this->calculator->calculate(
-                $date,
-                $record->time_in,
-                $now,
-                $employee->schedule(),
-                $employee->id
-            );
-
-            $record->update(array_merge($computed, [
-                'time_out' => $now,
-                'status' => $computed['status']->value,
-            ]));
-
-            $this->auditLogger->log($user, 'time_out', 'Attendance', $record->id, "Time Out recorded for {$employee->fullName()} at {$now->format('h:i A')}.");
-            $this->notifications->notify($user, 'Time Out recorded', 'Your Time Out was recorded at '.$now->format('h:i A').'.', 'success', route('employee.dashboard'));
-
-            return $record->fresh();
-        });
+        return $this->recordPunchForEmployee($employee, $station, $user);
     }
 
     public function recordFromStation(AttendanceStation $station, Employee $employee): array
@@ -141,85 +59,39 @@ class AttendanceService
         $date = $now->toDateString();
 
         return DB::transaction(function () use ($station, $employee, $now, $date) {
-            $record = Attendance::query()
-                ->where('employee_id', $employee->id)
-                ->onDate($date)
-                ->lockForUpdate()
-                ->first();
-
-            if ($record?->time_in && $record->time_out) {
-                return $this->stationResult('ATTENDANCE_COMPLETED', false, $record, $employee);
-            }
-
-            if ($record?->time_in && ! $record->time_out) {
-                $recentIn = $record->time_in->gte($now->copy()->subSeconds(10));
-                if ($recentIn) {
-                    return $this->stationResult('ALREADY_TIMED_IN', false, $record, $employee);
-                }
-
-                if ($now->lte($record->time_in)) {
-                    return $this->stationResult('ALREADY_TIMED_IN', false, $record, $employee);
-                }
-
-                $computed = $this->calculator->calculate(
-                    $date,
-                    $record->time_in,
+            if ($message = $this->pendingCorrectionMessage($employee, $date)) {
+                return $this->stationResult(
+                    'PENDING_CORRECTION',
+                    false,
+                    new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
+                    $employee,
                     $now,
                     $employee->schedule(),
-                    $employee->id
+                    null,
+                    $message
                 );
-
-                $record->update(array_merge($computed, [
-                    'time_out' => $now,
-                    'status' => $computed['status']->value,
-                    'time_out_station_id' => $station->id,
-                    'time_out_station_name' => $station->station_name,
-                    'time_out_station_location' => $station->location,
-                ]));
-
-                $fresh = $record->fresh();
-                $this->auditLogger->log(null, 'station_time_out', 'Attendance', $fresh->id, "Time Out recorded for {$employee->fullName()} at {$station->station_name} ({$now->format('h:i A')}).");
-                if ($employee->user) {
-                    $this->notifications->notify($employee->user, 'Time Out recorded', 'Your Time Out was recorded at '.$now->format('h:i A').' via '.$station->station_name.'.', 'success', route('employee.dashboard'));
-                }
-
-                return $this->stationResult('TIME_OUT', true, $fresh, $employee);
             }
 
-            $computed = $this->calculator->calculate(
-                $date,
-                $now,
-                null,
-                $employee->schedule(),
-                $employee->id
-            );
+            $record = $this->lockTodayRecord($employee, $date);
+            $schedule = $employee->schedule();
+            $resolution = $this->sequence->resolveScan($record, $now, $schedule);
 
-            $payload = array_merge($computed, [
-                'employee_id' => $employee->id,
-                'attendance_date' => $date,
-                'time_in' => $now,
-                'time_out' => null,
-                'status' => $computed['status']->value,
-                'is_manual' => false,
-                'time_in_station_id' => $station->id,
-                'time_in_station_name' => $station->station_name,
-                'time_in_station_location' => $station->location,
-            ]);
-
-            if ($record) {
-                $record->update($payload);
-            } else {
-                $record = Attendance::query()->create($payload);
+            if (! $resolution['type']) {
+                return $this->stationResult(
+                    $resolution['code'] ?? 'ATTENDANCE_COMPLETED',
+                    false,
+                    $record ?? new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
+                    $employee,
+                    $now,
+                    $schedule,
+                    null
+                );
             }
 
-            $fresh = $record->fresh();
-            $this->auditLogger->log(null, 'station_time_in', 'Attendance', $fresh->id, "Time In recorded for {$employee->fullName()} at {$station->station_name} ({$now->format('h:i A')}).");
-            if ($employee->user) {
-                $this->notifications->notify($employee->user, 'Time In recorded', 'Your Time In was recorded at '.$now->format('h:i A').' via '.$station->station_name.'.', 'success', route('employee.dashboard'));
-            }
-            $this->flagPreviousIncomplete($employee, $date);
+            $type = $resolution['type'];
+            $record = $this->applyPunch($record, $employee, $type, $now, $station);
 
-            return $this->stationResult('TIME_IN', true, $fresh, $employee);
+            return $this->stationResult($type->scanCode(), true, $record, $employee, $now, $schedule, $type);
         });
     }
 
@@ -229,6 +101,11 @@ class AttendanceService
             ->where('employee_id', $employee->id)
             ->onDate(ManilaTime::todayDate())
             ->first();
+    }
+
+    public function nextExpectedFor(Employee $employee): ?AttendancePunchType
+    {
+        return $this->sequence->nextExpected($this->todayFor($employee));
     }
 
     public function createManual(User $actor, array $data): Attendance
@@ -249,37 +126,30 @@ class AttendanceService
                 ]);
             }
 
-            $timeIn = ! empty($data['time_in']) ? ManilaTime::combineDateAndTime($date, $data['time_in']) : null;
-            $timeOut = ! empty($data['time_out']) ? ManilaTime::combineDateAndTime($date, $data['time_out']) : null;
-
-            if ($timeIn && $timeOut && $timeOut->lte($timeIn)) {
-                throw ValidationException::withMessages([
-                    'time_out' => 'Time Out must be later than Time In.',
-                ]);
-            }
-
+            $punches = $this->punchesFromInput($date, $data);
             $forced = ! empty($data['status']) ? AttendanceStatus::from($data['status']) : null;
             if ($forced && in_array($forced, [AttendanceStatus::Present, AttendanceStatus::Late, AttendanceStatus::Incomplete, AttendanceStatus::Undertime, AttendanceStatus::Overtime, AttendanceStatus::HalfDay], true)) {
                 $forced = null;
             }
 
-            $computed = $this->calculator->calculate($date, $timeIn, $timeOut, $employee->schedule(), $employee->id, $forced);
+            $computed = $this->calculator->calculateFromPunches($date, $punches, $employee->schedule(), $employee->id, $forced);
 
-            $record = Attendance::query()->create(array_merge($computed, [
+            $record = Attendance::query()->create(array_merge($computed, $punches, [
                 'employee_id' => $employee->id,
                 'attendance_date' => $date,
-                'time_in' => $timeIn,
-                'time_out' => $timeOut,
                 'status' => $computed['status']->value,
                 'remarks' => $data['remarks'] ?? null,
                 'is_manual' => true,
                 'created_by' => $actor->id,
             ]));
 
+            $record->syncLegacyFields();
+            $record->save();
+
             $this->auditLogger->log($actor, 'attendance_manual_added', 'Attendance', $record->id, "Manual DTR added for {$employee->fullName()} on {$date}.");
             $this->notifyEmployeeOfChange($employee, $date, 'A manual attendance record was added by an administrator.');
 
-            return $record;
+            return $record->fresh();
         });
     }
 
@@ -296,42 +166,37 @@ class AttendanceService
             $date = $attendance->attendance_date->toDateString();
             $employee = $attendance->employee;
 
-            $timeIn = array_key_exists('time_in', $data)
-                ? ($data['time_in'] ? ManilaTime::combineDateAndTime($date, $data['time_in']) : null)
-                : $attendance->time_in;
-            $timeOut = array_key_exists('time_out', $data)
-                ? ($data['time_out'] ? ManilaTime::combineDateAndTime($date, $data['time_out']) : null)
-                : $attendance->time_out;
-
-            if ($timeIn && $timeOut && $timeOut->lte($timeIn)) {
-                throw ValidationException::withMessages([
-                    'time_out' => 'Time Out must be later than Time In.',
-                ]);
-            }
+            $original = $this->currentPunches($attendance);
+            $updated = $this->mergePunchInput($date, $original, $data);
+            $this->validatePunchOrder($updated);
 
             $forced = ! empty($data['forced_status']) ? AttendanceStatus::from($data['forced_status']) : null;
-            $computed = $this->calculator->calculate($date, $timeIn, $timeOut, $employee->schedule(), $employee->id, $forced);
+            $computed = $this->calculator->calculateFromPunches($date, $updated, $employee->schedule(), $employee->id, $forced);
+
+            $fieldChanges = $this->buildFieldChanges($original, $updated);
 
             AttendanceEdit::query()->create([
                 'attendance_id' => $attendance->id,
-                'original_time_in' => $attendance->time_in,
-                'original_time_out' => $attendance->time_out,
+                'original_time_in' => $original['am_time_in'],
+                'original_time_out' => $original['pm_time_out'],
                 'original_status' => $attendance->status?->value,
-                'new_time_in' => $timeIn,
-                'new_time_out' => $timeOut,
+                'new_time_in' => $updated['am_time_in'],
+                'new_time_out' => $updated['pm_time_out'],
                 'new_status' => $computed['status']->value,
+                'field_changes' => $fieldChanges,
                 'reason' => $data['reason'],
                 'modified_by' => $actor->id,
                 'modified_at' => ManilaTime::now(),
             ]);
 
-            $attendance->update(array_merge($computed, [
-                'time_in' => $timeIn,
-                'time_out' => $timeOut,
+            $attendance->update(array_merge($computed, $updated, [
                 'status' => $computed['status']->value,
                 'remarks' => $data['remarks'] ?? $attendance->remarks,
                 'is_edited' => true,
             ]));
+
+            $attendance->syncLegacyFields();
+            $attendance->save();
 
             $this->auditLogger->log($actor, 'dtr_edited', 'Attendance', $attendance->id, "DTR edited for {$employee->fullName()} on {$date}. Reason: {$data['reason']}");
             $this->notifyEmployeeOfChange($employee, $date, 'Your DTR was modified by an administrator. Reason: '.$data['reason']);
@@ -350,7 +215,21 @@ class AttendanceService
     {
         $start = Carbon::create($year, $month, 1, 0, 0, 0, ManilaTime::TIMEZONE)->startOfMonth();
         $end = $start->copy()->endOfMonth();
+
+        return $this->rangeDtr($employee, $start->toDateString(), $end->toDateString());
+    }
+
+    /** @return list<Attendance> */
+    public function rangeDtr(Employee $employee, string $from, string $to): array
+    {
+        $start = ManilaTime::parse($from)->startOfDay();
+        $end = ManilaTime::parse($to)->startOfDay();
+        if ($end->lt($start)) {
+            return [];
+        }
+
         $today = ManilaTime::today();
+        $schedule = $employee->schedule();
 
         $records = Attendance::query()
             ->where('employee_id', $employee->id)
@@ -359,6 +238,7 @@ class AttendanceService
             ->keyBy(fn (Attendance $row) => $row->attendance_date->toDateString());
 
         $this->leaves->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
+        $this->holidays->rememberEmployees([$employee]);
 
         $rows = [];
         $cursor = $start->copy();
@@ -370,7 +250,7 @@ class AttendanceService
             if ($existing) {
                 $rows[] = $existing;
             } elseif ($cursor->lte($today)) {
-                $computed = $this->calculator->calculate($date, null, null, $employee->schedule(), $employee->id);
+                $computed = $this->calculator->calculateFromPunches($date, $this->emptyPunches(), $schedule, $employee->id);
                 $rows[] = new Attendance(array_merge($computed, [
                     'employee_id' => $employee->id,
                     'attendance_date' => $date,
@@ -400,12 +280,7 @@ class AttendanceService
         return $this->dashboardSnapshot($date)['departments'];
     }
 
-    /**
-     * One pass over the active roster: summary cards and per-department
-     * totals share the same employee, attendance, and leave loads.
-     *
-     * @return array{summary: array, departments: array}
-     */
+    /** @return array{summary: array, departments: array} */
     public function dashboardSnapshot(?string $date = null): array
     {
         $date ??= ManilaTime::todayDate();
@@ -491,7 +366,7 @@ class AttendanceService
             if ($row->status === AttendanceStatus::Absent) {
                 $absent++;
             }
-            if ($row->hasTimeIn() && ! $row->hasTimeOut()) {
+            if ($row->hasTimeIn() && ! $row->isRegularComplete()) {
                 $missing++;
             }
 
@@ -511,6 +386,214 @@ class AttendanceService
             'overtime_minutes' => $overtime,
             'missing_timeout' => $missing,
         ];
+    }
+
+    private function recordPunchForEmployee(Employee $employee, ?AttendanceStation $station, ?User $user): Attendance
+    {
+        $now = ManilaTime::now();
+        $date = $now->toDateString();
+
+        return DB::transaction(function () use ($employee, $station, $user, $now, $date) {
+            if ($message = $this->pendingCorrectionMessage($employee, $date)) {
+                throw ValidationException::withMessages([
+                    'attendance' => $message,
+                ]);
+            }
+
+            $record = $this->lockTodayRecord($employee, $date);
+            $schedule = $employee->schedule();
+            $resolution = $this->sequence->resolveScan($record, $now, $schedule);
+
+            if (! $resolution['type']) {
+                throw ValidationException::withMessages([
+                    'attendance' => $resolution['message'] ?? 'Attendance cannot be recorded at this time.',
+                ]);
+            }
+
+            $type = $resolution['type'];
+            $record = $this->applyPunch($record, $employee, $type, $now, $station);
+
+            $this->auditLogger->log(
+                $user,
+                $type->value,
+                'Attendance',
+                $record->id,
+                "{$type->label()} recorded for {$employee->fullName()} at {$now->format('h:i A')}."
+            );
+
+            if ($user) {
+                $this->notifications->notify(
+                    $user,
+                    $type->label().' recorded',
+                    'Your '.$type->label().' was recorded at '.$now->format('h:i A').'.',
+                    'success',
+                    route('employee.dashboard')
+                );
+            }
+
+            if ($type === AttendancePunchType::AmTimeIn) {
+                $this->flagPreviousIncompleteFor($employee, $date);
+            }
+
+            return $record->fresh();
+        });
+    }
+
+    private function applyPunch(?Attendance $record, Employee $employee, AttendancePunchType $type, Carbon $now, ?AttendanceStation $station): Attendance
+    {
+        $date = $now->toDateString();
+        $schedule = $employee->schedule();
+        $punches = $record ? $this->currentPunches($record) : $this->emptyPunches();
+        $punches[$type->column()] = $now;
+
+        $computed = $this->calculator->calculateFromPunches($date, $punches, $schedule, $employee->id);
+        $payload = array_merge($computed, $punches, [
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+            'status' => $computed['status']->value,
+            'is_manual' => false,
+        ]);
+
+        if ($station) {
+            $stations = $record?->punch_stations ?? [];
+            $stations[$type->value] = [
+                'station_id' => $station->id,
+                'station_name' => $station->station_name,
+                'station_location' => $station->location,
+            ];
+            $payload['punch_stations'] = $stations;
+        }
+
+        if ($record) {
+            $record->update($payload);
+        } else {
+            $record = Attendance::query()->create($payload);
+        }
+
+        $record->syncLegacyFields();
+        $record->save();
+
+        return $record;
+    }
+
+    private function lockTodayRecord(Employee $employee, string $date): ?Attendance
+    {
+        return Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->onDate($date)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /** @return array<string, ?Carbon> */
+    private function currentPunches(Attendance $record): array
+    {
+        return [
+            'am_time_in' => $record->am_time_in,
+            'am_time_out' => $record->am_time_out,
+            'pm_time_in' => $record->pm_time_in,
+            'pm_time_out' => $record->pm_time_out,
+            'overtime_in' => $record->overtime_in,
+        ];
+    }
+
+    /** @return array<string, null> */
+    private function emptyPunches(): array
+    {
+        return [
+            'am_time_in' => null,
+            'am_time_out' => null,
+            'pm_time_in' => null,
+            'pm_time_out' => null,
+            'overtime_in' => null,
+        ];
+    }
+
+    /** @return array<string, ?Carbon> */
+    private function punchesFromInput(string $date, array $data): array
+    {
+        return [
+            'am_time_in' => $this->inputPunch($date, $data, 'am_time_in', 'time_in'),
+            'am_time_out' => $this->inputPunch($date, $data, 'am_time_out'),
+            'pm_time_in' => $this->inputPunch($date, $data, 'pm_time_in'),
+            'pm_time_out' => $this->inputPunch($date, $data, 'pm_time_out', 'time_out'),
+            'overtime_in' => $this->inputPunch($date, $data, 'overtime_in', 'overtime'),
+        ];
+    }
+
+    /** @param  array<string, ?Carbon>  $original */
+    private function mergePunchInput(string $date, array $original, array $data): array
+    {
+        $merged = $original;
+
+        foreach (AttendancePunchType::cases() as $type) {
+            $field = $type->column();
+            if (! array_key_exists($field, $data) && ! ($field === 'am_time_in' && array_key_exists('time_in', $data)) && ! ($field === 'pm_time_out' && array_key_exists('time_out', $data))) {
+                continue;
+            }
+
+            $legacy = match ($field) {
+                'am_time_in' => 'time_in',
+                'pm_time_out' => 'time_out',
+                default => null,
+            };
+
+            $raw = $data[$field] ?? ($legacy ? ($data[$legacy] ?? null) : null);
+            $merged[$field] = filled($raw) ? ManilaTime::combineDateAndTime($date, $raw) : null;
+        }
+
+        return $merged;
+    }
+
+    private function inputPunch(string $date, array $data, string $field, ?string $legacy = null): ?Carbon
+    {
+        $raw = $data[$field] ?? ($legacy ? ($data[$legacy] ?? null) : null);
+
+        return filled($raw) ? ManilaTime::combineDateAndTime($date, $raw) : null;
+    }
+
+    /** @param  array<string, ?Carbon>  $punches */
+    private function validatePunchOrder(array $punches): void
+    {
+        $pairs = [
+            ['am_time_in', 'am_time_out', 'AM Time Out must be later than AM Time In.'],
+            ['pm_time_in', 'pm_time_out', 'PM Time Out must be later than PM Time In.'],
+        ];
+
+        foreach ($pairs as [$start, $end, $message]) {
+            if ($punches[$start] && $punches[$end] && $punches[$end]->lte($punches[$start])) {
+                throw ValidationException::withMessages([$end => $message]);
+            }
+        }
+
+        if ($punches['overtime_in'] && $punches['pm_time_out'] && $punches['overtime_in']->lte($punches['pm_time_out'])) {
+            throw ValidationException::withMessages([
+                'overtime_in' => 'Overtime must be later than PM Time Out.',
+            ]);
+        }
+    }
+
+    /** @param  array<string, ?Carbon>  $before @param  array<string, ?Carbon>  $after */
+    private function buildFieldChanges(array $before, array $after): array
+    {
+        $changes = [];
+
+        foreach (AttendancePunchType::cases() as $type) {
+            $field = $type->column();
+            $old = $before[$field]?->format('Y-m-d H:i:s');
+            $new = $after[$field]?->format('Y-m-d H:i:s');
+
+            if ($old !== $new) {
+                $changes[] = [
+                    'field' => $field,
+                    'attendance_type' => $type->value,
+                    'original' => $old,
+                    'new' => $new,
+                ];
+            }
+        }
+
+        return $changes;
     }
 
     private function activeEmployees()
@@ -566,9 +649,9 @@ class AttendanceService
         if ($row->hasTimeIn()) {
             $flags['present'] = true;
             $flags['late'] = $row->late_minutes > 0;
-            $flags['completed'] = $row->hasTimeOut();
+            $flags['completed'] = $row->isRegularComplete();
 
-            if (! $row->hasTimeOut()) {
+            if (! $row->isRegularComplete()) {
                 $workEnd = ManilaTime::combineDateAndTime($date, (string) $employee->schedule()->end_time);
                 if ($now->greaterThan($workEnd) || $date < $now->toDateString()) {
                     $flags['missing_timeout'] = true;
@@ -583,14 +666,47 @@ class AttendanceService
         return $flags;
     }
 
-    private function stationResult(string $code, bool $recorded, Attendance $attendance, Employee $employee): array
+    private function pendingCorrectionMessage(Employee $employee, string $date): ?string
     {
+        $pending = AttendanceCorrectionRequest::query()
+            ->where('employee_id', $employee->id)
+            ->forDate($date)
+            ->pending()
+            ->select(['id', 'punch_type'])
+            ->first();
+
+        if (! $pending) {
+            return null;
+        }
+
+        return 'You have a pending DTR correction request for '.$pending->punchLabel().' on '.$date.'. Please wait for admin review.';
+    }
+
+    private function stationResult(
+        string $code,
+        bool $recorded,
+        Attendance $attendance,
+        Employee $employee,
+        Carbon $now,
+        $schedule,
+        ?AttendancePunchType $recordedType,
+        ?string $customMessage = null
+    ): array {
+        $next = $this->sequence->nextExpected($recorded ? $attendance : null);
+
         return [
             'code' => $code,
             'recorded' => $recorded,
-            'action' => in_array($code, ['TIME_IN', 'TIME_OUT'], true) ? $code : null,
+            'action' => $recordedType?->scanCode(),
+            'action_label' => $recordedType?->label(),
+            'next_action' => $next?->scanCode(),
+            'next_action_label' => $next?->label(),
+            'punch_type' => $recordedType?->value,
             'attendance' => $attendance,
             'employee' => $employee,
+            'recorded_at' => $now,
+            'schedule' => $schedule,
+            'message' => $customMessage,
         ];
     }
 
@@ -626,13 +742,15 @@ class AttendanceService
         }
     }
 
-    private function flagPreviousIncomplete(Employee $employee, string $today): void
+    public function flagPreviousIncompleteFor(Employee $employee, string $today): void
     {
         $previous = Attendance::query()
             ->where('employee_id', $employee->id)
             ->where('attendance_date', '<', $today)
-            ->whereNotNull('time_in')
-            ->whereNull('time_out')
+            ->where(function ($q) {
+                $q->whereNotNull('am_time_in')->whereNull('pm_time_out')
+                    ->orWhere(fn ($q2) => $q2->whereNotNull('time_in')->whereNull('time_out'));
+            })
             ->orderByDesc('attendance_date')
             ->first();
 
@@ -641,8 +759,8 @@ class AttendanceService
         }
 
         $this->notifications->notifyAdmins(
-            'Employee forgot to Time Out',
-            "{$employee->fullName()} has a missing Time Out on {$previous->attendance_date->toFormattedDateString()}.",
+            'Incomplete DTR',
+            "{$employee->fullName()} has incomplete attendance on {$previous->attendance_date->toFormattedDateString()}.",
             'danger',
             route('admin.dtr.index', ['date' => $previous->attendance_date->toDateString()])
         );
@@ -650,8 +768,8 @@ class AttendanceService
         if ($employee->user) {
             $this->notifications->notify(
                 $employee->user,
-                'Missing Time Out',
-                'You have a missing Time Out on '.$previous->attendance_date->toFormattedDateString().'. Please contact your administrator.',
+                'Incomplete DTR',
+                'You have incomplete attendance on '.$previous->attendance_date->toFormattedDateString().'. Please contact your administrator.',
                 'warning',
                 route('employee.dtr')
             );

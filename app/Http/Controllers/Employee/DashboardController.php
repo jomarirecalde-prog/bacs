@@ -25,6 +25,7 @@ class DashboardController extends Controller
 
         $employee->loadMissing(['department', 'workSchedule']);
         $today = $this->attendanceService->todayFor($employee);
+        $nextAction = $this->attendanceService->nextExpectedFor($employee);
         $month = (int) ManilaTime::now()->month;
         $year = (int) ManilaTime::now()->year;
         $monthly = $this->attendanceService->monthlyDtr($employee, $year, $month);
@@ -35,8 +36,10 @@ class DashboardController extends Controller
             'monthly' => $monthly,
             'month' => $month,
             'year' => $year,
-            'canTimeIn' => ! $today?->hasTimeIn(),
-            'canTimeOut' => $today?->hasTimeIn() && ! $today?->hasTimeOut(),
+            'nextAction' => $nextAction,
+            'canRecord' => $nextAction !== null,
+            'canTimeIn' => $nextAction !== null,
+            'canTimeOut' => $nextAction !== null,
             'upcomingEvents' => $this->calendar->upcoming(
                 CalendarEvent::query()->visibleToEmployee($employee),
                 days: 90,

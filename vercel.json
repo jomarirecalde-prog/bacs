@@ -37,6 +37,14 @@
             "dest": "/public/station.webmanifest"
         },
         {
+            "src": "/images/(.*)",
+            "dest": "/public/images/$1"
+        },
+        {
+            "src": "/forms/(.*)",
+            "dest": "/public/forms/$1"
+        },
+        {
             "src": "/(.*)",
             "dest": "/api/index.php"
         }

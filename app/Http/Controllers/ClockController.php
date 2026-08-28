@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AttendancePunchType;
 use App\Services\AttendanceService;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
@@ -12,32 +13,31 @@ class ClockController extends Controller
 
     public function timeIn(Request $request)
     {
-        $record = $this->attendanceService->clockIn($request->user());
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'message' => 'Time In recorded at '.ManilaTime::formatTime($record->time_in).'.',
-                'attendance' => $this->payload($record),
-            ]);
-        }
-
-        return back()->with('success', 'Time In recorded at '.ManilaTime::formatTime($record->time_in).'.');
+        return $this->recordPunch($request);
     }
 
     public function timeOut(Request $request)
     {
-        $record = $this->attendanceService->clockOut($request->user());
+        return $this->recordPunch($request);
+    }
+
+    public function recordPunch(Request $request)
+    {
+        $record = $this->attendanceService->recordNextPunch($request->user());
+        $next = $this->attendanceService->nextExpectedFor($request->user()->employee);
+        $lastType = $this->lastRecordedType($record, $next);
+
+        $message = ($lastType?->label() ?? 'Attendance').' recorded at '.ManilaTime::formatTime($record->{$lastType?->column() ?? 'am_time_in'}).'.';
 
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Time Out recorded at '.ManilaTime::formatTime($record->time_out).'.',
-                'attendance' => $this->payload($record),
+                'message' => $message,
+                'attendance' => $this->payload($record, $next),
             ]);
         }
 
-        return back()->with('success', 'Time Out recorded at '.ManilaTime::formatTime($record->time_out).'.');
+        return back()->with('success', $message);
     }
 
     public function today(Request $request)
@@ -46,11 +46,14 @@ class ClockController extends Controller
         abort_unless($employee, 403);
 
         $record = $this->attendanceService->todayFor($employee);
+        $next = $this->attendanceService->nextExpectedFor($employee);
 
         return response()->json([
             'ok' => true,
             'now' => ManilaTime::now()->toIso8601String(),
-            'attendance' => $record ? $this->payload($record) : null,
+            'attendance' => $record ? $this->payload($record, $next) : null,
+            'next_action' => $next?->scanCode(),
+            'next_action_label' => $next?->label(),
         ]);
     }
 
@@ -67,21 +70,42 @@ class ClockController extends Controller
         ]);
     }
 
-    private function payload($record): array
+    private function payload($record, ?AttendancePunchType $next): array
     {
-        return [
+        return array_merge($record->punchPayload(), [
             'id' => $record->id,
-            'date' => $record->attendance_date->toDateString(),
-            'time_in' => ManilaTime::formatTime($record->time_in),
-            'time_out' => ManilaTime::formatTime($record->time_out),
-            'status' => $record->displayStatus(),
-            'status_value' => $record->status?->value,
-            'late_minutes' => $record->late_minutes,
-            'undertime_minutes' => $record->undertime_minutes,
-            'overtime_minutes' => $record->overtime_minutes,
-            'total_hours' => $record->totalHoursLabel(),
-            'can_time_in' => ! $record->hasTimeIn(),
-            'can_time_out' => $record->hasTimeIn() && ! $record->hasTimeOut(),
-        ];
+            'can_record' => $next !== null,
+            'next_action' => $next?->scanCode(),
+            'next_action_label' => $next?->label(),
+            'can_time_in' => $next === AttendancePunchType::AmTimeIn,
+            'can_time_out' => $next !== null && $next !== AttendancePunchType::AmTimeIn,
+        ]);
+    }
+
+    private function lastRecordedType($record, ?AttendancePunchType $next): ?AttendancePunchType
+    {
+        $last = null;
+
+        foreach (AttendancePunchType::cases() as $type) {
+            if ($next && $type === $next) {
+                break;
+            }
+
+            if ($record->hasPunch($type)) {
+                $last = $type;
+            }
+        }
+
+        if ($last) {
+            return $last;
+        }
+
+        foreach (array_reverse(AttendancePunchType::cases()) as $type) {
+            if ($record->hasPunch($type)) {
+                return $type;
+            }
+        }
+
+        return null;
     }
 }

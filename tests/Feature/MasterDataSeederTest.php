@@ -9,32 +9,32 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\EmployeeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class MasterDataSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_seeds_exactly_forty_four_employees_and_six_departments(): void
+    public function test_it_seeds_exactly_forty_six_employees_and_six_departments(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(6, Department::query()->active()->count());
-        $this->assertSame(44, Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->count());
-        $this->assertSame(44, Employee::query()->active()->where('employee_number', 'like', 'BACS-2026-%')->count());
+        $this->assertSame(46, Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->active()->count());
         $this->assertSame(0, Employee::query()->whereNull('department_id')->count());
-        $this->assertSame(44, Employee::query()->pluck('employee_number')->unique()->count());
-        $this->assertSame(44, Employee::query()->whereHas('user')->count());
-        $this->assertTrue(Employee::query()->where('full_name', 'Acompañado, Nancy')->exists());
-        $this->assertTrue(Employee::query()->where('full_name', 'Dela Cruz, Kenneth')->exists());
+        $this->assertSame(46, Employee::query()->active()->pluck('employee_number')->unique()->count());
+        $this->assertSame(46, Employee::query()->active()->whereHas('user')->count());
+        $this->assertTrue(Employee::query()->where('full_name', 'Acompañado, Nancy G.')->exists());
+        $this->assertTrue(Employee::query()->where('full_name', 'De La Cruz, Kenneth S.')->exists());
         $this->assertTrue(Employee::query()->where('employee_number', 'BACS-2026-0001')->exists());
-        $this->assertTrue(Employee::query()->where('employee_number', 'BACS-2026-0044')->exists());
-        $this->assertSame(5, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'BOARD OF DIRECTORS AND CORPORATE OFFICERS'))->count());
-        $this->assertSame(8, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'PROJECT MANAGEMENT'))->count());
-        $this->assertSame(2, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'SALES & MARKETING'))->count());
-        $this->assertSame(9, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'ADMIN'))->count());
-        $this->assertSame(4, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'FINANCE'))->count());
-        $this->assertSame(16, Employee::query()->whereHas('department', fn ($q) => $q->where('name', 'OPERATION'))->count());
+        $this->assertTrue(Employee::query()->where('employee_number', 'BACS-2026-0052')->exists());
+        $this->assertSame(5, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'BOARD OF DIRECTORS AND CORPORATE OFFICERS'))->count());
+        $this->assertSame(9, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'PROJECT MANAGEMENT'))->count());
+        $this->assertSame(2, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'SALES & MARKETING'))->count());
+        $this->assertSame(9, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'ADMIN'))->count());
+        $this->assertSame(4, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'FINANCE'))->count());
+        $this->assertSame(17, Employee::query()->active()->whereHas('department', fn ($q) => $q->where('name', 'OPERATION'))->count());
     }
 
     public function test_seeder_is_idempotent(): void
@@ -42,15 +42,15 @@ class MasterDataSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(44, Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->count());
+        $this->assertSame(46, Employee::query()->active()->where('employee_number', 'like', 'BACS-2026-%')->count());
         $this->assertSame(6, Department::query()->count());
         $this->assertSame(
-            'Bacosa, Cesario Jr',
+            'Bacosa, Cesario Jr. A.',
             Employee::query()->where('employee_number', 'BACS-2026-0001')->value('full_name')
         );
         $this->assertSame(
-            'Balbin, Sajied',
-            Employee::query()->where('employee_number', 'BACS-2026-0044')->value('full_name')
+            'Edon, Cody Mae',
+            Employee::query()->where('employee_number', 'BACS-2026-0052')->value('full_name')
         );
     }
 
@@ -74,48 +74,55 @@ class MasterDataSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $ceo = Employee::query()->where('full_name', 'Bacosa, Cesario Jr')->first();
+        $ceo = Employee::query()->where('employee_number', 'BACS-2026-0001')->first();
         $this->assertSame(UserRole::Supervisor, $ceo->user->role);
         $this->assertSame(UserRole::Admin, User::query()->where('username', 'admin')->first()->role);
 
-        $field = Employee::query()->where('full_name', 'Cayapas, Reymond')->first();
+        $field = Employee::query()->where('employee_number', 'BACS-2026-0014')->first();
         $this->assertSame(UserRole::Employee, $field->user->role);
-        $this->assertSame('BACS-2026-0029', $field->employee_number);
-        $this->assertNotEquals('password', $field->user->getRawOriginal('password'));
+        $this->assertSame('BACS-2026-0014', $field->employee_number);
+        $this->assertTrue(Hash::check('password', $field->user->password));
+        $this->assertFalse((bool) $field->user->must_change_password);
     }
 
     public function test_management_can_open_employee_profile_and_search_by_number(): void
     {
         $this->seed(DatabaseSeeder::class);
         $admin = User::query()->where('username', 'admin')->first();
-        $employee = Employee::query()->where('full_name', 'Cayapas, Reymond')->first();
+        $employee = Employee::query()->where('employee_number', 'BACS-2026-0014')->first();
 
         $this->actingAs($admin)
             ->get(route('admin.employees.show', $employee))
             ->assertOk()
-            ->assertSee('BACS-2026-0029')
-            ->assertSee('Cayapas, Reymond')
+            ->assertSee('BACS-2026-0014')
+            ->assertSee('Cayapas, Reymond I.')
             ->assertSee('OPERATION')
-            ->assertSee('Field Engineer')
+            ->assertSee('Project Team Leader')
             ->assertSee('View Complete DTR')
             ->assertSee('Days Present');
 
         $this->actingAs($admin)
-            ->get(route('admin.employees.index', ['q' => 'BACS-2026-0029']))
+            ->get(route('admin.employees.index', ['q' => 'BACS-2026-0014']))
             ->assertOk()
-            ->assertSee('Cayapas, Reymond')
-            ->assertDontSee('Acompañado, Nancy');
+            ->assertSee('Cayapas, Reymond I.')
+            ->assertDontSee('Acompañado, Nancy G.');
     }
 
     public function test_employee_can_update_permitted_profile_information(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $employee = Employee::query()->where('employee_number', 'BACS-2026-0029')->first();
-        $employee->user->update(['must_change_password' => false, 'password' => 'password']);
+        $employee = Employee::query()->where('employee_number', 'BACS-2026-0014')->first();
 
         $this->actingAs($employee->user)
-            ->put(route('profile.update'), ['contact_number' => '09171234567'])
-            ->assertRedirect();
+            ->putJson(route('profile.update'), [
+                'first_name' => $employee->first_name,
+                'middle_name' => $employee->middle_name,
+                'last_name' => $employee->last_name,
+                'suffix' => $employee->suffix,
+                'email' => $employee->email,
+                'contact_number' => '09171234567',
+            ])
+            ->assertOk();
 
         $this->assertSame('09171234567', $employee->fresh()->contact_number);
     }
@@ -128,17 +135,17 @@ class MasterDataSeederTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.employees.index', ['q' => 'Cayapas']))
             ->assertOk()
-            ->assertSee('Cayapas, Reymond')
-            ->assertSee('Field Engineer')
+            ->assertSee('Cayapas, Reymond I.')
+            ->assertSee('Project Team Leader')
             ->assertSee('OPERATION')
-            ->assertDontSee('Acompañado, Nancy');
+            ->assertDontSee('Acompañado, Nancy G.');
 
         $operation = Department::query()->where('name', 'OPERATION')->first();
 
         $this->actingAs($admin)
             ->get(route('admin.dashboard', ['department_id' => $operation->id]))
             ->assertOk()
-            ->assertSee('Cayapas, Reymond')
+            ->assertSee('Cayapas, Reymond I.')
             ->assertDontSee('Gaid, Dorabel Y.');
     }
 
@@ -146,9 +153,8 @@ class MasterDataSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $one = Employee::query()->where('employee_number', 'BACS-2026-0029')->first();
+        $one = Employee::query()->where('employee_number', 'BACS-2026-0014')->first();
         $two = Employee::query()->where('employee_number', 'BACS-2026-0030')->first();
-        $one->user->update(['must_change_password' => false, 'password' => 'password']);
 
         $this->actingAs($one->user)
             ->get(route('employee.dtr.show', $two))
@@ -159,17 +165,18 @@ class MasterDataSeederTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_temporary_password_must_be_changed_before_using_the_system(): void
+    public function test_employee_can_access_dashboard_with_default_password(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $employee = Employee::query()->where('employee_number', 'BACS-2026-0029')->first();
+        $employee = Employee::query()->where('employee_number', 'BACS-2026-0014')->first();
 
-        $this->assertTrue((bool) $employee->user->must_change_password);
+        $this->assertFalse((bool) $employee->user->must_change_password);
+        $this->assertTrue(Hash::check('password', $employee->user->password));
         $this->assertSame(UserRole::Employee, $employee->user->role);
 
         $this->actingAs($employee->user)
             ->get(route('employee.dashboard'))
-            ->assertRedirect(route('profile.password'));
+            ->assertOk();
     }
 
     public function test_name_parser_keeps_suffixes_and_middle_initials(): void
@@ -177,20 +184,24 @@ class MasterDataSeederTest extends TestCase
         $seeder = new EmployeeSeeder;
 
         $this->assertSame(
-            ['first_name' => 'Cesario Jr', 'middle_name' => null, 'last_name' => 'Bacosa'],
-            $seeder->parseName('Bacosa, Cesario Jr')
+            ['first_name' => 'Cesario Jr.', 'middle_name' => 'A.', 'last_name' => 'Bacosa'],
+            $seeder->parseName('Bacosa, Cesario Jr. A.')
         );
         $this->assertSame(
-            ['first_name' => 'Mark Jayson', 'middle_name' => 'H', 'last_name' => 'Germina'],
-            $seeder->parseName('Germina, Mark Jayson H')
+            ['first_name' => 'Mark Jayson', 'middle_name' => 'H.', 'last_name' => 'Germina'],
+            $seeder->parseName('Germina, Mark Jayson H.')
         );
         $this->assertSame(
-            ['first_name' => 'Nancy', 'middle_name' => null, 'last_name' => 'Acompañado'],
-            $seeder->parseName('Acompañado, Nancy')
+            ['first_name' => 'Nancy', 'middle_name' => 'G.', 'last_name' => 'Acompañado'],
+            $seeder->parseName('Acompañado, Nancy G.')
         );
         $this->assertSame(
-            ['first_name' => 'Kenneth', 'middle_name' => null, 'last_name' => 'Dela Cruz'],
-            $seeder->parseName('Dela Cruz, Kenneth')
+            ['first_name' => 'Kenneth', 'middle_name' => 'S.', 'last_name' => 'De La Cruz'],
+            $seeder->parseName('De La Cruz, Kenneth S.')
+        );
+        $this->assertSame(
+            ['first_name' => 'Matthew John Clifford', 'middle_name' => 'D.', 'last_name' => 'Paredes'],
+            $seeder->parseName('Paredes, Matthew John Clifford D.')
         );
     }
 }

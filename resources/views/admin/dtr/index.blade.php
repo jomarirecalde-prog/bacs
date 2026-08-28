@@ -64,38 +64,33 @@
                 <thead>
                     <tr>
                         <th>Employee</th>
-                        <th>Department</th>
-                        <th>Time In</th>
-                        <th>Time Out</th>
-                        <th class="text-right">Hours</th>
-                        <th class="text-right">Late</th>
-                        <th class="text-right">UT</th>
-                        <th class="text-right">OT</th>
+                        <th>Date</th>
+                        <th>Day</th>
+                        <th>AM Time In</th>
+                        <th>AM Time Out</th>
+                        <th>PM Time In</th>
+                        <th>PM Time Out</th>
+                        <th>Overtime</th>
+                        <th class="text-right">Total Hours</th>
                         <th>Status</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($records as $row)
-                        <tr class="{{ $row->time_in && ! $row->time_out ? 'row-attention' : '' }}">
-                            <td class="font-semibold text-ink">{{ $row->employee?->fullName() }}</td>
-                            <td>{{ $row->employee?->department?->name ?? '—' }}</td>
-                            <td>
-                                <span class="font-medium text-brand-700 tabular-nums">{{ $row->time_in?->format('h:i A') ?? '—' }}</span>
-                                @if ($row->time_in_station_name)
-                                    <div class="text-[11px] text-muted">{{ $row->time_in_station_name }}</div>
-                                @endif
+                        <tr class="{{ $row->hasTimeIn() && ! $row->isRegularComplete() ? 'row-attention' : '' }}">
+                            <td class="font-semibold text-ink">
+                                {{ $row->employee?->fullName() }}
+                                <div class="text-[11px] font-normal text-muted">{{ $row->employee?->department?->name ?? '—' }}</div>
                             </td>
-                            <td>
-                                <span class="font-medium text-info-700 tabular-nums">{{ $row->time_out?->format('h:i A') ?? '—' }}</span>
-                                @if ($row->time_out_station_name)
-                                    <div class="text-[11px] text-muted">{{ $row->time_out_station_name }}</div>
-                                @endif
-                            </td>
+                            <td class="whitespace-nowrap tabular-nums">{{ $row->attendance_date?->format('m/d/Y') }}</td>
+                            <td>{{ $row->attendance_date?->format('l') }}</td>
+                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->am_time_in?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->am_time_out?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-medium text-info-700 tabular-nums">{{ $row->pm_time_in?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-medium text-info-700 tabular-nums">{{ $row->pm_time_out?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-medium text-gold-700 tabular-nums">{{ $row->overtime_in?->format('h:i A') ?? '—' }}</td>
                             <td class="text-right font-semibold text-ink tabular-nums">{{ $row->totalHoursLabel() }}</td>
-                            <td class="text-right tabular-nums {{ $row->late_minutes > 0 ? 'font-bold text-warn-700' : 'text-muted' }}">{{ $row->late_minutes }}</td>
-                            <td class="text-right tabular-nums {{ $row->undertime_minutes > 0 ? 'font-bold text-warn-700' : 'text-muted' }}">{{ $row->undertime_minutes }}</td>
-                            <td class="text-right tabular-nums {{ $row->overtime_minutes > 0 ? 'font-bold text-gold-700' : 'text-muted' }}">{{ $row->overtime_minutes }}</td>
                             <td><x-status-badge :status="$row->status" /></td>
                             <td class="whitespace-nowrap text-right">
                                 <a class="btn-outline btn-sm" href="{{ route('admin.dtr.show', $row) }}">View</a>
@@ -105,7 +100,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="10" class="p-0"><x-empty-state title="No DTR records" message="No attendance found for this date and filter." icon="clock" /></td></tr>
+                        <tr><td colspan="11" class="p-0"><x-empty-state title="No DTR records" message="No attendance found for this date and filter." icon="clock" /></td></tr>
                     @endforelse
                 </tbody>
             </table>

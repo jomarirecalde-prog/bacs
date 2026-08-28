@@ -26,8 +26,12 @@ class NotificationService
         ?int $calendarEventId = null,
         ?string $action = null,
         bool $toast = true,
+        ?int $leaveApplicationId = null,
     ): ?AppNotification {
-        if ($calendarEventId && $action && $this->isDuplicate($user->id, $calendarEventId, $action, $title.$message)) {
+        $contextId = $calendarEventId ?: $leaveApplicationId;
+        $contextPrefix = $calendarEventId ? 'calendar' : ($leaveApplicationId ? 'leave' : 'generic');
+
+        if ($action && $this->isDuplicate($user->id, $contextPrefix, $contextId, $action, $title.$message)) {
             return null;
         }
 
@@ -38,6 +42,7 @@ class NotificationService
             'type' => $type,
             'link' => $link,
             'calendar_event_id' => $calendarEventId,
+            'leave_application_id' => $leaveApplicationId,
             'action' => $action,
         ]);
 
@@ -49,9 +54,9 @@ class NotificationService
     public function notifyAdmins(string $title, string $message, string $type = 'info', ?string $link = null): void
     {
         User::query()
+            ->select(['id'])
             ->whereIn('role', [UserRole::Admin, UserRole::Supervisor])
             ->where('status', 'active')
-            ->get()
             ->each(fn (User $user) => $this->notify($user, $title, $message, $type, $link));
     }
 
@@ -86,9 +91,9 @@ class NotificationService
         }
     }
 
-    private function isDuplicate(int $userId, int $eventId, string $action, string $fingerprint): bool
+    private function isDuplicate(int $userId, string $prefix, ?int $contextId, string $action, string $fingerprint): bool
     {
-        $key = 'calendar-notify:'.$userId.':'.$eventId.':'.$action.':'.md5($fingerprint);
+        $key = $prefix.'-notify:'.$userId.':'.($contextId ?? 0).':'.$action.':'.md5($fingerprint);
 
         return ! Cache::add($key, 1, 20);
     }

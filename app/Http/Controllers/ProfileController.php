@@ -2,57 +2,110 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Profile\ChangePasswordRequest;
+use App\Http\Requests\Profile\UpdateProfilePhotoRequest;
+use App\Http\Requests\Profile\UpdateProfileRequest;
 use App\Services\AuditLogger;
+use App\Services\ProfileService;
+use App\Support\ManilaTime;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Auth;
 
 class ProfileController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly ProfileService $profiles,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     public function show(Request $request)
     {
-        $user = $request->user()->load('employee.department', 'employee.workSchedule');
+        $user = $request->user()->load('employee.department');
 
-        return view('profile.show', compact('user'));
+        return view('profile.show', [
+            'user' => $user,
+            'profile' => $this->profiles->profilePayload($user),
+        ]);
     }
 
-    public function update(Request $request)
+    public function me(Request $request)
     {
-        $employee = $request->user()->employee;
-        abort_unless($employee, 403);
+        return response()->json($this->profiles->profilePayload($request->user()));
+    }
 
-        $data = $request->validate([
-            'contact_number' => ['nullable', 'string', 'max:30'],
+    public function update(UpdateProfileRequest $request)
+    {
+        $employee = $this->profiles->updatePersonalInfo($request->user(), $request->validated());
+        $payload = $this->profiles->profilePayload($request->user()->fresh(['employee.department']));
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Profile updated successfully.',
+                'profile' => $payload,
+            ]);
+        }
+
+        return back()->with('success', 'Profile updated successfully.');
+    }
+
+    public function updatePhoto(UpdateProfilePhotoRequest $request)
+    {
+        $employee = $this->profiles->storePhoto($request->user(), $request->file('photo'));
+        $payload = $this->profiles->profilePayload($request->user()->fresh(['employee.department']));
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Profile picture updated.',
+            'photo_url' => $employee->photoUrl(),
+            'profile' => $payload,
         ]);
+    }
 
-        $employee->update([
-            'contact_number' => $data['contact_number'] ?? null,
+    public function removePhoto(Request $request)
+    {
+        abort_unless($request->user()->employee, 403);
+
+        $employee = $this->profiles->removePhoto($request->user());
+        $payload = $this->profiles->profilePayload($request->user()->fresh(['employee.department']));
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Profile picture removed.',
+            'photo_url' => $employee->photoUrl(),
+            'profile' => $payload,
         ]);
-
-        $this->auditLogger->log($request->user(), 'profile_updated', 'Profile', $employee->id, 'Permitted profile information updated.');
-
-        return back()->with('success', 'Profile updated.');
     }
 
     public function editPassword()
     {
-        return view('profile.password');
+        return redirect()->to(route('profile.show').'#password');
     }
 
-    public function updatePassword(Request $request)
+    public function updatePassword(ChangePasswordRequest $request)
     {
-        $data = $request->validate([
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', Password::min(8)],
-        ]);
+        $user = $request->user();
+        $currentPassword = $request->validated('current_password');
 
-        $request->user()->update([
-            'password' => $data['password'],
+        Auth::logoutOtherDevices($currentPassword);
+
+        $user->update([
+            'password' => $request->validated('password'),
             'must_change_password' => false,
+            'password_changed_at' => ManilaTime::now(),
         ]);
 
-        $this->auditLogger->log($request->user(), 'password_changed', 'Profile', $request->user()->id, 'Password changed.');
+        $request->session()->regenerate();
+
+        $this->auditLogger->log($user, 'password_changed', 'Profile', $user->id, 'Password changed.');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Password updated successfully.',
+                'password_changed_at' => $user->fresh()->password_changed_at?->toIso8601String(),
+            ]);
+        }
 
         return redirect()->route('home')->with('success', 'Password updated successfully.');
     }

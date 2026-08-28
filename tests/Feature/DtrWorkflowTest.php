@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\AccountStatus;
 use App\Enums\EmploymentStatus;
-use App\Enums\UserRole;
 use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
@@ -45,41 +44,56 @@ class DtrWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_employee_can_login_and_time_in_once(): void
+    public function test_employee_can_record_am_time_in_once(): void
     {
         $employee = $this->makeEmployee('juan');
+        $date = ManilaTime::todayDate();
 
         $this->post('/login', ['login' => 'juan', 'password' => 'password'])
             ->assertRedirect(route('home'));
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->actingAs($employee->user)
             ->postJson(route('attendance.time-in'))
             ->assertOk()
-            ->assertJsonPath('ok', true);
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('attendance.am_time_in', '08:00 AM');
 
-        $this->actingAs($employee->user)
-            ->postJson(route('attendance.time-in'))
+        $this->postJson(route('attendance.time-in'))
             ->assertStatus(422);
 
         $this->assertDatabaseCount('attendance', 1);
     }
 
-    public function test_employee_cannot_time_out_without_time_in(): void
+    public function test_employee_cannot_record_outside_allowed_time_window(): void
     {
         $employee = $this->makeEmployee('maria');
+        $date = ManilaTime::todayDate();
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '03:00'));
         $this->actingAs($employee->user)
-            ->postJson(route('attendance.time-out'))
+            ->postJson(route('attendance.time-in'))
             ->assertStatus(422);
     }
 
-    public function test_employee_can_time_out_once_after_time_in(): void
+    public function test_employee_can_record_full_sequence(): void
     {
         $employee = $this->makeEmployee('pedro');
+        $date = ManilaTime::todayDate();
 
-        $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
-        $this->actingAs($employee->user)->postJson(route('attendance.time-out'))->assertOk();
-        $this->actingAs($employee->user)->postJson(route('attendance.time-out'))->assertStatus(422);
+        $this->actingAs($employee->user);
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
+        $this->postJson(route('attendance.time-in'))->assertOk();
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '12:00'));
+        $this->postJson(route('attendance.time-out'))->assertOk();
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '13:00'));
+        $this->postJson(route('attendance.time-in'))->assertOk();
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '17:00'));
+        $this->postJson(route('attendance.time-out'))->assertOk();
+
+        $record = Attendance::query()->first();
+        $this->assertNotNull($record->am_time_in);
+        $this->assertNotNull($record->pm_time_out);
     }
 
     public function test_employee_cannot_view_another_employee_dtr(): void
@@ -109,7 +123,9 @@ class DtrWorkflowTest extends TestCase
     {
         $admin = User::factory()->admin()->create(['username' => 'admin']);
         $employee = $this->makeEmployee('worker');
+        $date = ManilaTime::todayDate();
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
         $record = Attendance::query()->first();
 
@@ -117,8 +133,8 @@ class DtrWorkflowTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('admin.dtr.update', $record), [
-                'time_in' => '08:03',
-                'time_out' => '17:02',
+                'am_time_in' => '08:03',
+                'pm_time_out' => '17:02',
                 'reason' => 'Employee forgot to clock out.',
             ])
             ->assertRedirect();
@@ -137,7 +153,7 @@ class DtrWorkflowTest extends TestCase
         Attendance::query()->create([
             'employee_id' => $employee->id,
             'attendance_date' => $date,
-            'time_in' => ManilaTime::now(),
+            'am_time_in' => ManilaTime::now(),
             'status' => 'incomplete',
         ]);
 
@@ -146,7 +162,7 @@ class DtrWorkflowTest extends TestCase
         Attendance::query()->create([
             'employee_id' => $employee->id,
             'attendance_date' => $date,
-            'time_in' => ManilaTime::now(),
+            'am_time_in' => ManilaTime::now(),
             'status' => 'incomplete',
         ]);
     }
@@ -155,7 +171,9 @@ class DtrWorkflowTest extends TestCase
     {
         $a = $this->makeEmployee('one');
         $b = $this->makeEmployee('two');
+        $date = ManilaTime::todayDate();
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->actingAs($a->user)
             ->postJson(route('attendance.time-in'), ['employee_id' => $b->id])
             ->assertOk();
@@ -167,13 +185,15 @@ class DtrWorkflowTest extends TestCase
     public function test_employee_cannot_edit_dtr_through_admin_endpoint(): void
     {
         $employee = $this->makeEmployee('hacker');
+        $date = ManilaTime::todayDate();
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
         $record = Attendance::query()->first();
 
         $this->actingAs($employee->user)
             ->put(route('admin.dtr.update', $record), [
-                'time_in' => '08:00',
-                'time_out' => '17:00',
+                'am_time_in' => '08:00',
+                'pm_time_out' => '17:00',
                 'reason' => 'tamper',
             ])
             ->assertForbidden();

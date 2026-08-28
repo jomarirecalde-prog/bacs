@@ -9,7 +9,7 @@
         <div class="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-gold-500/10 blur-3xl"></div>
 
         <div class="relative flex items-center gap-3">
-            <div class="brand-mark h-11 w-11 rounded-2xl text-lg">B</div>
+            <x-bacs-logo class="h-14 w-auto" />
             <div>
                 <div class="font-extrabold tracking-wide">BACS DTR</div>
                 <div class="text-sm text-brand-200/80">Daily Time Record Monitoring</div>
@@ -41,7 +41,7 @@
     <div class="flex items-center justify-center bg-canvas p-6 sm:p-12">
         <div class="w-full max-w-md">
             <div class="mb-8 flex items-center gap-3 lg:hidden">
-                <div class="brand-mark h-11 w-11 rounded-2xl text-lg">B</div>
+                <x-bacs-logo class="h-12 w-auto" />
                 <div>
                     <div class="text-lg font-extrabold text-ink">BACS DTR</div>
                     <div class="text-sm text-muted">Sign in to continue</div>
@@ -49,6 +49,9 @@
             </div>
 
             <div class="card card-accent-brand p-8">
+                <div class="mb-6 hidden justify-center lg:flex">
+                    <x-bacs-logo class="h-14 w-auto" />
+                </div>
                 <h2 class="text-2xl font-extrabold tracking-tight text-ink">Welcome back</h2>
                 <p class="mt-1 text-sm text-muted">Use your employee number, username, or email.</p>
 

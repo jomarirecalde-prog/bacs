@@ -15,6 +15,7 @@ class AttendanceEdit extends Model
         'new_time_in',
         'new_time_out',
         'new_status',
+        'field_changes',
         'reason',
         'modified_by',
         'modified_at',
@@ -27,6 +28,7 @@ class AttendanceEdit extends Model
             'original_time_out' => 'datetime',
             'new_time_in' => 'datetime',
             'new_time_out' => 'datetime',
+            'field_changes' => 'array',
             'modified_at' => 'datetime',
         ];
     }

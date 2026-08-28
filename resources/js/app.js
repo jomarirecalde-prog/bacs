@@ -27,7 +27,7 @@ const serverClock = {
             }
 
             try {
-                const res = await fetch('/server-time', { headers: { Accept: 'application/json' } });
+                const res = await fetch(window.appUrl('/server-time'), { headers: { Accept: 'application/json' } });
                 const data = await res.json();
                 this.offset = data.timestamp - Date.now();
                 sessionStorage.setItem('bacs-server-clock', JSON.stringify({
@@ -191,7 +191,7 @@ document.addEventListener('alpine:init', () => {
             this.unread = Math.max(0, this.unread - 1);
 
             try {
-                await window.axios.post(`/notifications/${note.id}/read`, {}, {
+                await window.axios.post(window.appUrl(`/notifications/${note.id}/read`), {}, {
                     headers: { Accept: 'application/json' },
                 });
             } catch {
@@ -295,6 +295,8 @@ document.addEventListener('alpine:init', () => {
         departments: payload.departments || [],
         rows: payload.rows || [],
         timer: null,
+        echoTimer: null,
+        echoOff: null,
         controller: null,
         onVisibility: null,
         init() {
@@ -303,12 +305,20 @@ document.addEventListener('alpine:init', () => {
                     this.refresh();
                 }
             };
-            this.timer = setInterval(() => this.refresh(), 15000);
+            this.timer = setInterval(() => this.refresh(), 30000);
             document.addEventListener('visibilitychange', this.onVisibility);
+            if (typeof window.listenToAttendanceDashboard === 'function') {
+                this.echoOff = window.listenToAttendanceDashboard('.attendance.recorded', () => {
+                    clearTimeout(this.echoTimer);
+                    this.echoTimer = setTimeout(() => this.refresh(), 350);
+                });
+            }
             onPageHide(() => this.destroy());
         },
         destroy() {
             clearInterval(this.timer);
+            clearTimeout(this.echoTimer);
+            this.echoOff?.();
             this.controller?.abort();
             document.removeEventListener('visibilitychange', this.onVisibility);
         },
@@ -379,6 +389,151 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    Alpine.data('leaveBalanceAdjust', (payload = {}) => ({
+        previewUrl: payload.previewUrl,
+        leaveTypeCode: 'vacation',
+        adjustmentKind: 'add',
+        days: '',
+        preview: null,
+        loading: false,
+        clearPreview() {
+            this.preview = null;
+        },
+        formatDays(value) {
+            if (value === null || value === undefined) return '—';
+            return String(Number(value).toFixed(1)).replace(/\.0$/, '');
+        },
+        formatAdjustment(value) {
+            if (value === null || value === undefined) return '—';
+            const num = Number(value);
+            const label = Math.abs(num).toFixed(1).replace(/\.0$/, '');
+            return num > 0 ? `+${label} days` : (num < 0 ? `-${label} days` : '0 days');
+        },
+        async loadPreview() {
+            if (!this.previewUrl || this.days === '' || Number(this.days) < 0) {
+                this.preview = null;
+                return;
+            }
+            this.loading = true;
+            try {
+                const { data } = await window.axios.post(this.previewUrl, {
+                    leave_type_code: this.leaveTypeCode,
+                    adjustment_kind: this.adjustmentKind,
+                    days: this.days,
+                });
+                this.preview = data;
+            } catch {
+                this.preview = null;
+                window.dtrToast('Unable to preview adjustment.', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+    }));
+
+    Alpine.data('leaveApply', (payload = {}) => ({
+        previewUrl: payload.previewUrl,
+        start: payload.start || '',
+        end: payload.end || '',
+        type: payload.type || 'vacation',
+        special: payload.special || '',
+        reason: payload.reason || '',
+        days: null,
+        async init() {
+            await this.refreshDays();
+        },
+        get daysLabel() {
+            if (this.days === null) return '—';
+            return `${this.days} day${this.days === 1 ? '' : 's'}`;
+        },
+        async refreshDays() {
+            if (!this.previewUrl || !this.start || !this.end || this.end < this.start) {
+                this.days = null;
+                return;
+            }
+            try {
+                const { data } = await window.axios.get(this.previewUrl, {
+                    params: {
+                        start_date: this.start,
+                        end_date: this.end,
+                        leave_type: this.type,
+                        special_leave_type: this.special || undefined,
+                    },
+                });
+                this.days = data.days;
+            } catch {
+                this.days = null;
+            }
+        },
+        beforeSubmit(event) {
+            const input = event.target.querySelector('input[name="employee_signature"]');
+            if (input && !input.value) {
+                event.preventDefault();
+                window.dtrToast('Please sign the leave application before submitting.', 'error');
+            }
+        },
+    }));
+
+    Alpine.data('signaturePad', () => ({
+        drawing: false,
+        init() {
+            const canvas = this.$refs.canvas;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = '#10201b';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            const point = (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const source = event.touches ? event.touches[0] : event;
+                return {
+                    x: (source.clientX - rect.left) * (canvas.width / rect.width),
+                    y: (source.clientY - rect.top) * (canvas.height / rect.height),
+                };
+            };
+            const start = (event) => {
+                this.drawing = true;
+                const p = point(event);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                event.preventDefault();
+            };
+            const move = (event) => {
+                if (!this.drawing) return;
+                const p = point(event);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                event.preventDefault();
+            };
+            const end = () => {
+                if (!this.drawing) return;
+                this.drawing = false;
+                if (this.$refs.input) {
+                    this.$refs.input.value = canvas.toDataURL('image/png');
+                }
+            };
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start, { passive: false });
+            canvas.addEventListener('touchmove', move, { passive: false });
+            canvas.addEventListener('touchend', end);
+            const form = canvas.closest('form');
+            form?.addEventListener('submit', () => {
+                if (this.$refs.input && !this.$refs.input.value) {
+                    this.$refs.input.value = canvas.toDataURL('image/png');
+                }
+            });
+            onPageHide(() => window.removeEventListener('mouseup', end));
+        },
+        clear() {
+            const canvas = this.$refs.canvas;
+            if (!canvas) return;
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            if (this.$refs.input) this.$refs.input.value = '';
+        },
+    }));
+
     Alpine.data('clockPanel', (payload = {}) => ({
         dateLabel: '',
         timeLabel: '',
@@ -390,6 +545,7 @@ document.addEventListener('alpine:init', () => {
         timeOutUrl: payload.timeOutUrl,
         canTimeIn: payload.canTimeIn,
         canTimeOut: payload.canTimeOut,
+        nextActionLabel: payload.nextActionLabel || '',
         timer: null,
         async init() {
             await serverClock.sync();
@@ -404,16 +560,15 @@ document.addEventListener('alpine:init', () => {
             this.timeLabel = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, ...opts });
         },
         confirmIn() {
-            this.dialogTitle = 'Confirm Time In';
-            this.dialogBody = 'Record your Time In using the server timestamp?';
+            this.dialogTitle = 'Confirm Attendance';
+            this.dialogBody = this.nextActionLabel
+                ? `Record ${this.nextActionLabel} using the server timestamp?`
+                : 'Record your next attendance action using the server timestamp?';
             this.pendingUrl = this.timeInUrl;
             this.dialog = true;
         },
         confirmOut() {
-            this.dialogTitle = 'Confirm Time Out';
-            this.dialogBody = 'Record your Time Out using the server timestamp?';
-            this.pendingUrl = this.timeOutUrl;
-            this.dialog = true;
+            this.confirmIn();
         },
         async submitPending() {
             this.dialog = false;
@@ -438,16 +593,235 @@ document.addEventListener('alpine:init', () => {
             if (!attendance) {
                 return;
             }
+            const mapping = {
+                am_time_in: attendance.am_time_in,
+                am_time_out: attendance.am_time_out,
+                pm_time_in: attendance.pm_time_in,
+                pm_time_out: attendance.pm_time_out,
+                overtime: attendance.overtime,
+            };
+            Object.entries(mapping).forEach(([key, value]) => {
+                const el = document.querySelector(`[data-punch="${key}"]`);
+                if (el && value) el.textContent = value;
+            });
             const timeIn = document.getElementById('time-in-label');
             const timeOut = document.getElementById('time-out-label');
+            const nextAction = document.getElementById('next-action-label');
             const btnIn = document.getElementById('btn-in');
-            const btnOut = document.getElementById('btn-out');
-            if (timeIn && attendance.time_in) timeIn.textContent = attendance.time_in;
-            if (timeOut && attendance.time_out) timeOut.textContent = attendance.time_out;
-            this.canTimeIn = Boolean(attendance.can_time_in);
-            this.canTimeOut = Boolean(attendance.can_time_out);
+            if (timeIn && attendance.am_time_in) timeIn.textContent = attendance.am_time_in;
+            if (timeOut && attendance.pm_time_out) timeOut.textContent = attendance.pm_time_out;
+            if (nextAction && attendance.next_action_label) nextAction.textContent = attendance.next_action_label;
+            this.nextActionLabel = attendance.next_action_label || this.nextActionLabel;
+            this.canTimeIn = Boolean(attendance.can_record ?? attendance.can_time_in);
+            this.canTimeOut = Boolean(attendance.can_record ?? attendance.can_time_out);
             if (btnIn) btnIn.disabled = !this.canTimeIn;
-            if (btnOut) btnOut.disabled = !this.canTimeOut;
+        },
+    }));
+
+    Alpine.data('profilePage', (payload = {}) => ({
+        updateUrl: payload.updateUrl,
+        photoUploadUrl: payload.photoUploadUrl,
+        photoRemoveUrl: payload.photoRemoveUrl,
+        passwordUrl: payload.passwordUrl,
+        profile: payload.profile || {},
+        editing: false,
+        saving: false,
+        uploadingPhoto: false,
+        changingPassword: false,
+        errors: {},
+        passwordErrors: {},
+        form: {},
+        passwordForm: {
+            current_password: '',
+            password: '',
+            password_confirmation: '',
+        },
+        strengthPercent: 0,
+        strengthLabel: 'Enter a new password',
+        strengthClass: 'bg-surface-200',
+        avatarUrl: payload.profile?.employee?.photo_url || '',
+        displayName: payload.profile?.employee?.full_name || payload.profile?.user?.name || '',
+        subtitle: payload.profile?.employee
+            ? `${payload.profile.employee.position || ''}${payload.profile.employee.department ? ' · ' + payload.profile.employee.department : ''}`
+            : '',
+        employeeNumber: payload.profile?.employee?.employee_number || '',
+        hasPhoto: Boolean(payload.profile?.employee?.has_photo),
+        passwordChangedLabel: payload.profile?.user?.password_changed_at
+            ? new Date(payload.profile.user.password_changed_at).toLocaleString()
+            : '—',
+        init() {
+            this.resetForm();
+            if (window.location.hash === '#password' || payload.mustChangePassword) {
+                this.$nextTick(() => document.getElementById('password')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+            }
+        },
+        get readOnlyPersonal() {
+            const e = this.profile.employee || {};
+            return [
+                { label: 'First name', value: e.first_name },
+                { label: 'Middle name', value: e.middle_name },
+                { label: 'Last name', value: e.last_name },
+                { label: 'Suffix', value: e.suffix },
+                { label: 'Email', value: e.email },
+                { label: 'Contact number', value: e.contact_number },
+                { label: 'Address', value: e.address },
+                { label: 'Birth date', value: e.birth_date ? new Date(e.birth_date + 'T00:00:00').toLocaleDateString() : null },
+            ];
+        },
+        resetForm() {
+            const e = this.profile.employee || {};
+            this.form = {
+                first_name: e.first_name || '',
+                middle_name: e.middle_name || '',
+                last_name: e.last_name || '',
+                suffix: e.suffix || '',
+                email: e.email || this.profile.user?.email || '',
+                contact_number: e.contact_number || '',
+                address: e.address || '',
+                birth_date: e.birth_date || '',
+            };
+        },
+        startEdit() {
+            this.errors = {};
+            this.resetForm();
+            this.editing = true;
+        },
+        cancelEdit() {
+            this.editing = false;
+            this.errors = {};
+            this.resetForm();
+        },
+        applyProfile(profile) {
+            this.profile = profile;
+            this.avatarUrl = profile.employee?.photo_url || this.avatarUrl;
+            this.displayName = profile.employee?.full_name || profile.user?.name || this.displayName;
+            this.subtitle = profile.employee
+                ? `${profile.employee.position || ''}${profile.employee.department ? ' · ' + profile.employee.department : ''}`
+                : this.subtitle;
+            this.employeeNumber = profile.employee?.employee_number || this.employeeNumber;
+            this.hasPhoto = Boolean(profile.employee?.has_photo);
+            this.resetForm();
+            this.syncHeader(profile);
+        },
+        syncHeader(profile) {
+            const nameEl = document.getElementById('header-user-name');
+            if (nameEl) {
+                nameEl.textContent = profile.employee?.full_name || profile.user?.name || nameEl.textContent;
+            }
+            const avatar = document.getElementById('header-avatar');
+            const fallback = document.getElementById('header-avatar-fallback');
+            const url = profile.employee?.photo_url;
+            if (avatar && url && profile.employee?.has_photo) {
+                avatar.src = url;
+                avatar.classList.remove('hidden');
+                fallback?.classList.add('hidden');
+            }
+        },
+        async saveProfile() {
+            this.saving = true;
+            this.errors = {};
+            try {
+                const { data } = await window.axios.put(this.updateUrl, this.form, {
+                    headers: { Accept: 'application/json' },
+                });
+                this.applyProfile(data.profile);
+                this.editing = false;
+                window.dtrToast(data.message || 'Profile updated.', 'success');
+            } catch (error) {
+                if (error.response?.status === 422) {
+                    this.errors = error.response.data.errors
+                        ? Object.fromEntries(Object.entries(error.response.data.errors).map(([k, v]) => [k, v[0]]))
+                        : {};
+                }
+                window.dtrToast(error.response?.data?.message || 'Could not save profile.', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        async uploadPhoto(event) {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+
+            this.uploadingPhoto = true;
+            const body = new FormData();
+            body.append('photo', file);
+
+            try {
+                const { data } = await window.axios.post(this.photoUploadUrl, body, {
+                    headers: { Accept: 'application/json', 'Content-Type': 'multipart/form-data' },
+                });
+                this.applyProfile(data.profile);
+                window.dtrToast(data.message || 'Photo updated.', 'success');
+            } catch (error) {
+                const message = error.response?.data?.message
+                    || error.response?.data?.errors?.photo?.[0]
+                    || 'Could not upload photo.';
+                window.dtrToast(message, 'error');
+            } finally {
+                this.uploadingPhoto = false;
+            }
+        },
+        async removePhoto() {
+            if (!confirm('Remove your profile picture?')) return;
+
+            try {
+                const { data } = await window.axios.delete(this.photoRemoveUrl, {
+                    headers: { Accept: 'application/json' },
+                });
+                this.applyProfile(data.profile);
+                window.dtrToast(data.message || 'Photo removed.', 'success');
+            } catch (error) {
+                window.dtrToast('Could not remove photo.', 'error');
+            }
+        },
+        updateStrength() {
+            const value = this.passwordForm.password || '';
+            let score = 0;
+            if (value.length >= 8) score += 25;
+            if (value.length >= 12) score += 15;
+            if (/[A-Z]/.test(value)) score += 20;
+            if (/[0-9]/.test(value)) score += 20;
+            if (/[^A-Za-z0-9]/.test(value)) score += 20;
+            this.strengthPercent = Math.min(100, score);
+            if (!value) {
+                this.strengthLabel = 'Enter a new password';
+                this.strengthClass = 'bg-surface-200';
+            } else if (score < 40) {
+                this.strengthLabel = 'Weak';
+                this.strengthClass = 'bg-critical-500';
+            } else if (score < 70) {
+                this.strengthLabel = 'Fair';
+                this.strengthClass = 'bg-warn-400';
+            } else {
+                this.strengthLabel = 'Strong';
+                this.strengthClass = 'bg-brand-500';
+            }
+        },
+        async changePassword() {
+            this.changingPassword = true;
+            this.passwordErrors = {};
+            try {
+                const { data } = await window.axios.put(this.passwordUrl, this.passwordForm, {
+                    headers: { Accept: 'application/json' },
+                });
+                this.passwordForm = { current_password: '', password: '', password_confirmation: '' };
+                this.strengthPercent = 0;
+                this.strengthLabel = 'Enter a new password';
+                if (data.password_changed_at) {
+                    this.passwordChangedLabel = new Date(data.password_changed_at).toLocaleString();
+                }
+                window.dtrToast(data.message || 'Password updated.', 'success');
+            } catch (error) {
+                if (error.response?.status === 422) {
+                    this.passwordErrors = error.response.data.errors
+                        ? Object.fromEntries(Object.entries(error.response.data.errors).map(([k, v]) => [k, v[0]]))
+                        : {};
+                }
+                window.dtrToast(error.response?.data?.message || 'Could not update password.', 'error');
+            } finally {
+                this.changingPassword = false;
+            }
         },
     }));
 });

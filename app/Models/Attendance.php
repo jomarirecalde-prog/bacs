@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AttendancePunchType;
 use App\Enums\AttendanceStatus;
 use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,12 @@ class Attendance extends Model
         'time_out_station_id',
         'time_out_station_name',
         'time_out_station_location',
+        'am_time_in',
+        'am_time_out',
+        'pm_time_in',
+        'pm_time_out',
+        'overtime_in',
+        'punch_stations',
         'total_minutes',
         'late_minutes',
         'undertime_minutes',
@@ -40,6 +47,12 @@ class Attendance extends Model
             'attendance_date' => 'date',
             'time_in' => 'datetime',
             'time_out' => 'datetime',
+            'am_time_in' => 'datetime',
+            'am_time_out' => 'datetime',
+            'pm_time_in' => 'datetime',
+            'pm_time_out' => 'datetime',
+            'overtime_in' => 'datetime',
+            'punch_stations' => 'array',
             'total_minutes' => 'integer',
             'late_minutes' => 'integer',
             'undertime_minutes' => 'integer',
@@ -75,12 +88,6 @@ class Attendance extends Model
         return $this->hasMany(AttendanceEdit::class);
     }
 
-    /**
-     * Range compare so DATE and DATETIME storage both hit the
-     * (attendance_date, status) index. Equality on a DATE string misses
-     * SQLite values stored as "Y-m-d 00:00:00"; whereDate() wraps the
-     * column in DATE() and prevents the PostgreSQL index from being used.
-     */
     public function scopeOnDate($query, string $date)
     {
         $end = ManilaTime::parse($date)->addDay()->toDateString();
@@ -95,6 +102,73 @@ class Attendance extends Model
 
         return $query->where('attendance_date', '>=', $from)
             ->where('attendance_date', '<', $end);
+    }
+
+    public function punchValue(AttendancePunchType $type): mixed
+    {
+        return $this->{$type->column()};
+    }
+
+    public function hasPunch(AttendancePunchType $type): bool
+    {
+        return $this->punchValue($type) !== null;
+    }
+
+    public function isRegularComplete(): bool
+    {
+        foreach (AttendancePunchType::regularSequence() as $type) {
+            if (! $this->hasPunch($type)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function syncLegacyFields(): void
+    {
+        $this->time_in = $this->am_time_in;
+        $this->time_out = $this->pm_time_out ?? $this->overtime_in;
+
+        $stations = $this->punch_stations ?? [];
+        $amInStation = $stations[AttendancePunchType::AmTimeIn->value] ?? null;
+        $pmOutStation = $stations[AttendancePunchType::PmTimeOut->value] ?? null;
+
+        if ($amInStation) {
+            $this->time_in_station_id = $amInStation['station_id'] ?? null;
+            $this->time_in_station_name = $amInStation['station_name'] ?? null;
+            $this->time_in_station_location = $amInStation['station_location'] ?? null;
+        }
+
+        if ($pmOutStation) {
+            $this->time_out_station_id = $pmOutStation['station_id'] ?? null;
+            $this->time_out_station_name = $pmOutStation['station_name'] ?? null;
+            $this->time_out_station_location = $pmOutStation['station_location'] ?? null;
+        }
+    }
+
+    /** @return array<string, mixed> */
+    public function punchPayload(): array
+    {
+        return [
+            'am_time_in' => ManilaTime::formatTime($this->am_time_in),
+            'am_time_out' => ManilaTime::formatTime($this->am_time_out),
+            'pm_time_in' => ManilaTime::formatTime($this->pm_time_in),
+            'pm_time_out' => ManilaTime::formatTime($this->pm_time_out),
+            'overtime' => ManilaTime::formatTime($this->overtime_in),
+            'attendance_date' => $this->attendance_date?->toDateString(),
+            'day' => $this->attendance_date?->format('l'),
+            'total_hours' => $this->totalHoursLabel(),
+            'regular_hours' => self::minutesToLabel($this->total_minutes),
+            'overtime_hours' => $this->overtimeHoursLabel(),
+            'attendance_status' => $this->displayStatus(),
+            'status_value' => $this->status?->value,
+            'late_minutes' => $this->late_minutes,
+            'undertime_minutes' => $this->undertime_minutes,
+            'overtime_minutes' => $this->overtime_minutes,
+            'time_in' => ManilaTime::formatTime($this->time_in),
+            'time_out' => ManilaTime::formatTime($this->time_out),
+        ];
     }
 
     public function totalHoursLabel(): string
@@ -118,17 +192,17 @@ class Attendance extends Model
 
     public function hasTimeIn(): bool
     {
-        return $this->time_in !== null;
+        return $this->am_time_in !== null || $this->time_in !== null;
     }
 
     public function hasTimeOut(): bool
     {
-        return $this->time_out !== null;
+        return $this->pm_time_out !== null || $this->time_out !== null;
     }
 
     public function isClockedIn(): bool
     {
-        return $this->hasTimeIn() && ! $this->hasTimeOut();
+        return $this->hasTimeIn() && ! $this->isRegularComplete();
     }
 
     public function displayStatus(): string

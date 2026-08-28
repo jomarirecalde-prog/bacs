@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AttendanceCorrectionController as AdminAttendanceCorrectionController;
 use App\Http\Controllers\Admin\AttendanceStationController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CalendarController as AdminCalendarController;
@@ -15,11 +16,19 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClockController;
+use App\Http\Controllers\Employee\AttendanceCorrectionController as EmployeeAttendanceCorrectionController;
 use App\Http\Controllers\Employee\AttendanceController as EmployeeAttendanceController;
 use App\Http\Controllers\Employee\CalendarController as EmployeeCalendarController;
 use App\Http\Controllers\Employee\DashboardController as EmployeeDashboardController;
 use App\Http\Controllers\Employee\DtrController as EmployeeDtrController;
 use App\Http\Controllers\Employee\QrCodeController as EmployeeQrCodeController;
+use App\Http\Controllers\Admin\LeaveApplicationController as AdminLeaveApplicationController;
+use App\Http\Controllers\Admin\LeaveEntitlementController;
+use App\Http\Controllers\Admin\LeavePolicyController;
+use App\Http\Controllers\Admin\LeaveReportController;
+use App\Http\Controllers\Admin\LeaveWorkflowController;
+use App\Http\Controllers\Employee\LeaveApplicationController as EmployeeLeaveApplicationController;
+use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Station\DashboardController as StationDashboardController;
@@ -72,7 +81,10 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::get('/profile/me', [ProfileController::class, 'me'])->name('profile.me');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo.update');
+    Route::delete('/profile/photo', [ProfileController::class, 'removePhoto'])->name('profile.photo.remove');
     Route::get('/profile/password', [ProfileController::class, 'editPassword'])->name('profile.password');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
@@ -83,6 +95,11 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
     Route::prefix('employee')->name('employee.')->group(function () {
         Route::get('/dashboard', [EmployeeDashboardController::class, 'index'])->name('dashboard');
         Route::get('/attendance', [EmployeeAttendanceController::class, 'index'])->name('attendance');
+        Route::get('/attendance-corrections', [EmployeeAttendanceCorrectionController::class, 'index'])->name('attendance-corrections.index');
+        Route::get('/attendance-corrections/create', [EmployeeAttendanceCorrectionController::class, 'create'])->name('attendance-corrections.create');
+        Route::post('/attendance-corrections', [EmployeeAttendanceCorrectionController::class, 'store'])->name('attendance-corrections.store');
+        Route::get('/attendance-corrections/{correction}', [EmployeeAttendanceCorrectionController::class, 'show'])->name('attendance-corrections.show');
+        Route::post('/attendance-corrections/{correction}/cancel', [EmployeeAttendanceCorrectionController::class, 'cancel'])->name('attendance-corrections.cancel');
         Route::get('/dtr', [EmployeeDtrController::class, 'index'])->name('dtr');
         Route::get('/dtr/export', [EmployeeDtrController::class, 'export'])->name('dtr.export');
         Route::get('/dtr/print', [EmployeeDtrController::class, 'print'])->name('dtr.print');
@@ -93,6 +110,27 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         // Read-only company calendar. No write routes exist for employees.
         Route::get('/calendar', [EmployeeCalendarController::class, 'index'])->name('calendar');
         Route::get('/calendar/live', [EmployeeCalendarController::class, 'live'])->name('calendar.live');
+
+        Route::get('/leave', [EmployeeLeaveApplicationController::class, 'index'])->name('leave.index');
+        Route::get('/leave/apply', [EmployeeLeaveApplicationController::class, 'create'])->name('leave.apply');
+        Route::get('/leave/calendar', [EmployeeLeaveApplicationController::class, 'calendar'])->name('leave.calendar');
+        Route::get('/leave/balances', [EmployeeLeaveApplicationController::class, 'balances'])->name('leave.balances');
+        Route::get('/leave/balances/adjustments', [EmployeeLeaveApplicationController::class, 'adjustmentHistory'])->name('leave.balances.adjustments');
+        Route::get('/leave/preview-days', [EmployeeLeaveApplicationController::class, 'previewDays'])->name('leave.preview-days');
+        Route::post('/leave', [EmployeeLeaveApplicationController::class, 'store'])->name('leave.store');
+        Route::get('/leave/{application}', [EmployeeLeaveApplicationController::class, 'show'])->name('leave.show');
+        Route::get('/leave/{application}/pdf', [EmployeeLeaveApplicationController::class, 'pdf'])->name('leave.pdf');
+        Route::get('/leave/{application}/print', [EmployeeLeaveApplicationController::class, 'print'])->name('leave.print');
+        Route::post('/leave/{application}/cancel', [EmployeeLeaveApplicationController::class, 'cancel'])->name('leave.cancel');
+    });
+
+    Route::prefix('leave/approvals')->name('leave.approvals.')->group(function () {
+        Route::get('/', [LeaveApprovalController::class, 'index'])->name('index');
+        Route::get('/history', [LeaveApprovalController::class, 'history'])->name('history');
+        Route::get('/{application}', [LeaveApprovalController::class, 'show'])->name('show');
+        Route::post('/{application}/decide', [LeaveApprovalController::class, 'decide'])->name('decide');
+        Route::get('/{application}/pdf', [LeaveApprovalController::class, 'pdf'])->name('pdf');
+        Route::get('/{application}/print', [LeaveApprovalController::class, 'print'])->name('print');
     });
 
     Route::middleware('role:admin,supervisor')->prefix('admin')->name('admin.')->group(function () {
@@ -139,6 +177,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         });
 
         Route::get('/attendance', [AdminDtrController::class, 'index'])->name('attendance.index');
+        Route::get('/attendance-corrections', [AdminAttendanceCorrectionController::class, 'index'])->name('attendance-corrections.index');
+        Route::get('/attendance-corrections/{correction}', [AdminAttendanceCorrectionController::class, 'show'])->name('attendance-corrections.show');
+        Route::post('/attendance-corrections/{correction}/review', [AdminAttendanceCorrectionController::class, 'review'])->middleware('role:admin')->name('attendance-corrections.review');
 
         Route::get('/dtr', [AdminDtrController::class, 'index'])->name('dtr.index');
         Route::get('/dtr/monthly', [AdminDtrController::class, 'monthly'])->name('dtr.monthly');
@@ -176,5 +217,23 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::put('/settings', [SettingController::class, 'update'])->middleware('role:admin')->name('settings.update');
         Route::post('/settings/holidays', [SettingController::class, 'storeHoliday'])->middleware('role:admin')->name('settings.holidays.store');
         Route::delete('/settings/holidays/{holiday}', [SettingController::class, 'destroyHoliday'])->middleware('role:admin')->name('settings.holidays.destroy');
+
+        Route::get('/leave', [AdminLeaveApplicationController::class, 'index'])->name('leave.index');
+        Route::get('/leave/configuration', [LeaveWorkflowController::class, 'edit'])->middleware('role:admin')->name('leave.workflow');
+        Route::put('/leave/configuration', [LeaveWorkflowController::class, 'update'])->middleware('role:admin')->name('leave.workflow.update');
+        Route::get('/leave/entitlements', [LeaveEntitlementController::class, 'index'])->middleware('role:admin')->name('leave.entitlements');
+        Route::get('/leave/entitlements/policy', [LeavePolicyController::class, 'edit'])->middleware('role:admin')->name('leave.policy');
+        Route::put('/leave/entitlements/policy', [LeavePolicyController::class, 'update'])->middleware('role:admin')->name('leave.policy.update');
+        Route::get('/leave/entitlements/{employee}', [LeaveEntitlementController::class, 'show'])->middleware('role:admin')->name('leave.entitlements.show');
+        Route::get('/leave/entitlements/{employee}/edit', [LeaveEntitlementController::class, 'edit'])->middleware('role:admin')->name('leave.entitlements.edit');
+        Route::post('/leave/entitlements/{employee}/adjustments/preview', [LeaveEntitlementController::class, 'previewAdjustment'])->middleware('role:admin')->name('leave.entitlements.adjustments.preview');
+        Route::post('/leave/entitlements/{employee}/adjustments', [LeaveEntitlementController::class, 'storeAdjustment'])->middleware('role:admin')->name('leave.entitlements.adjustments.store');
+        Route::get('/leave/entitlements/{employee}/adjustments', [LeaveEntitlementController::class, 'adjustmentHistory'])->name('leave.entitlements.adjustments');
+        Route::get('/leave/entitlements/{employee}/leave-history', [LeaveEntitlementController::class, 'leaveHistory'])->name('leave.entitlements.leave-history');
+        Route::get('/leave/reports', [LeaveReportController::class, 'index'])->name('leave.reports');
+        Route::get('/leave/{application}', [AdminLeaveApplicationController::class, 'show'])->name('leave.show');
+        Route::post('/leave/{application}/hr', [AdminLeaveApplicationController::class, 'processHr'])->name('leave.hr');
+        Route::get('/leave/{application}/pdf', [AdminLeaveApplicationController::class, 'pdf'])->name('leave.pdf');
+        Route::get('/leave/{application}/print', [AdminLeaveApplicationController::class, 'print'])->name('leave.print');
     });
 });

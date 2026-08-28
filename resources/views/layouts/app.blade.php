@@ -40,10 +40,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="app-base" content="{{ url('/') }}">
     <meta name="user-id" content="{{ auth()->id() }}">
     <meta name="theme-color" content="#047857">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
-    <link rel="icon" href="{{ asset('station-icon.svg') }}">
+    @include('partials.favicon')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -54,8 +55,8 @@
         <aside class="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-shell-900 text-brand-50 shadow-float transition duration-300 ease-out lg:translate-x-0"
                :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
             <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-6">
-                <div class="brand-mark h-9 w-9 text-sm">B</div>
-                <div>
+                <x-bacs-logo class="h-10 w-auto shrink-0" />
+                <div class="min-w-0">
                     <div class="text-sm font-extrabold tracking-wide text-white">BACS DTR</div>
                     <div class="text-[11px] text-brand-200/70">BACS Construction</div>
                 </div>
@@ -84,6 +85,8 @@
                         'user' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
                         'lock' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
                         'logout' => 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
+                        'leave' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+                        'approve' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
                     ];
 
                     if ($isAdmin) {
@@ -106,6 +109,7 @@
                             ]],
                             ['label' => 'Timekeeping', 'items' => array_merge($stationLinks, [
                                 ['admin.attendance.index', 'Attendance', $icons['clock']],
+                                ['admin.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'admin.attendance-corrections.*'],
                                 ['admin.dtr.index', 'DTR Management', $icons['document']],
                                 ['admin.reports.index', 'Reports', $icons['chart']],
                             ])],
@@ -113,12 +117,33 @@
                                 ['admin.calendar.index', 'Calendar', $icons['calendar-events'], 'admin.calendar.index'],
                                 ['admin.calendar.events.index', 'Manage Events', $icons['list'], 'admin.calendar.events*'],
                             ]],
+                            ['label' => 'Leave Approvals', 'items' => [
+                                ['leave.approvals.index', 'Pending Leave Requests', $icons['approve'], 'leave.approvals.index'],
+                                ['leave.approvals.history', 'Approval History', $icons['document'], 'leave.approvals.history'],
+                            ]],
                         ];
+
+                        $leaveAdminItems = [
+                            ['admin.leave.index', 'Leave Applications', $icons['leave'], 'admin.leave.index'],
+                            ['admin.leave.reports', 'Leave Reports', $icons['chart'], 'admin.leave.reports'],
+                        ];
+                        if ($isFullAdmin) {
+                            array_splice($leaveAdminItems, 1, 0, [
+                                ['admin.leave.workflow', 'Leave Approval Configuration', $icons['list']],
+                                ['admin.leave.entitlements', 'Employee Leave Balances', $icons['calendar']],
+                            ]);
+                        }
+                        $navGroups[] = ['label' => 'Leave Management', 'items' => $leaveAdminItems];
 
                         if (auth()->user()->employee) {
                             $navGroups[] = ['label' => 'Personal', 'items' => [
                                 ['employee.dashboard', 'My Time In / Out', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
+                                ['employee.leave.apply', 'Apply for Leave', $icons['leave'], 'employee.leave.apply'],
+                                ['employee.leave.index', 'My Leave Applications', $icons['list'], 'employee.leave.index'],
+                                ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
+                                ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
                                 ['employee.calendar', 'My Calendar', $icons['calendar']],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]];
@@ -138,12 +163,26 @@
                             ['label' => 'My Records', 'items' => [
                                 ['employee.attendance', 'My Attendance', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]],
                             ['label' => 'Calendar & Events', 'items' => [
                                 ['employee.calendar', 'Calendar', $icons['calendar-events']],
                             ]],
+                            ['label' => 'Leave Management', 'items' => [
+                                ['employee.leave.apply', 'Apply for Leave', $icons['leave'], 'employee.leave.apply'],
+                                ['employee.leave.index', 'My Leave Applications', $icons['list'], 'employee.leave.index'],
+                                ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
+                                ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
+                            ]],
                         ];
+
+                        if (auth()->user()->hasLeaveApprovalDuty()) {
+                            $navGroups[] = ['label' => 'Leave Approvals', 'items' => [
+                                ['leave.approvals.index', 'Pending Leave Requests', $icons['approve'], 'leave.approvals.index'],
+                                ['leave.approvals.history', 'Approval History', $icons['document'], 'leave.approvals.history'],
+                            ]];
+                        }
                     }
                 @endphp
 
@@ -241,12 +280,17 @@
 
                     <div class="flex items-center gap-2.5 border-l border-line pl-2 sm:pl-3">
                         <div class="hidden text-right sm:block">
-                            <div class="text-sm font-bold leading-tight text-ink">{{ auth()->user()->name }}</div>
+                            <div id="header-user-name" class="text-sm font-bold leading-tight text-ink">{{ auth()->user()->name }}</div>
                             <div class="text-[11px] font-medium text-info-700">{{ auth()->user()->role?->label() }}</div>
                         </div>
-                        <div class="brand-mark h-9 w-9 text-sm">
-                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                        </div>
+                        @if (auth()->user()->employee?->photo)
+                            <img id="header-avatar" src="{{ auth()->user()->employee->photoUrl() }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
+                        @else
+                            <div id="header-avatar-fallback" class="brand-mark h-9 w-9 text-sm">
+                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                            </div>
+                            <img id="header-avatar" src="" alt="" class="hidden h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
+                        @endif
                     </div>
                 </div>
             </header>

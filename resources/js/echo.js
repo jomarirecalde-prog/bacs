@@ -59,3 +59,23 @@ window.listenToUser = function listenToUser(event, handler) {
         }
     };
 };
+
+/**
+ * Admin attendance dashboards share one private channel.
+ */
+window.listenToAttendanceDashboard = function listenToAttendanceDashboard(event, handler) {
+    if (!window.Echo || !userId) {
+        return () => {};
+    }
+
+    const channel = window.Echo.private('attendance.dashboard');
+    channel.listen(event, handler);
+
+    return () => {
+        try {
+            channel.stopListening(event, handler);
+        } catch {
+            // Channel may already be gone after a full reload.
+        }
+    };
+};

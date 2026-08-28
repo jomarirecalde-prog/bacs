@@ -8,8 +8,9 @@
 <div class="space-y-6" x-data="clockPanel({
     timeInUrl: @js(route('attendance.time-in')),
     timeOutUrl: @js(route('attendance.time-out')),
-    canTimeIn: @js($canTimeIn),
-    canTimeOut: @js($canTimeOut),
+    canTimeIn: @js($canRecord),
+    canTimeOut: @js($canRecord),
+    nextActionLabel: @js($nextAction?->label()),
 })">
     @if ($todayHoliday)
         <div class="alert-success">
@@ -33,39 +34,64 @@
                 <x-status-badge :status="$today?->status" />
             </div>
 
-            <div class="grid gap-4 px-6 sm:grid-cols-2">
+            <div class="grid gap-4 px-6 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ([
+                    'AM Time In' => $today?->am_time_in,
+                    'AM Time Out' => $today?->am_time_out,
+                    'PM Time In' => $today?->pm_time_in,
+                    'PM Time Out' => $today?->pm_time_out,
+                    'Overtime' => $today?->overtime_in,
+                ] as $label => $value)
+                    <div class="rounded-2xl border border-line bg-surface-50 p-4">
+                        <div class="text-xs font-bold uppercase tracking-wide text-muted">{{ $label }}</div>
+                        <div class="mt-2 text-xl font-extrabold text-ink tabular-nums punch-label" data-punch="{{ str($label)->slug('_') }}">{{ $value?->format('h:i A') ?? '—' }}</div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="px-6 pb-2">
+                @if ($nextAction)
+                    <div class="rounded-2xl border border-gold-200 bg-gold-50/70 p-4">
+                        <div class="text-xs font-bold uppercase tracking-wide text-gold-800">Next Expected Action</div>
+                        <div class="mt-1 text-lg font-extrabold text-gold-900" id="next-action-label">{{ $nextAction->label() }}</div>
+                    </div>
+                @endif
+            </div>
+
+            <div class="grid gap-4 px-6 pb-6 sm:grid-cols-2">
+                <form method="POST" action="{{ route('attendance.time-in') }}" class="mt-2" @submit.prevent="confirmIn">
+                    @csrf
+                    <button id="btn-in" type="submit" class="btn-primary btn-block" :disabled="!canTimeIn" @disabled(! $canRecord)>Record Attendance</button>
+                </form>
+            </div>
+
+            <div class="px-6 pb-6 hidden">
+                <div class="grid gap-4 sm:grid-cols-2">
                 <div class="rounded-2xl border border-brand-200 bg-brand-50/50 p-5">
                     <div class="flex items-center gap-2">
                         <div class="stat-icon-brand h-8 w-8">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                         </div>
-                        <div class="text-xs font-bold uppercase tracking-wide text-brand-800">Time In</div>
+                        <div class="text-xs font-bold uppercase tracking-wide text-brand-800">Legacy Time In</div>
                     </div>
-                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-in-label">{{ $today?->time_in?->format('h:i A') ?? '—' }}</div>
-                    <form method="POST" action="{{ route('attendance.time-in') }}" class="mt-4" @submit.prevent="confirmIn">
-                        @csrf
-                        <button id="btn-in" type="submit" class="btn-primary btn-block" :disabled="!canTimeIn" @disabled(! $canTimeIn)>Time In</button>
-                    </form>
+                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-in-label">{{ $today?->am_time_in?->format('h:i A') ?? '—' }}</div>
                 </div>
                 <div class="rounded-2xl border border-info-200 bg-info-50/50 p-5">
                     <div class="flex items-center gap-2">
                         <div class="stat-icon-info h-8 w-8">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                         </div>
-                        <div class="text-xs font-bold uppercase tracking-wide text-info-800">Time Out</div>
+                        <div class="text-xs font-bold uppercase tracking-wide text-info-800">Legacy Time Out</div>
                     </div>
-                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-out-label">{{ $today?->time_out?->format('h:i A') ?? '—' }}</div>
-                    <form method="POST" action="{{ route('attendance.time-out') }}" class="mt-4" @submit.prevent="confirmOut">
-                        @csrf
-                        <button id="btn-out" type="submit" class="btn-secondary btn-block" :disabled="!canTimeOut" @disabled(! $canTimeOut)>Time Out</button>
-                    </form>
+                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-out-label">{{ $today?->pm_time_out?->format('h:i A') ?? '—' }}</div>
+                </div>
                 </div>
             </div>
 
             <div class="p-6">
                 <div class="alert-info">
                     <svg class="mt-0.5 h-4 w-4 shrink-0 text-info-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-xs">The server timestamp is used, not your device clock. You can Time In once per workday and Time Out only after Time In.</span>
+                    <span class="text-xs">The server timestamp is used, not your device clock. Attendance follows the official sequence: AM Time In → AM Time Out → PM Time In → PM Time Out → Overtime.</span>
                 </div>
             </div>
         </div>

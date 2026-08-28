@@ -16,6 +16,7 @@ use App\Services\AttendanceService;
 use App\Services\AuditLogger;
 use App\Services\DirectoryCatalog;
 use App\Services\EmployeeQrService;
+use App\Services\LeaveBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +27,7 @@ class EmployeeController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly AttendanceService $attendanceService,
         private readonly EmployeeQrService $qr,
+        private readonly LeaveBalanceService $leaveBalances,
     ) {}
 
     public function index(Request $request)
@@ -89,6 +91,7 @@ class EmployeeController extends Controller
 
             $this->auditLogger->log($request->user(), 'employee_created', 'Employees', $employee->id, "Employee {$employee->fullName()} created.");
             $this->qr->issue($employee);
+            $this->leaveBalances->initializeForEmployee($employee, null, $request->user());
 
             return $employee;
         });

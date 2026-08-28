@@ -24,6 +24,7 @@ class User extends Authenticatable
         'role',
         'status',
         'must_change_password',
+        'password_changed_at',
         'last_login_at',
     ];
 
@@ -37,6 +38,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'password_changed_at' => 'datetime',
             'must_change_password' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,
@@ -97,5 +99,24 @@ class User extends Authenticatable
     public function canManageCalendar(): bool
     {
         return $this->isAdmin();
+    }
+
+    public function canManageLeave(): bool
+    {
+        return $this->isAdmin();
+    }
+
+    public function canReviewAllLeaves(): bool
+    {
+        return $this->isManagement();
+    }
+
+    public function hasLeaveApprovalDuty(): bool
+    {
+        if ($this->isManagement()) {
+            return true;
+        }
+
+        return once(fn () => app(\App\Services\LeaveApplicationService::class)->userIsAssignedApprover($this));
     }
 }

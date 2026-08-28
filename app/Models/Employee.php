@@ -15,15 +15,20 @@ class Employee extends Model
 {
     use SoftDeletes;
 
+    private ?WorkSchedule $resolvedSchedule = null;
+
     protected $fillable = [
         'user_id',
         'employee_number',
         'first_name',
         'middle_name',
         'last_name',
+        'suffix',
         'full_name',
         'email',
         'contact_number',
+        'address',
+        'birth_date',
         'department_id',
         'position',
         'employment_status',
@@ -36,6 +41,7 @@ class Employee extends Model
     {
         return [
             'date_hired' => 'date',
+            'birth_date' => 'date',
             'employment_status' => EmploymentStatus::class,
         ];
     }
@@ -75,6 +81,21 @@ class Employee extends Model
         return $this->hasMany(Leave::class);
     }
 
+    public function leaveApplications(): HasMany
+    {
+        return $this->hasMany(LeaveApplication::class);
+    }
+
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(LeaveBalance::class);
+    }
+
+    public function leaveBalanceAdjustments(): HasMany
+    {
+        return $this->hasMany(LeaveBalanceAdjustment::class);
+    }
+
     public function fullName(): string
     {
         if (filled($this->full_name)) {
@@ -94,9 +115,10 @@ class Employee extends Model
     protected static function booted(): void
     {
         static::saving(function (Employee $employee) {
-            if (blank($employee->full_name)) {
+            if ($employee->isDirty(['first_name', 'middle_name', 'last_name', 'suffix']) || blank($employee->full_name)) {
                 $middle = $employee->middle_name ? ' '.$employee->middle_name : '';
-                $employee->full_name = trim($employee->last_name.', '.$employee->first_name.$middle);
+                $suffix = $employee->suffix ? ' '.$employee->suffix : '';
+                $employee->full_name = trim($employee->last_name.', '.$employee->first_name.$middle.$suffix);
             }
         });
 
@@ -106,16 +128,20 @@ class Employee extends Model
 
     public function schedule(): WorkSchedule
     {
-        return $this->workSchedule ?: WorkSchedule::defaultSchedule() ?? new WorkSchedule([
-            'name' => 'Default',
-            'start_time' => '08:00:00',
-            'end_time' => '17:00:00',
-            'grace_period_minutes' => 10,
-            'break_start' => '12:00:00',
-            'break_end' => '13:00:00',
-            'required_minutes' => 480,
-            'work_days' => [1, 2, 3, 4, 5],
-        ]);
+        if (! isset($this->resolvedSchedule)) {
+            $this->resolvedSchedule = $this->workSchedule ?: WorkSchedule::defaultSchedule() ?? new WorkSchedule([
+                'name' => 'Default',
+                'start_time' => '08:00:00',
+                'end_time' => '17:00:00',
+                'grace_period_minutes' => 10,
+                'break_start' => '12:00:00',
+                'break_end' => '13:00:00',
+                'required_minutes' => 480,
+                'work_days' => [1, 2, 3, 4, 5],
+            ]);
+        }
+
+        return $this->resolvedSchedule;
     }
 
     public function isAccountActive(): bool

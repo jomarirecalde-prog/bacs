@@ -1,16 +1,16 @@
 {
     "name": "BACS Attendance Station",
     "short_name": "BACS Station",
-    "start_url": "/attendance-station",
-    "scope": "/attendance-station",
+    "start_url": "attendance-station",
+    "scope": "attendance-station",
     "display": "standalone",
     "background_color": "#04140f",
     "theme_color": "#047857",
     "icons": [
         {
-            "src": "/station-icon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml",
+            "src": "images/bacs_logo_no_bg.png",
+            "sizes": "512x512",
+            "type": "image/png",
             "purpose": "any"
         }
     ]

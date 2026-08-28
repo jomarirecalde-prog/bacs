@@ -8,6 +8,20 @@ if (token) {
     window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
 }
 
+const appBase = document.head.querySelector('meta[name="app-base"]');
+if (appBase?.content) {
+    window.axios.defaults.baseURL = appBase.content.replace(/\/$/, '');
+}
+
+window.appUrl = function appUrl(path = '') {
+    const base = appBase?.content?.replace(/\/$/, '') || '';
+    if (!path) {
+        return base;
+    }
+
+    return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
 const inflightGets = new Map();
 const originalGet = window.axios.get.bind(window.axios);
 

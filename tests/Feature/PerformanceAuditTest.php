@@ -8,6 +8,10 @@ use App\Models\Employee;
 use App\Models\Leave;
 use App\Models\User;
 use App\Models\WorkSchedule;
+use App\Models\AttendanceStation;
+use App\Services\EmployeeQrService;
+use App\Services\StationBindingService;
+use App\Support\ManilaTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -104,6 +108,63 @@ class PerformanceAuditTest extends TestCase
 
         $response->assertOk()->assertJsonStructure(['unread']);
         $this->assertArrayNotHasKey('items', $response->json());
+    }
+
+    public function test_station_scan_critical_path_uses_bounded_queries(): void
+    {
+        $schedule = $this->schedule();
+        $department = $this->department();
+        $employee = $this->employee('scanperf', $department, $schedule);
+        $token = app(EmployeeQrService::class)->issue($employee);
+        $this->loginStation();
+
+        $this->travelTo(ManilaTime::combineDateAndTime(ManilaTime::todayDate(), '08:00'));
+
+        config(['app.debug' => true]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'AM_TIME_IN');
+
+        $queryCount = count(DB::getQueryLog());
+
+        $this->assertLessThan(
+            32,
+            $queryCount,
+            'Station scan issued '.$queryCount.' database queries (including deferred side effects).'
+        );
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'station_am_time_in',
+            'module' => 'Attendance',
+        ]);
+    }
+
+    private function loginStation(): AttendanceStation
+    {
+        $station = AttendanceStation::factory()->create([
+            'password' => 'station-pass',
+        ]);
+
+        $response = $this->post(route('station.login.store'), [
+            'station_id' => $station->station_code,
+            'password' => 'station-pass',
+        ]);
+
+        $response->assertRedirect(route('station.dashboard'));
+
+        $cookie = $response->getCookie(StationBindingService::COOKIE, decrypt: true);
+        if ($cookie) {
+            $this->withCookie(StationBindingService::COOKIE, $cookie->getValue());
+        }
+
+        $this->withCredentials();
+        $this->actingAs($station->fresh(), 'station');
+
+        return $station;
     }
 
     private function schedule(): WorkSchedule

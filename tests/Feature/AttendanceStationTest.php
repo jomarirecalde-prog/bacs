@@ -204,52 +204,69 @@ class AttendanceStationTest extends TestCase
         $this->assertSame(1, $station->bindings()->active()->count());
     }
 
-    public function test_station_scan_records_time_in_then_time_out(): void
+    public function test_station_scan_records_full_dtr_sequence(): void
     {
         $employee = $this->makeEmployee('juan');
         $token = $this->qr->issue($employee);
         $station = $this->loginNewStation();
+        $date = ManilaTime::todayDate();
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
             ->assertOk()
-            ->assertJsonPath('code', 'TIME_IN')
+            ->assertJsonPath('code', 'AM_TIME_IN')
+            ->assertJsonPath('next_action', 'AM_TIME_OUT')
             ->assertJsonPath('employee.name', $employee->fullName());
 
-        $this->assertDatabaseHas('attendance', [
-            'employee_id' => $employee->id,
-            'time_in_station_id' => $station->id,
-            'time_in_station_name' => $station->station_name,
-        ]);
-
-        $this->travel(15)->seconds();
-
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '12:00'));
         $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
             ->assertOk()
-            ->assertJsonPath('code', 'TIME_OUT');
+            ->assertJsonPath('code', 'AM_TIME_OUT');
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '13:00'));
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'PM_TIME_IN');
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '17:00'));
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'PM_TIME_OUT');
 
         $record = Attendance::query()->first();
-        $this->assertNotNull($record->time_out);
-        $this->assertSame($station->id, $record->time_out_station_id);
+        $this->assertNotNull($record->am_time_in);
+        $this->assertNotNull($record->am_time_out);
+        $this->assertNotNull($record->pm_time_in);
+        $this->assertNotNull($record->pm_time_out);
+        $this->assertSame($station->id, $record->punch_stations['am_time_in']['station_id'] ?? null);
 
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '18:00'));
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'OVERTIME');
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '18:30'));
         $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'ATTENDANCE_COMPLETED')
             ->assertJsonPath('ok', false);
     }
 
-    public function test_immediate_second_scan_does_not_time_out(): void
+    public function test_immediate_second_scan_is_duplicate_protection(): void
     {
         $employee = $this->makeEmployee('ana');
         $token = $this->qr->issue($employee);
         $this->loginNewStation();
+        $date = ManilaTime::todayDate();
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertJsonPath('code', 'AM_TIME_IN');
 
         $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
-            ->assertJsonPath('code', 'TIME_IN');
+            ->assertJsonPath('code', 'DUPLICATE_SCAN');
 
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
-            ->assertJsonPath('code', 'ALREADY_TIMED_IN');
-
-        $this->assertNull(Attendance::query()->first()->time_out);
+        $this->assertNull(Attendance::query()->first()->am_time_out);
     }
 
     public function test_invalid_and_inactive_qr_scans_are_rejected(): void

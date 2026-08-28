@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BACS Station">
     <link rel="manifest" href="{{ asset('station.webmanifest') }}">
-    <link rel="icon" href="{{ asset('station-icon.svg') }}">
+    @include('partials.favicon')
     <title>@yield('title', 'Attendance Station') · BACS DTR</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />

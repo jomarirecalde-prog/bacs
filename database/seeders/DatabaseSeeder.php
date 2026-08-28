@@ -46,6 +46,7 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             UserSeeder::class,
             EmployeeSeeder::class,
+            LeaveWorkflowSeeder::class,
         ]);
 
         $this->deactivateLegacySampleData();

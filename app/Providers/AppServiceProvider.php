@@ -2,10 +2,17 @@
 
 namespace App\Providers;
 
+use App\Models\AttendanceCorrectionRequest;
+use App\Models\LeaveApplication;
+use App\Models\LeaveBalance;
+use App\Policies\AttendanceCorrectionRequestPolicy;
+use App\Policies\LeaveApplicationPolicy;
+use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
 use App\Services\HolidayResolver;
 use App\Services\LeaveResolver;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +47,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         date_default_timezone_set(config('app.timezone', 'Asia/Manila'));
+
+        Gate::policy(LeaveApplication::class, LeaveApplicationPolicy::class);
+        Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
+        Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
 
         try {
             if (DB::connection()->getDriverName() === 'mysql') {

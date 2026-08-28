@@ -1,5 +1,5 @@
 const CACHE = 'bacs-station-shell-v1';
-const SHELL = ['/attendance-station/login', '/station-icon.svg', '/station.webmanifest'];
+const SHELL = ['attendance-station/login', 'images/bacs_logo_no_bg.png', 'station.webmanifest'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -21,6 +21,6 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith(
-        fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match('/attendance-station/login')))
+        fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match('attendance-station/login')))
     );
 });

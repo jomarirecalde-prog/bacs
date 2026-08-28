@@ -61,32 +61,43 @@
                     <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2z"/></svg>
                 </div>
                 <p class="text-lg font-bold text-white">Ready to scan</p>
-                <p class="mt-2 max-w-sm text-sm text-brand-200/70">Employees present their QR code. Time In and Time Out are recorded automatically using server time.</p>
+                <p class="mt-2 max-w-sm text-sm text-brand-200/70">The station automatically records AM Time In, AM Time Out, PM Time In, PM Time Out, then Overtime when applicable.</p>
             </div>
 
-            <div x-show="!locked && result" x-cloak class="w-full text-center">
-                <div class="text-xs font-bold uppercase tracking-[0.25em]" :class="resultTone" x-text="result.codeLabel"></div>
-                <h2 class="mt-2 text-3xl font-extrabold text-white sm:text-5xl" x-text="result.title"></h2>
-                <img x-show="result.photo" :src="result.photo" alt="" class="mx-auto mt-5 h-28 w-28 rounded-3xl object-cover ring-4 ring-gold-400/30">
-                <div class="mt-4 text-2xl font-extrabold text-white" x-text="result.name"></div>
-                <div class="text-sm uppercase tracking-wide text-brand-200/70" x-text="[result.department, result.position].filter(Boolean).join(' · ')"></div>
-                <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-brand-200/60">Action</div>
-                        <div class="mt-1 text-xl font-extrabold text-white" x-text="result.action || '—'"></div>
+            <template x-if="!locked && result">
+                <div class="w-full text-center">
+                    <div class="text-xs font-bold uppercase tracking-[0.25em]" :class="resultTone" x-text="result.codeLabel"></div>
+                    <h2 class="mt-2 text-3xl font-extrabold text-white sm:text-4xl" x-text="result.title"></h2>
+                    <template x-if="result.photo">
+                        <img :src="result.photo" alt="" class="mx-auto mt-5 h-28 w-28 rounded-3xl object-cover ring-4 ring-gold-400/30">
+                    </template>
+                    <div class="mt-4 text-2xl font-extrabold text-white" x-text="result.name"></div>
+                    <div class="text-sm uppercase tracking-wide text-brand-200/70" x-text="result.employeeNumber"></div>
+                    <div class="text-sm text-brand-200/70" x-text="[result.department, result.position].filter(Boolean).join(' · ')"></div>
+                    <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-brand-200/60">Recorded</div>
+                        <div class="mt-1 text-xl font-extrabold text-gold-300" x-text="result.action || '—'"></div>
+                        <div class="mt-1 text-lg font-bold text-white tabular-nums" x-text="result.time || '—'"></div>
                     </div>
-                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-brand-200/60">Time</div>
-                        <div class="mt-1 text-xl font-extrabold text-white tabular-nums" x-text="result.time || '—'"></div>
+                    <div class="mt-4 text-left">
+                        <div class="text-xs font-bold uppercase tracking-wide text-brand-200/60">Today's Attendance</div>
+                        <ul class="mt-2 space-y-1 text-sm">
+                            <template x-for="item in result.progress" :key="item.label">
+                                <li class="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2">
+                                    <span class="text-brand-100/80" x-text="item.label"></span>
+                                    <span class="font-bold tabular-nums" :class="item.done ? 'text-brand-300' : 'text-brand-200/40'" x-text="item.done ? item.value : 'Pending'"></span>
+                                </li>
+                            </template>
+                        </ul>
                     </div>
+                    <div class="mt-4 rounded-2xl border border-gold-400/20 bg-gold-400/5 p-4" x-show="result.nextAction">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gold-300/70">Next Expected Action</div>
+                        <div class="mt-1 text-lg font-extrabold text-gold-300" x-text="result.nextAction"></div>
+                    </div>
+                    <div class="mt-2 text-lg font-bold text-brand-300" x-text="result.status"></div>
+                    <p class="mt-3 text-sm text-brand-200/70" x-text="result.message"></p>
                 </div>
-                <div class="mt-3 text-sm text-brand-100/70">
-                    Time In: <span class="font-bold text-brand-300" x-text="result.timeIn || '—'"></span>
-                    · Time Out: <span class="font-bold text-info-300" x-text="result.timeOut || '—'"></span>
-                </div>
-                <div class="mt-2 text-lg font-bold text-gold-300" x-text="result.status"></div>
-                <p class="mt-3 text-sm text-brand-200/70" x-text="result.message"></p>
-            </div>
+            </template>
         </section>
     </main>
 </div>

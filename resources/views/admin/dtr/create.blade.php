@@ -13,7 +13,7 @@
 
     <div class="card card-accent-gold overflow-hidden">
         <div class="card-header">
-            <h2 class="card-title">Time Entry</h2>
+            <h2 class="card-title">Official DTR Entry</h2>
         </div>
         <form method="POST" action="{{ route('admin.dtr.store') }}" class="space-y-4 p-5">
             @csrf
@@ -33,12 +33,24 @@
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="label" for="time_in">Time In</label>
-                    <input id="time_in" class="input" type="time" name="time_in" value="{{ old('time_in') }}">
+                    <label class="label" for="am_time_in">AM Time In</label>
+                    <input id="am_time_in" class="input" type="time" name="am_time_in" value="{{ old('am_time_in') }}">
                 </div>
                 <div>
-                    <label class="label" for="time_out">Time Out</label>
-                    <input id="time_out" class="input" type="time" name="time_out" value="{{ old('time_out') }}">
+                    <label class="label" for="am_time_out">AM Time Out</label>
+                    <input id="am_time_out" class="input" type="time" name="am_time_out" value="{{ old('am_time_out') }}">
+                </div>
+                <div>
+                    <label class="label" for="pm_time_in">PM Time In</label>
+                    <input id="pm_time_in" class="input" type="time" name="pm_time_in" value="{{ old('pm_time_in') }}">
+                </div>
+                <div>
+                    <label class="label" for="pm_time_out">PM Time Out</label>
+                    <input id="pm_time_out" class="input" type="time" name="pm_time_out" value="{{ old('pm_time_out') }}">
+                </div>
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="label" for="overtime_in">Overtime</label>
+                    <input id="overtime_in" class="input" type="time" name="overtime_in" value="{{ old('overtime_in') }}">
                 </div>
             </div>
             <div>

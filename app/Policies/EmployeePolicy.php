@@ -35,4 +35,14 @@ class EmployeePolicy
     {
         return $user->isAdmin();
     }
+
+    public function viewLeaveAdjustments(User $user, Employee $employee): bool
+    {
+        return $this->view($user, $employee);
+    }
+
+    public function viewLeaveHistory(User $user, Employee $employee): bool
+    {
+        return $this->view($user, $employee);
+    }
 }

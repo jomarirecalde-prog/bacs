@@ -15,6 +15,7 @@ class AppNotification extends Model
         'type',
         'link',
         'calendar_event_id',
+        'leave_application_id',
         'action',
         'read_at',
     ];
@@ -34,6 +35,11 @@ class AppNotification extends Model
     public function calendarEvent(): BelongsTo
     {
         return $this->belongsTo(CalendarEvent::class);
+    }
+
+    public function leaveApplication(): BelongsTo
+    {
+        return $this->belongsTo(LeaveApplication::class);
     }
 
     public function isUnread(): bool
@@ -60,6 +66,7 @@ class AppNotification extends Model
             'unread' => $this->isUnread(),
             'action' => $this->action,
             'calendar_event_id' => $this->calendar_event_id,
+            'leave_application_id' => $this->leave_application_id,
             'created_at' => ManilaTime::formatDateTime($this->created_at, 'M j, Y g:i A'),
         ];
     }

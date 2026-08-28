@@ -10,20 +10,22 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class EmployeeSeeder extends Seeder
 {
-    public const EXPECTED_COUNT = 44;
+    public const DEFAULT_PASSWORD = 'password';
+
+    public const EXPECTED_COUNT = 46;
 
     public const EXPECTED_BY_DEPARTMENT = [
         'BOARD OF DIRECTORS AND CORPORATE OFFICERS' => 5,
-        'PROJECT MANAGEMENT' => 8,
+        'PROJECT MANAGEMENT' => 9,
         'SALES & MARKETING' => 2,
         'ADMIN' => 9,
         'FINANCE' => 4,
-        'OPERATION' => 16,
+        'OPERATION' => 17,
     ];
 
     public function run(): void
@@ -31,148 +33,146 @@ class EmployeeSeeder extends Seeder
         $schedule = WorkSchedule::defaultSchedule();
         $departments = Department::query()->pluck('id', 'name');
         $credentials = [];
+        $officialNumbers = [];
 
-        foreach ($this->roster() as $departmentName => $people) {
+        foreach ($this->roster() as $person) {
+            $departmentName = $person['department'];
             $departmentId = $departments[$departmentName] ?? null;
 
             if (! $departmentId) {
                 throw new \RuntimeException("Department [{$departmentName}] was not found. Run DepartmentSeeder first.");
             }
 
-            foreach ($people as $person) {
-                $existing = Employee::query()
-                    ->where('full_name', $person['name'])
-                    ->where('department_id', $departmentId)
-                    ->first();
+            $employeeNumber = $this->employeeNumber($person['id']);
+            $officialNumbers[] = $employeeNumber;
+            $parsed = $this->parseName($person['name']);
+            $email = 'bacs.2026.'.sprintf('%04d', $person['id']).'@bacs.test';
+            $role = $person['role'] ?? UserRole::Employee;
 
-                $employeeNumber = $existing?->employee_number ?? $this->nextEmployeeNumber();
-                $parsed = $this->parseName($person['name']);
-                $sequence = (int) substr($employeeNumber, -4);
-                $email = $existing?->email ?: 'bacs.2026.'.sprintf('%04d', $sequence).'@bacs.test';
-                $role = $person['role'] ?? UserRole::Employee;
+            $employee = Employee::query()->where('employee_number', $employeeNumber)->first();
+            $user = $employee?->user ?? User::query()->where('username', $employeeNumber)->first();
 
-                $user = $existing?->user ?? User::query()->where('username', $employeeNumber)->first();
-                $isNewUser = $user === null;
-                $temporaryPassword = $isNewUser ? Str::password(12, symbols: false) : null;
+            $userValues = [
+                'username' => $employeeNumber,
+                'name' => $person['name'],
+                'email' => $email,
+                'role' => $role,
+                'status' => AccountStatus::Active,
+                'password' => self::DEFAULT_PASSWORD,
+                'must_change_password' => false,
+            ];
 
-                $userValues = [
-                    'username' => $employeeNumber,
-                    'name' => $person['name'],
-                    'email' => $email,
-                    'role' => $role,
-                    'status' => AccountStatus::Active,
-                ];
-
-                if ($isNewUser) {
-                    $userValues['password'] = $temporaryPassword;
-                    $userValues['must_change_password'] = true;
-                    $user = User::query()->create($userValues);
-                } else {
-                    $user->fill($userValues);
-                    $user->save();
-                }
-
-                Employee::query()->updateOrCreate(
-                    ['employee_number' => $employeeNumber],
-                    [
-                        'user_id' => $user->id,
-                        'first_name' => $parsed['first_name'],
-                        'middle_name' => $parsed['middle_name'],
-                        'last_name' => $parsed['last_name'],
-                        'full_name' => $person['name'],
-                        'email' => $email,
-                        'contact_number' => $existing?->contact_number,
-                        'department_id' => $departmentId,
-                        'position' => $person['position'],
-                        'employment_status' => $existing?->employment_status ?? EmploymentStatus::Regular,
-                        'date_hired' => $existing?->date_hired?->toDateString() ?? '2026-01-01',
-                        'work_schedule_id' => $existing?->work_schedule_id ?? $schedule?->id,
-                    ]
-                );
-
-                if ($isNewUser && $temporaryPassword) {
-                    $credentials[] = [
-                        $employeeNumber,
-                        $person['name'],
-                        $departmentName,
-                        $person['position'],
-                        $email,
-                        $temporaryPassword,
-                    ];
-                }
+            if ($user) {
+                $user->fill($userValues);
+                $user->save();
+            } else {
+                $user = User::query()->create($userValues);
             }
+
+            Employee::query()->updateOrCreate(
+                ['employee_number' => $employeeNumber],
+                [
+                    'user_id' => $user->id,
+                    'first_name' => $parsed['first_name'],
+                    'middle_name' => $parsed['middle_name'],
+                    'last_name' => $parsed['last_name'],
+                    'full_name' => $person['name'],
+                    'email' => $email,
+                    'contact_number' => $employee?->contact_number,
+                    'department_id' => $departmentId,
+                    'position' => $person['position'],
+                    'employment_status' => $employee?->employment_status ?? EmploymentStatus::Regular,
+                    'date_hired' => $employee?->date_hired?->toDateString() ?? '2026-01-01',
+                    'work_schedule_id' => $employee?->work_schedule_id ?? $schedule?->id,
+                ]
+            );
+
+            $credentials[] = [
+                $employeeNumber,
+                $person['name'],
+                $departmentName,
+                $person['position'],
+                $email,
+                self::DEFAULT_PASSWORD,
+            ];
         }
 
+        $this->retireStaleEmployees($officialNumbers);
         $this->assertRosterIntegrity();
         $this->writeCredentials($credentials);
 
-        $count = Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->count();
-        $this->command?->info("Employee master data ready: {$count} employees.");
+        $count = Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->active()->count();
+        $this->command?->info("Employee master data ready: {$count} employees (password: ".self::DEFAULT_PASSWORD.').');
     }
 
     /**
-     * @return array<string, list<array{name: string, position: string, role?: UserRole}>>
+     * Official roster from EMP. ID Number.pdf.
+     *
+     * @return list<array{id: int, department: string, name: string, position: string, role?: UserRole}>
      */
     public function roster(): array
     {
+        $board = 'BOARD OF DIRECTORS AND CORPORATE OFFICERS';
+        $project = 'PROJECT MANAGEMENT';
+        $sales = 'SALES & MARKETING';
+        $admin = 'ADMIN';
+        $finance = 'FINANCE';
+        $operation = 'OPERATION';
+        $supervisor = UserRole::Supervisor;
+
         return [
-            'BOARD OF DIRECTORS AND CORPORATE OFFICERS' => [
-                ['name' => 'Bacosa, Cesario Jr', 'position' => 'CEO / Chairman of the Board', 'role' => UserRole::Supervisor],
-                ['name' => 'Germina, Mark Jayson H', 'position' => 'Chief Technical & Operation Officer / Operation & Project Manager', 'role' => UserRole::Supervisor],
-                ['name' => 'Beltran, Lyn M.', 'position' => 'Chief Administrative Officer / Admin Manager', 'role' => UserRole::Supervisor],
-                ['name' => 'Bacosa, Katherine J.', 'position' => 'Chief Finance Officer / Finance Manager', 'role' => UserRole::Supervisor],
-                ['name' => 'Grageda, Riza', 'position' => 'Chief Business Development Officer / HR Officer', 'role' => UserRole::Supervisor],
-            ],
-            'PROJECT MANAGEMENT' => [
-                ['name' => 'Paalan, Engelbert', 'position' => 'Laboratory Operator'],
-                ['name' => 'Patricio, Mechelle', 'position' => 'Project Technical Supervisor'],
-                ['name' => 'Fernandez, Gerald', 'position' => 'Junior Office Engineer'],
-                ['name' => 'Malazarte, Jan Kayle Mari', 'position' => 'Technical Staff'],
-                ['name' => 'Paredes, Matthew', 'position' => 'Draftsman'],
-                ['name' => 'Bungay, Janelle', 'position' => 'Technical Staff'],
-                ['name' => 'Basa, Cris Janrey', 'position' => 'Laboratory Operator'],
-                ['name' => 'Adriano, Willy Joseph', 'position' => 'Technical Staff'],
-            ],
-            'SALES & MARKETING' => [
-                ['name' => 'Baroro, Jennyvell Jr.', 'position' => 'Sales Representative'],
-                ['name' => 'Ruiz, Pierceval', 'position' => 'Sales & Marketing Staff'],
-            ],
-            'ADMIN' => [
-                ['name' => 'Gaid, Dorabel Y.', 'position' => 'Admin Assistant'],
-                ['name' => 'Guerzo, Jovelyn H.', 'position' => 'Environment, Health & Safety Head'],
-                ['name' => 'Macatangay, Michael', 'position' => 'Company Driver'],
-                ['name' => 'Alejandrino, Rey Mark', 'position' => 'General Support Services'],
-                ['name' => 'Dela Cruz, Kenneth', 'position' => 'Repair & Maintenance'],
-                ['name' => 'Abrea, Allan James', 'position' => 'Staff'],
-                ['name' => 'Pascual, Lydio Jr.', 'position' => 'Company Driver'],
-                ['name' => 'Balmonte, Ricky', 'position' => 'Company Driver'],
-                ['name' => 'Capis, Melqui', 'position' => 'Company Driver'],
-            ],
-            'FINANCE' => [
-                ['name' => 'Acompañado, Nancy', 'position' => 'Accounts Receivable Officer'],
-                ['name' => 'Consuelo, Regine', 'position' => 'Finance Assistant'],
-                ['name' => 'Dobleros, Reden', 'position' => 'Accounting Clerk'],
-                ['name' => 'Herrera, Realyn', 'position' => 'Bookkeeper'],
-            ],
-            'OPERATION' => [
-                ['name' => 'Cayapas, Reymond', 'position' => 'Field Engineer'],
-                ['name' => 'Morados, Moses', 'position' => 'Field Staff'],
-                ['name' => 'Aldamar, Jorge Jr.', 'position' => 'Project Team Leader'],
-                ['name' => 'Mitchell, Rey John', 'position' => 'Project Team Leader'],
-                ['name' => 'Becaro, Ronald', 'position' => 'Project Team Leader'],
-                ['name' => 'Abis, Oscar', 'position' => 'Field Staff'],
-                ['name' => 'Lagrosa, Noibo', 'position' => 'Field Staff'],
-                ['name' => 'Macatangay, Norman', 'position' => 'Field Staff'],
-                ['name' => 'Elevera, Dondon', 'position' => 'Field Staff'],
-                ['name' => 'Cabasal, Mark John', 'position' => 'Field Staff'],
-                ['name' => 'Capuyan, Edward', 'position' => 'Field Staff'],
-                ['name' => 'Panes, Charwyn', 'position' => 'Field Staff'],
-                ['name' => 'Leal, Emmanuel Robert', 'position' => 'Field Staff'],
-                ['name' => 'Lorenzo, Jay Ar Rhyan', 'position' => 'Project Team Leader'],
-                ['name' => 'Gallardo, Gerald', 'position' => 'Field Staff'],
-                ['name' => 'Balbin, Sajied', 'position' => 'Field Staff'],
-            ],
+            ['id' => 1, 'department' => $board, 'name' => 'Bacosa, Cesario Jr. A.', 'position' => 'CEO / President', 'role' => $supervisor],
+            ['id' => 2, 'department' => $board, 'name' => 'Bacosa, Katherine J.', 'position' => 'Chief Finance Officer', 'role' => $supervisor],
+            ['id' => 3, 'department' => $board, 'name' => 'Germina, Mark Jayson H.', 'position' => 'Chief Technical and Operations Officer', 'role' => $supervisor],
+            ['id' => 4, 'department' => $board, 'name' => 'Beltran, Lyn M.', 'position' => 'Chief Administrative Officer', 'role' => $supervisor],
+            ['id' => 48, 'department' => $board, 'name' => 'Grageda, Riza E.', 'position' => 'Chief Business and Development Officer and HR Officer', 'role' => $supervisor],
+            ['id' => 5, 'department' => $admin, 'name' => 'Gaid, Dorabel Y.', 'position' => 'Admin Assistant'],
+            ['id' => 6, 'department' => $operation, 'name' => 'Lagrosa, Noibo A.', 'position' => 'Field Staff'],
+            ['id' => 7, 'department' => $finance, 'name' => 'Acompañado, Nancy G.', 'position' => 'Accounts Receivable Officer'],
+            ['id' => 8, 'department' => $finance, 'name' => 'Consuelo, Regine C.', 'position' => 'Finance Assistant'],
+            ['id' => 9, 'department' => $operation, 'name' => 'Abis, Oscar D.', 'position' => 'Field Staff'],
+            ['id' => 10, 'department' => $project, 'name' => 'Malazarte, Jan Kayle Mari', 'position' => 'Technical Staff'],
+            ['id' => 11, 'department' => $admin, 'name' => 'Guerzo, Jovelyn H.', 'position' => 'EHS Head'],
+            ['id' => 12, 'department' => $admin, 'name' => 'Macatangay, Michael G.', 'position' => 'Company Driver'],
+            ['id' => 13, 'department' => $finance, 'name' => 'Dobleros, Reden D.', 'position' => 'Accounting Staff'],
+            ['id' => 14, 'department' => $operation, 'name' => 'Cayapas, Reymond I.', 'position' => 'Project Team Leader'],
+            ['id' => 15, 'department' => $admin, 'name' => 'Alejandrino, Rey Mark A.', 'position' => 'GSS'],
+            ['id' => 16, 'department' => $operation, 'name' => 'Morados, Moses O.', 'position' => 'Field Staff'],
+            ['id' => 17, 'department' => $project, 'name' => 'Paredes, Matthew John Clifford D.', 'position' => 'Draftsman / Technical Staff'],
+            ['id' => 19, 'department' => $operation, 'name' => 'Aldamar, Jorge Jr. A.', 'position' => 'Project Team Leader'],
+            ['id' => 20, 'department' => $operation, 'name' => 'Macatangay, Norman G.', 'position' => 'Field Staff'],
+            ['id' => 21, 'department' => $project, 'name' => 'Fernandez, Gerald S.', 'position' => 'Junior Office Engineer'],
+            ['id' => 23, 'department' => $project, 'name' => 'Basa, Cris Janrey V.', 'position' => 'Laboratory Operator'],
+            ['id' => 25, 'department' => $project, 'name' => 'Patricio, Mechelle E.', 'position' => 'Project Technical Supervisor'],
+            ['id' => 27, 'department' => $admin, 'name' => 'De La Cruz, Kenneth S.', 'position' => 'Repair and Maintenance'],
+            ['id' => 28, 'department' => $operation, 'name' => 'Elevera, Dondon A.', 'position' => 'Field Staff'],
+            ['id' => 29, 'department' => $operation, 'name' => 'Becaro, Ronald D.', 'position' => 'Project Team Leader'],
+            ['id' => 30, 'department' => $finance, 'name' => 'Herrera, Realyn S.', 'position' => 'Bookkeeper'],
+            ['id' => 31, 'department' => $operation, 'name' => 'Mitchell, Rey John G.', 'position' => 'Project Team Leader'],
+            ['id' => 32, 'department' => $admin, 'name' => 'Abrea, Allan James A.', 'position' => 'Staff'],
+            ['id' => 33, 'department' => $operation, 'name' => 'Lorenzo, Jay Ar Rhyan A.', 'position' => 'Project Team Leader'],
+            ['id' => 34, 'department' => $operation, 'name' => 'Leal, Emmanuel Robert M.', 'position' => 'Field Staff'],
+            ['id' => 35, 'department' => $operation, 'name' => 'Gallardo, Gerald L.', 'position' => 'Field Staff'],
+            ['id' => 36, 'department' => $sales, 'name' => 'Baroro, Jennyvell E.', 'position' => 'Junior Sales'],
+            ['id' => 37, 'department' => $project, 'name' => 'Bungay, Janelle L.', 'position' => 'Technical Staff'],
+            ['id' => 38, 'department' => $operation, 'name' => 'Cayupan, Edward M.', 'position' => 'Field Staff'],
+            ['id' => 39, 'department' => $operation, 'name' => 'Cabasal, Mark John L.', 'position' => 'Field Staff'],
+            ['id' => 42, 'department' => $sales, 'name' => 'Ruiz, Pierceval B.', 'position' => 'Sales and Marketing'],
+            ['id' => 43, 'department' => $admin, 'name' => 'Pascual, Lydio Jr. G.', 'position' => 'Company Driver'],
+            ['id' => 44, 'department' => $project, 'name' => 'Adriano, Willy Joseph F.', 'position' => 'Technical Staff'],
+            ['id' => 45, 'department' => $admin, 'name' => 'Balmonte, Ricky B.', 'position' => 'Company Driver'],
+            ['id' => 46, 'department' => $admin, 'name' => 'Capis, Melqui T.', 'position' => 'Company Driver'],
+            ['id' => 47, 'department' => $operation, 'name' => 'Panes, Charwyn A.', 'position' => 'Field Staff'],
+            ['id' => 49, 'department' => $project, 'name' => 'Paalan, Engelbert', 'position' => 'Laboratory Technician'],
+            ['id' => 50, 'department' => $operation, 'name' => 'Balbin, Sajied', 'position' => 'Field Staff'],
+            ['id' => 51, 'department' => $operation, 'name' => 'Elias, Ashari', 'position' => 'Field Staff'],
+            ['id' => 52, 'department' => $project, 'name' => 'Edon, Cody Mae', 'position' => 'Asst. Field Engineer'],
         ];
+    }
+
+    public function employeeNumber(int $id): string
+    {
+        return sprintf('BACS-2026-%04d', $id);
     }
 
     /**
@@ -196,28 +196,36 @@ class EmployeeSeeder extends Seeder
         ];
     }
 
-    private function nextEmployeeNumber(): string
+    /**
+     * @param  list<string>  $officialNumbers
+     */
+    private function retireStaleEmployees(array $officialNumbers): void
     {
-        $last = Employee::query()
+        Employee::query()
             ->where('employee_number', 'like', 'BACS-2026-%')
-            ->pluck('employee_number')
-            ->map(fn (string $number) => (int) substr($number, -4))
-            ->max();
-
-        return sprintf('BACS-2026-%04d', ((int) $last) + 1);
+            ->whereNotIn('employee_number', $officialNumbers)
+            ->with('user')
+            ->get()
+            ->each(function (Employee $employee) {
+                $employee->user?->update(['status' => AccountStatus::Inactive]);
+            });
     }
 
     private function assertRosterIntegrity(): void
     {
-        $count = Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->count();
+        $count = Employee::query()
+            ->where('employee_number', 'like', 'BACS-2026-%')
+            ->active()
+            ->count();
 
         if ($count !== self::EXPECTED_COUNT) {
-            throw new \RuntimeException('Expected '.self::EXPECTED_COUNT." BACS employees, found {$count}.");
+            throw new \RuntimeException('Expected '.self::EXPECTED_COUNT." active BACS employees, found {$count}.");
         }
 
         foreach (self::EXPECTED_BY_DEPARTMENT as $department => $expected) {
             $actual = Employee::query()
                 ->where('employee_number', 'like', 'BACS-2026-%')
+                ->active()
                 ->whereHas('department', fn ($q) => $q->where('name', $department))
                 ->count();
 
@@ -228,6 +236,7 @@ class EmployeeSeeder extends Seeder
 
         $unlinked = Employee::query()
             ->where('employee_number', 'like', 'BACS-2026-%')
+            ->active()
             ->where(function ($q) {
                 $q->whereNull('department_id')->orWhereDoesntHave('user');
             })
@@ -239,6 +248,7 @@ class EmployeeSeeder extends Seeder
 
         $uniqueNumbers = Employee::query()
             ->where('employee_number', 'like', 'BACS-2026-%')
+            ->active()
             ->pluck('employee_number')
             ->unique()
             ->count();
@@ -246,20 +256,26 @@ class EmployeeSeeder extends Seeder
         if ($uniqueNumbers !== self::EXPECTED_COUNT) {
             throw new \RuntimeException('BACS employee numbers are not unique.');
         }
+
+        $badPasswords = User::query()
+            ->whereHas('employee', fn ($q) => $q->where('employee_number', 'like', 'BACS-2026-%')->active())
+            ->get()
+            ->reject(fn (User $user) => Hash::check(self::DEFAULT_PASSWORD, $user->password))
+            ->count();
+
+        if ($badPasswords > 0) {
+            throw new \RuntimeException("Found {$badPasswords} employee accounts without the default password.");
+        }
     }
 
     private function writeCredentials(array $rows): void
     {
-        if ($rows === []) {
-            return;
-        }
-
         $lines = [
             'BACS CONSTRUCTION AND DEVELOPMENT CORPORATION',
-            'Temporary employee login credentials — change on first login.',
-            'Username is the employee number. Passwords are not stored in plain text in the database.',
+            'Employee login credentials from EMP. ID Number.pdf',
+            'Username is the employee number. Default password for all accounts: '.self::DEFAULT_PASSWORD,
             '',
-            'Employee Number,Name,Department,Position,Email,Temporary Password',
+            'Employee Number,Name,Department,Position,Email,Password',
         ];
 
         foreach ($rows as $row) {
@@ -267,6 +283,6 @@ class EmployeeSeeder extends Seeder
         }
 
         Storage::disk('local')->put('seed-credentials.csv', implode(PHP_EOL, $lines).PHP_EOL);
-        $this->command?->warn('New temporary passwords written to storage/app/private/seed-credentials.csv');
+        $this->command?->info('Credentials written to storage/app/private/seed-credentials.csv');
     }
 }

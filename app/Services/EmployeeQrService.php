@@ -76,7 +76,7 @@ class EmployeeQrService
         }
 
         $token = EmployeeQrToken::query()
-            ->with(['employee.user', 'employee.department'])
+            ->with(['employee.user:id,status', 'employee.department:id,name', 'employee.workSchedule'])
             ->where('token_hash', SecureHash::make($plain))
             ->first();
 

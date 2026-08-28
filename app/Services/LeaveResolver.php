@@ -100,6 +100,12 @@ class LeaveResolver
         }
     }
 
+    public function flush(): void
+    {
+        $this->hits = [];
+        $this->loaded = [];
+    }
+
     private function has(int $employeeId, string $date): bool
     {
         return array_key_exists($date, $this->hits)
