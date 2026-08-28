@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveApprovalWorkflow;
 use App\Models\LeaveApprovalWorkflowApprover;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -19,7 +20,16 @@ class LeaveWorkflowSeeder extends Seeder
         if ($default) {
             $default->update(['parallel_rule' => LeaveParallelRule::All]);
             $this->syncStage($default, LeaveApprovalStage::AdministrativeHead, $this->usersByPosition(['Chief Administrative', 'Admin Manager']));
-            $this->syncStage($default, LeaveApprovalStage::HrOfficer, $this->usersByPosition(['HR Officer']));
+        }
+
+        $ceo = Employee::query()
+            ->where('position', 'like', '%CEO%')
+            ->with('user')
+            ->first()
+            ?->user;
+
+        if ($ceo) {
+            Setting::put('ceo_user_id', (string) $ceo->id);
         }
 
         Department::query()->active()->ordered()->each(function (Department $department) use ($default) {
@@ -29,7 +39,8 @@ class LeaveWorkflowSeeder extends Seeder
                     'name' => $department->name,
                     'parallel_rule' => $default?->parallel_rule ?? LeaveParallelRule::All,
                     'is_default' => false,
-                    'is_active' => true,
+                    'is_active' => false,
+                    'version' => 1,
                 ]
             );
 
@@ -49,7 +60,6 @@ class LeaveWorkflowSeeder extends Seeder
             $this->syncStage($workflow, LeaveApprovalStage::ImmediateSupervisor, $leaders);
             $this->syncStage($workflow, LeaveApprovalStage::DepartmentHead, $leaders->take(1));
             $this->syncStage($workflow, LeaveApprovalStage::AdministrativeHead, $this->usersByPosition(['Chief Administrative', 'Admin Manager']));
-            $this->syncStage($workflow, LeaveApprovalStage::HrOfficer, $this->usersByPosition(['HR Officer']));
         });
     }
 

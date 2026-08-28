@@ -32,6 +32,8 @@ class LeaveApplicationService
         private readonly LeaveNotificationService $notifier,
         private readonly AuditLogger $audit,
         private readonly LeaveResolver $leaveResolver,
+        private readonly CeoResolver $ceo,
+        private readonly LeaveWorkflowService $workflows,
     ) {}
 
     public function submit(Employee $employee, User $actor, array $data): LeaveApplication
@@ -95,10 +97,25 @@ class LeaveApplicationService
 
         return DB::transaction(function () use ($employee, $actor, $data, $type, $special, $requested, $signature) {
             $workflow = LeaveApprovalWorkflow::forDepartment($employee->department_id);
+
+            if ($workflow->isDepartmentSpecific() && ! $this->workflows->isComplete($workflow)) {
+                throw ValidationException::withMessages([
+                    'leave_type' => 'Leave applications cannot be submitted because your department approval workflow is incomplete. Contact the administrator.',
+                ]);
+            }
+
+            if (! $this->ceo->user()) {
+                throw ValidationException::withMessages([
+                    'leave_type' => 'Leave applications cannot be submitted because the CEO final approver has not been designated.',
+                ]);
+            }
+
             $application = LeaveApplication::query()->create([
                 'application_number' => $this->nextNumber(),
                 'employee_id' => $employee->id,
                 'department_id' => $employee->department_id,
+                'workflow_id' => $workflow->id,
+                'workflow_version' => $workflow->version,
                 'leave_type' => $type,
                 'special_leave_type' => $special,
                 'start_date' => $data['start_date'],
@@ -118,11 +135,11 @@ class LeaveApplicationService
             $this->snapshotApprovers($application, $workflow, $employee);
             $first = $this->advanceToNextPendingStage($application, null);
             $application->update([
-                'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
-                'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
+                'status' => $first?->pendingStatus() ?? LeaveStatus::PendingCeoFinalApproval,
+                'current_stage' => $first ?? LeaveApprovalStage::CeoFinalApproval,
             ]);
 
-            $this->recordAction($application, $actor, $first ?? LeaveApprovalStage::HrOfficer, 'submitted', null, null, $application->status, 'Leave application submitted.');
+            $this->recordAction($application, $actor, $first ?? LeaveApprovalStage::CeoFinalApproval, 'submitted', null, null, $application->status, 'Leave application submitted.');
             $this->audit->log($actor, 'leave_submitted', 'Leave', $application->id, "{$employee->fullName()} submitted {$application->application_number}.");
 
             return $application->fresh(['employee.department', 'employee.user', 'assignments.user', 'actions.user']);
@@ -160,6 +177,12 @@ class LeaveApplicationService
         if ($stage === LeaveApprovalStage::HrOfficer) {
             throw ValidationException::withMessages([
                 'decision' => 'HR processing is completed from the HR section, not the approval action.',
+            ]);
+        }
+
+        if ($stage === LeaveApprovalStage::CeoFinalApproval && ! $this->ceo->isAuthorized($actor)) {
+            throw ValidationException::withMessages([
+                'decision' => 'Only the designated CEO can perform final approval.',
             ]);
         }
 
@@ -213,12 +236,13 @@ class LeaveApplicationService
                 ]);
                 $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, LeaveStatus::Denied, $reason);
                 $this->audit->log($actor, 'leave_denied', 'Leave', $application->id, "{$application->application_number} was denied at {$stage->shortLabel()}.");
-                $this->notifier->decisionToEmployee(
-                    $application,
-                    'Leave application denied',
-                    "Your leave application {$application->application_number} was denied.",
-                    'error'
-                );
+                $title = $stage === LeaveApprovalStage::CeoFinalApproval
+                    ? 'Leave application final denied'
+                    : 'Leave application denied';
+                $message = $stage === LeaveApprovalStage::CeoFinalApproval
+                    ? "CEO final denial for {$application->application_number}."
+                    : "Your leave application {$application->application_number} was denied.";
+                $this->notifier->decisionToEmployee($application, $title, $message, 'error');
 
                 return $application->fresh(['employee.user', 'assignments.user', 'actions.user']);
             }
@@ -246,12 +270,15 @@ class LeaveApplicationService
                     'current_stage' => LeaveApprovalStage::HrOfficer,
                 ]);
                 $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, LeaveStatus::PendingHr, $reason);
-                $this->notifier->decisionToEmployee(
-                    $application,
-                    'Leave forwarded to HR',
-                    "Approvals for {$application->application_number} are complete. HR is processing your leave.",
-                    'success'
-                );
+
+                $title = $stage === LeaveApprovalStage::CeoFinalApproval
+                    ? 'Leave application final approved'
+                    : 'Leave forwarded to HR';
+                $message = $stage === LeaveApprovalStage::CeoFinalApproval
+                    ? "CEO final approval granted for {$application->application_number}. HR is processing your leave."
+                    : "Approvals for {$application->application_number} are complete. HR is processing your leave.";
+
+                $this->notifier->decisionToEmployee($application, $title, $message, 'success');
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), LeaveApprovalStage::HrOfficer);
             }
 
@@ -483,6 +510,15 @@ class LeaveApplicationService
             return false;
         }
 
+        if ($application->current_stage === LeaveApprovalStage::CeoFinalApproval) {
+            return $this->ceo->isAuthorized($user)
+                && $application->assignments()
+                    ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                    ->where('user_id', $user->id)
+                    ->where('status', 'pending')
+                    ->exists();
+        }
+
         return $application->assignments()
             ->where('stage', $application->current_stage->value)
             ->where('user_id', $user->id)
@@ -517,7 +553,7 @@ class LeaveApplicationService
     {
         $workflow->load(['approvers.user.employee']);
 
-        foreach (LeaveApprovalStage::sequence() as $stage) {
+        foreach (LeaveApprovalStage::configurable() as $stage) {
             $approvers = $workflow->approvers->where('stage', $stage);
             $sort = 0;
 
@@ -531,18 +567,21 @@ class LeaveApplicationService
             }
         }
 
-        if ($application->assignments()->where('stage', LeaveApprovalStage::HrOfficer->value)->doesntExist()) {
-            User::query()
-                ->where('role', UserRole::Admin)
-                ->where('status', 'active')
-                ->get()
-                ->each(function (User $user, int $index) use ($application, $employee) {
-                    if ($user->employee?->id === $employee->id) {
-                        return;
-                    }
-                    $this->createAssignment($application, LeaveApprovalStage::HrOfficer, $user, $index);
-                });
+        $ceo = $this->ceo->user();
+        if ($ceo && $ceo->employee?->id !== $employee->id) {
+            $this->createAssignment($application, LeaveApprovalStage::CeoFinalApproval, $ceo, 0);
         }
+
+        User::query()
+            ->where('role', UserRole::Admin)
+            ->where('status', 'active')
+            ->get()
+            ->each(function (User $user, int $index) use ($application, $employee) {
+                if ($user->employee?->id === $employee->id) {
+                    return;
+                }
+                $this->createAssignment($application, LeaveApprovalStage::HrOfficer, $user, $index);
+            });
     }
 
     private function createAssignment(LeaveApplication $application, LeaveApprovalStage $stage, User $user, int $sort): void

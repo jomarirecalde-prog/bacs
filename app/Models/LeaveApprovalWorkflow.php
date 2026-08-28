@@ -16,6 +16,9 @@ class LeaveApprovalWorkflow extends Model
         'parallel_rule',
         'is_default',
         'is_active',
+        'version',
+        'created_by',
+        'updated_by',
     ];
 
     protected function casts(): array
@@ -32,6 +35,21 @@ class LeaveApprovalWorkflow extends Model
         return $this->belongsTo(Department::class);
     }
 
+    public function createdByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function configurationHistories(): HasMany
+    {
+        return $this->hasMany(LeaveWorkflowConfigurationHistory::class, 'workflow_id')->latest();
+    }
+
     public function approvers(): HasMany
     {
         return $this->hasMany(LeaveApprovalWorkflowApprover::class, 'workflow_id')->orderBy('stage')->orderBy('sort_order');
@@ -44,10 +62,22 @@ class LeaveApprovalWorkflow extends Model
 
     public static function forDepartment(?int $departmentId): self
     {
-        $match = $departmentId
-            ? static::query()->where('department_id', $departmentId)->where('is_active', true)->first()
-            : null;
+        if ($departmentId) {
+            $match = static::query()
+                ->where('department_id', $departmentId)
+                ->where('is_active', true)
+                ->first();
 
-        return $match ?: static::query()->where('is_default', true)->firstOrFail();
+            if ($match) {
+                return $match;
+            }
+        }
+
+        return static::query()->where('is_default', true)->firstOrFail();
+    }
+
+    public function isDepartmentSpecific(): bool
+    {
+        return $this->department_id !== null && ! $this->is_default;
     }
 }

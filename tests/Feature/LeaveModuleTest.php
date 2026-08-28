@@ -18,6 +18,7 @@ use App\Models\LeaveApprovalWorkflow;
 use App\Models\LeaveApprovalWorkflowApprover;
 use App\Models\LeaveBalance;
 use App\Models\LeaveBalanceAdjustment;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Services\LeaveBalanceService;
@@ -58,6 +59,34 @@ class LeaveModuleTest extends TestCase
 
         $this->workflow = LeaveApprovalWorkflow::query()->where('is_default', true)->firstOrFail();
         $this->workflow->update(['parallel_rule' => LeaveParallelRule::All]);
+
+        $this->ensureCeo();
+    }
+
+    private function ensureCeo(): User
+    {
+        $ceo = User::factory()->create([
+            'username' => 'ceo-final',
+            'email' => 'ceo-final@bacs.test',
+            'name' => 'CEO Approver',
+            'role' => UserRole::Supervisor,
+        ]);
+
+        Employee::query()->create([
+            'user_id' => $ceo->id,
+            'employee_number' => 'CEO-001',
+            'first_name' => 'CEO',
+            'last_name' => 'Approver',
+            'email' => $ceo->email,
+            'department_id' => $this->department->id,
+            'position' => 'CEO / President',
+            'employment_status' => EmploymentStatus::Regular,
+            'work_schedule_id' => $this->schedule->id,
+        ]);
+
+        Setting::put('ceo_user_id', (string) $ceo->id);
+
+        return $ceo->fresh('employee');
     }
 
     public function test_employee_can_submit_official_leave_application(): void
@@ -132,7 +161,14 @@ class LeaveModuleTest extends TestCase
         ])->assertRedirect();
 
         $application->refresh();
-        $this->assertSame(LeaveStatus::PendingHr, $application->status);
+        $this->assertSame(LeaveStatus::PendingCeoFinalApproval, $application->status);
+
+        $ceo = User::query()->where('username', 'ceo-final')->firstOrFail();
+        $this->actingAs($ceo)->post(route('leave.approvals.decide', $application), [
+            'decision' => 'approved',
+        ])->assertRedirect();
+
+        $this->assertSame(LeaveStatus::PendingHr, $application->fresh()->status);
     }
 
     public function test_parallel_any_advances_after_one_approval(): void
@@ -151,7 +187,7 @@ class LeaveModuleTest extends TestCase
             'decision' => 'approved',
         ])->assertRedirect();
 
-        $this->assertSame(LeaveStatus::PendingHr, $application->fresh()->status);
+        $this->assertSame(LeaveStatus::PendingCeoFinalApproval, $application->fresh()->status);
     }
 
     public function test_parallel_all_denial_is_recorded_and_does_not_delete_the_application(): void
@@ -221,13 +257,17 @@ class LeaveModuleTest extends TestCase
         $admin = User::factory()->admin()->create(['username' => 'hr-admin']);
         $staff = $this->staff();
         $boss = $this->approver('boss1');
+        $ceo = User::query()->where('username', 'ceo-final')->firstOrFail();
         $this->assign($boss, LeaveApprovalStage::ImmediateSupervisor);
-        $this->assign($admin, LeaveApprovalStage::HrOfficer);
 
         $this->actingAs($staff->user)->post(route('employee.leave.store'), $this->payload());
         $application = LeaveApplication::query()->first();
 
         $this->actingAs($boss)->post(route('leave.approvals.decide', $application), [
+            'decision' => 'approved',
+        ]);
+
+        $this->actingAs($ceo)->post(route('leave.approvals.decide', $application), [
             'decision' => 'approved',
         ]);
 
@@ -257,8 +297,8 @@ class LeaveModuleTest extends TestCase
         $admin = User::factory()->admin()->create(['username' => 'hr-admin']);
         $staff = $this->staff();
         $boss = $this->approver('boss1');
+        $ceo = User::query()->where('username', 'ceo-final')->firstOrFail();
         $this->assign($boss, LeaveApprovalStage::ImmediateSupervisor);
-        $this->assign($admin, LeaveApprovalStage::HrOfficer);
 
         Attendance::query()->create([
             'employee_id' => $staff->id,
@@ -271,6 +311,7 @@ class LeaveModuleTest extends TestCase
         $this->actingAs($staff->user)->post(route('employee.leave.store'), $this->payload());
         $application = LeaveApplication::query()->first();
         $this->actingAs($boss)->post(route('leave.approvals.decide', $application), ['decision' => 'approved']);
+        $this->actingAs($ceo)->post(route('leave.approvals.decide', $application), ['decision' => 'approved']);
         $this->actingAs($admin)->post(route('admin.leave.hr', $application), [
             'decision' => 'approved',
             'payment_type' => LeavePaymentType::WithPay->value,

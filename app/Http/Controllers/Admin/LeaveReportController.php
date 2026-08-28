@@ -34,6 +34,7 @@ class LeaveReportController extends Controller
                 LeaveStatus::PendingSupervisor,
                 LeaveStatus::PendingDepartmentHead,
                 LeaveStatus::PendingAdministrativeHead,
+                LeaveStatus::PendingCeoFinalApproval,
                 LeaveStatus::PendingHr,
                 LeaveStatus::PartiallyApproved,
             ])->count(),

@@ -219,8 +219,13 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::delete('/settings/holidays/{holiday}', [SettingController::class, 'destroyHoliday'])->middleware('role:admin')->name('settings.holidays.destroy');
 
         Route::get('/leave', [AdminLeaveApplicationController::class, 'index'])->name('leave.index');
-        Route::get('/leave/configuration', [LeaveWorkflowController::class, 'edit'])->middleware('role:admin')->name('leave.workflow');
-        Route::put('/leave/configuration', [LeaveWorkflowController::class, 'update'])->middleware('role:admin')->name('leave.workflow.update');
+        Route::get('/leave/configuration', [LeaveWorkflowController::class, 'index'])->middleware('role:admin')->name('leave.workflow');
+        Route::get('/leave/configuration/employees/search', [LeaveWorkflowController::class, 'searchEmployees'])->middleware('role:admin')->name('leave.workflow.employees.search');
+        Route::get('/leave/configuration/{department}', [LeaveWorkflowController::class, 'show'])->middleware('role:admin')->name('leave.workflow.show');
+        Route::put('/leave/configuration/{department}', [LeaveWorkflowController::class, 'update'])->middleware('role:admin')->name('leave.workflow.update');
+        Route::post('/leave/configuration/{department}/activate', [LeaveWorkflowController::class, 'activate'])->middleware('role:admin')->name('leave.workflow.activate');
+        Route::post('/leave/configuration/{department}/deactivate', [LeaveWorkflowController::class, 'deactivate'])->middleware('role:admin')->name('leave.workflow.deactivate');
+        Route::get('/leave/configuration/{department}/history', [LeaveWorkflowController::class, 'history'])->middleware('role:admin')->name('leave.workflow.history');
         Route::get('/leave/entitlements', [LeaveEntitlementController::class, 'index'])->middleware('role:admin')->name('leave.entitlements');
         Route::get('/leave/entitlements/policy', [LeavePolicyController::class, 'edit'])->middleware('role:admin')->name('leave.policy');
         Route::put('/leave/entitlements/policy', [LeavePolicyController::class, 'update'])->middleware('role:admin')->name('leave.policy.update');

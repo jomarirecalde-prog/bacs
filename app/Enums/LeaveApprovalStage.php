@@ -7,6 +7,7 @@ enum LeaveApprovalStage: string
     case ImmediateSupervisor = 'immediate_supervisor';
     case DepartmentHead = 'department_head';
     case AdministrativeHead = 'administrative_head';
+    case CeoFinalApproval = 'ceo_final_approval';
     case HrOfficer = 'hr_officer';
 
     public function label(): string
@@ -15,7 +16,8 @@ enum LeaveApprovalStage: string
             self::ImmediateSupervisor => 'Immediate Supervisor/Superior Approval',
             self::DepartmentHead => 'Department Head',
             self::AdministrativeHead => 'Administrative Head',
-            self::HrOfficer => 'HR Officer',
+            self::CeoFinalApproval => 'CEO — Final Approval',
+            self::HrOfficer => 'HR Processing',
         };
     }
 
@@ -25,6 +27,7 @@ enum LeaveApprovalStage: string
             self::ImmediateSupervisor => 'Immediate Supervisor/Superior',
             self::DepartmentHead => 'Department Head',
             self::AdministrativeHead => 'Administrative Head',
+            self::CeoFinalApproval => 'CEO',
             self::HrOfficer => 'HR Processing',
         };
     }
@@ -34,12 +37,18 @@ enum LeaveApprovalStage: string
         return $this === self::ImmediateSupervisor;
     }
 
+    public function isFinalApproval(): bool
+    {
+        return $this === self::CeoFinalApproval;
+    }
+
     public function pendingStatus(): LeaveStatus
     {
         return match ($this) {
             self::ImmediateSupervisor => LeaveStatus::PendingSupervisor,
             self::DepartmentHead => LeaveStatus::PendingDepartmentHead,
             self::AdministrativeHead => LeaveStatus::PendingAdministrativeHead,
+            self::CeoFinalApproval => LeaveStatus::PendingCeoFinalApproval,
             self::HrOfficer => LeaveStatus::PendingHr,
         };
     }
@@ -49,8 +58,8 @@ enum LeaveApprovalStage: string
         return match ($this) {
             self::ImmediateSupervisor => self::DepartmentHead,
             self::DepartmentHead => self::AdministrativeHead,
-            self::AdministrativeHead => self::HrOfficer,
-            self::HrOfficer => null,
+            self::AdministrativeHead => self::CeoFinalApproval,
+            self::CeoFinalApproval, self::HrOfficer => null,
         };
     }
 
@@ -61,7 +70,17 @@ enum LeaveApprovalStage: string
             self::ImmediateSupervisor,
             self::DepartmentHead,
             self::AdministrativeHead,
-            self::HrOfficer,
+            self::CeoFinalApproval,
+        ];
+    }
+
+    /** @return list<self> Stages configurable per department by Superadmin. */
+    public static function configurable(): array
+    {
+        return [
+            self::ImmediateSupervisor,
+            self::DepartmentHead,
+            self::AdministrativeHead,
         ];
     }
 }

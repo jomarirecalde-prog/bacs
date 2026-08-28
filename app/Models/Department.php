@@ -28,6 +28,11 @@ class Department extends Model
         return $this->hasMany(Employee::class);
     }
 
+    public function leaveWorkflow(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(LeaveApprovalWorkflow::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === AccountStatus::Active;

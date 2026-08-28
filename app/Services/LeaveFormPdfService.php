@@ -60,6 +60,7 @@ class LeaveFormPdfService
             'supervisor' => $this->stageSummary($application, \App\Enums\LeaveApprovalStage::ImmediateSupervisor),
             'departmentHead' => $this->stageSummary($application, \App\Enums\LeaveApprovalStage::DepartmentHead),
             'adminHead' => $this->stageSummary($application, \App\Enums\LeaveApprovalStage::AdministrativeHead),
+            'ceoFinalApproval' => $this->stageSummary($application, \App\Enums\LeaveApprovalStage::CeoFinalApproval),
             'hrOfficer' => $this->stageSummary($application, \App\Enums\LeaveApprovalStage::HrOfficer),
         ];
     }

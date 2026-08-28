@@ -824,6 +824,43 @@ document.addEventListener('alpine:init', () => {
             }
         },
     }));
+
+    Alpine.data('approverPicker', ({ name, multiple, selected, searchUrl }) => ({
+        name,
+        multiple,
+        selected: [...(selected || [])],
+        query: '',
+        results: [],
+        open: false,
+        inputName() {
+            return `${this.name}[]`;
+        },
+        async search() {
+            if (this.query.trim().length < 2) {
+                this.results = [];
+                return;
+            }
+            const res = await fetch(`${searchUrl}?q=${encodeURIComponent(this.query)}`, {
+                headers: { Accept: 'application/json' },
+            });
+            const data = await res.json();
+            this.results = (data.results || []).filter((r) => !this.selected.some((s) => s.id === r.id));
+            this.open = true;
+        },
+        add(person) {
+            if (!this.multiple) {
+                this.selected = [person];
+            } else if (!this.selected.some((s) => s.id === person.id)) {
+                this.selected.push(person);
+            }
+            this.query = '';
+            this.results = [];
+            this.open = false;
+        },
+        remove(id) {
+            this.selected = this.selected.filter((s) => s.id !== id);
+        },
+    }));
 });
 
 function escapeHtml(value) {

@@ -21,6 +21,8 @@ class LeaveApplication extends Model
         'application_number',
         'employee_id',
         'department_id',
+        'workflow_id',
+        'workflow_version',
         'leave_type',
         'special_leave_type',
         'start_date',
@@ -82,6 +84,11 @@ class LeaveApplication extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function workflow(): BelongsTo
+    {
+        return $this->belongsTo(LeaveApprovalWorkflow::class, 'workflow_id');
     }
 
     public function assignments(): HasMany

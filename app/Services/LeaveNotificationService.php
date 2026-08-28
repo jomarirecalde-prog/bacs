@@ -35,6 +35,7 @@ class LeaveNotificationService
         $titles = [
             LeaveApprovalStage::DepartmentHead->value => 'Leave request ready for department head',
             LeaveApprovalStage::AdministrativeHead->value => 'Leave request ready for administrative head',
+            LeaveApprovalStage::CeoFinalApproval->value => 'Leave request ready for CEO final approval',
             LeaveApprovalStage::HrOfficer->value => 'Leave request ready for HR processing',
             LeaveApprovalStage::ImmediateSupervisor->value => 'New leave application for approval',
         ];

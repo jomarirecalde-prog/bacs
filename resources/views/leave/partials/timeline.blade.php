@@ -37,6 +37,9 @@
                     @if ($stage->isParallel())
                         <span class="badge-gold">Parallel</span>
                     @endif
+                    @if ($stage->isFinalApproval())
+                        <span class="badge-gold">Final Approval</span>
+                    @endif
                     @if ($isCurrent)
                         <span class="badge-warn">Current</span>
                     @endif

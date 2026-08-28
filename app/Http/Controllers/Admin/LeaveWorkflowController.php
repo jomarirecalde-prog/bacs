@@ -4,88 +4,167 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\LeaveApprovalStage;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\UpdateLeaveWorkflowRequest;
+use App\Http\Requests\Admin\UpdateDepartmentLeaveWorkflowRequest;
 use App\Models\Department;
 use App\Models\LeaveApplication;
 use App\Models\LeaveApprovalWorkflow;
-use App\Models\LeaveApprovalWorkflowApprover;
-use App\Models\User;
 use App\Services\AuditLogger;
-use Illuminate\Support\Facades\DB;
+use App\Services\CeoResolver;
+use App\Services\LeaveWorkflowService;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class LeaveWorkflowController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly LeaveWorkflowService $workflows,
+        private readonly CeoResolver $ceo,
+        private readonly AuditLogger $audit,
+    ) {}
 
-    public function edit()
+    public function index(Request $request)
     {
         $this->authorize('configure', LeaveApplication::class);
 
-        $this->ensureDepartmentWorkflows();
+        $query = Department::query()->active()->ordered()->withCount('employees');
+
+        if ($search = trim((string) $request->query('q', ''))) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $departments = $query->paginate(20)->withQueryString();
 
         $workflows = LeaveApprovalWorkflow::query()
-            ->with(['department', 'approvers.user.employee'])
-            ->orderByDesc('is_default')
-            ->orderBy('id')
-            ->get();
+            ->with(['approvers.user.employee', 'updatedByUser'])
+            ->whereIn('department_id', $departments->pluck('id'))
+            ->get()
+            ->keyBy('department_id');
 
-        $users = User::query()
-            ->with('employee.department')
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+        foreach ($departments as $department) {
+            if (! $workflows->has($department->id)) {
+                $workflows->put($department->id, $this->workflows->ensureForDepartment($department, $request->user()));
+            }
+        }
 
-        return view('admin.leave.workflow', [
+        return view('admin.leave.configuration.index', [
+            'departments' => $departments,
             'workflows' => $workflows,
-            'users' => $users,
-            'stages' => LeaveApprovalStage::cases(),
+            'ceoLabel' => $this->ceo->label(),
+            'workflowService' => $this->workflows,
+            'filters' => [
+                'q' => $search ?? '',
+                'status' => $request->query('status', ''),
+            ],
         ]);
     }
 
-    public function update(UpdateLeaveWorkflowRequest $request)
+    public function show(Department $department)
     {
         $this->authorize('configure', LeaveApplication::class);
 
-        DB::transaction(function () use ($request) {
-            foreach ($request->validated('workflows') as $payload) {
-                $workflow = LeaveApprovalWorkflow::query()->findOrFail($payload['id']);
-                $workflow->update(['parallel_rule' => $payload['parallel_rule']]);
+        $workflow = $this->workflows->ensureForDepartment($department, request()->user());
+        $workflow->load(['approvers.user.employee', 'updatedByUser', 'department']);
 
-                LeaveApprovalWorkflowApprover::query()->where('workflow_id', $workflow->id)->delete();
+        $selected = [];
+        foreach (LeaveApprovalStage::configurable() as $stage) {
+            $selected[$stage->value] = $workflow->approvers
+                ->where('stage', $stage)
+                ->map(fn ($row) => [
+                    'id' => $row->user_id,
+                    'name' => $row->user?->employee?->fullName() ?: $row->user?->name,
+                    'position' => $row->user?->employee?->position,
+                    'department' => $row->user?->employee?->department?->name,
+                ])
+                ->values()
+                ->all();
+        }
 
-                foreach (LeaveApprovalStage::cases() as $stage) {
-                    $ids = array_values(array_unique($payload['approvers'][$stage->value] ?? []));
-                    foreach ($ids as $index => $userId) {
-                        LeaveApprovalWorkflowApprover::query()->create([
-                            'workflow_id' => $workflow->id,
-                            'stage' => $stage,
-                            'user_id' => $userId,
-                            'sort_order' => $index,
-                        ]);
-                    }
-                }
-            }
-        });
-
-        $this->audit->log($request->user(), 'leave_workflow_updated', 'Leave', null, 'Leave approval workflows were updated.');
-
-        return back()->with('success', 'Leave approval configuration saved.');
+        return view('admin.leave.configuration.show', [
+            'department' => $department->loadCount('employees'),
+            'workflow' => $workflow,
+            'stages' => LeaveApprovalStage::configurable(),
+            'selected' => $selected,
+            'missing' => $this->workflows->missingRequirements($workflow),
+            'ceoLabel' => $this->ceo->label(),
+            'ceoUser' => $this->ceo->user(),
+            'parallelLabel' => $this->workflows->parallelRequirementLabel($workflow),
+        ]);
     }
 
-    private function ensureDepartmentWorkflows(): void
+    public function update(UpdateDepartmentLeaveWorkflowRequest $request, Department $department)
     {
-        $default = LeaveApprovalWorkflow::query()->where('is_default', true)->first();
+        $this->authorize('configure', LeaveApplication::class);
 
-        Department::query()->active()->ordered()->each(function (Department $department) use ($default) {
-            LeaveApprovalWorkflow::query()->firstOrCreate(
-                ['department_id' => $department->id],
-                [
-                    'name' => $department->name,
-                    'parallel_rule' => $default?->parallel_rule ?? \App\Enums\LeaveParallelRule::All,
-                    'is_default' => false,
-                    'is_active' => true,
-                ]
-            );
-        });
+        $workflow = $this->workflows->ensureForDepartment($department, $request->user());
+
+        try {
+            $this->workflows->updateWorkflow($workflow, $request->validated(), $request->user());
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['activate' => $exception->getMessage()]);
+        }
+
+        $this->audit->log($request->user(), 'leave_workflow_updated', 'Leave', $workflow->id, "Leave approval workflow updated for {$department->name}.");
+
+        return redirect()
+            ->route('admin.leave.workflow.show', $department)
+            ->with('success', 'Department leave approval configuration saved.');
+    }
+
+    public function activate(Request $request, Department $department)
+    {
+        $this->authorize('configure', LeaveApplication::class);
+
+        $workflow = $this->workflows->ensureForDepartment($department, $request->user());
+        $missing = $this->workflows->missingRequirements($workflow);
+
+        if ($missing !== []) {
+            throw ValidationException::withMessages([
+                'workflow' => 'Cannot activate this workflow. '.implode(', ', $missing).' not assigned.',
+            ]);
+        }
+
+        $this->workflows->activate($workflow, $request->user());
+        $this->audit->log($request->user(), 'leave_workflow_activated', 'Leave', $workflow->id, "Activated leave workflow for {$department->name}.");
+
+        return back()->with('success', 'Workflow activated.');
+    }
+
+    public function deactivate(Request $request, Department $department)
+    {
+        $this->authorize('configure', LeaveApplication::class);
+
+        $workflow = $this->workflows->ensureForDepartment($department, $request->user());
+        $this->workflows->deactivate($workflow, $request->user());
+        $this->audit->log($request->user(), 'leave_workflow_deactivated', 'Leave', $workflow->id, "Deactivated leave workflow for {$department->name}.");
+
+        return back()->with('success', 'Workflow deactivated.');
+    }
+
+    public function history(Department $department)
+    {
+        $this->authorize('configure', LeaveApplication::class);
+
+        $workflow = $this->workflows->ensureForDepartment($department, request()->user());
+
+        $histories = $workflow->configurationHistories()
+            ->with('updatedByUser')
+            ->paginate(25);
+
+        return view('admin.leave.configuration.history', [
+            'department' => $department,
+            'workflow' => $workflow,
+            'histories' => $histories,
+        ]);
+    }
+
+    public function searchEmployees(Request $request)
+    {
+        $this->authorize('configure', LeaveApplication::class);
+
+        $term = (string) $request->query('q', '');
+
+        return response()->json([
+            'results' => $this->workflows->searchEmployees($term),
+        ]);
     }
 }

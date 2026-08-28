@@ -26,17 +26,23 @@
             </div>
 
             @if ($canApprove)
+                @php $isCeoFinal = $application->current_stage === \App\Enums\LeaveApprovalStage::CeoFinalApproval; @endphp
                 <div class="card card-accent-brand" x-data="{ decision: 'approved' }">
-                    <div class="card-header"><h3 class="card-title">Your decision</h3></div>
+                    <div class="card-header">
+                        <h3 class="card-title">{{ $isCeoFinal ? 'CEO Final Decision' : 'Your decision' }}</h3>
+                        @if ($isCeoFinal)
+                            <p class="text-xs text-gold-700 font-semibold">FINAL APPROVAL</p>
+                        @endif
+                    </div>
                     <form method="POST" action="{{ route('leave.approvals.decide', $application) }}" class="card-body space-y-4" @submit="beforeSubmit">
                         @csrf
                         <label class="flex items-center gap-2">
                             <input type="radio" name="decision" value="approved" class="radio" x-model="decision">
-                            <span class="font-semibold text-brand-800">APPROVED</span>
+                            <span class="font-semibold text-brand-800">{{ $isCeoFinal ? 'FINAL APPROVE' : 'APPROVED' }}</span>
                         </label>
                         <label class="flex items-center gap-2">
                             <input type="radio" name="decision" value="denied" class="radio" x-model="decision">
-                            <span class="font-semibold text-critical-700">DENIED</span>
+                            <span class="font-semibold text-critical-700">{{ $isCeoFinal ? 'FINAL DENY' : 'DENIED' }}</span>
                         </label>
                         <div>
                             <label class="label" for="reason">Reason <span x-show="decision === 'denied'" class="text-critical-600">*</span></label>

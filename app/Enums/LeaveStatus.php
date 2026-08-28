@@ -7,6 +7,7 @@ enum LeaveStatus: string
     case PendingSupervisor = 'pending_supervisor';
     case PendingDepartmentHead = 'pending_department_head';
     case PendingAdministrativeHead = 'pending_administrative_head';
+    case PendingCeoFinalApproval = 'pending_ceo_final_approval';
     case PendingHr = 'pending_hr';
     case Approved = 'approved';
     case Denied = 'denied';
@@ -19,6 +20,7 @@ enum LeaveStatus: string
             self::PendingSupervisor => 'Pending Parallel Approval',
             self::PendingDepartmentHead => 'Pending Department Head',
             self::PendingAdministrativeHead => 'Pending Administrative Head',
+            self::PendingCeoFinalApproval => 'Pending CEO Final Approval',
             self::PendingHr => 'Pending HR Processing',
             self::Approved => 'Approved',
             self::Denied => 'Denied',
@@ -33,7 +35,7 @@ enum LeaveStatus: string
             self::Approved => 'brand',
             self::Denied, self::Cancelled => 'critical',
             self::PartiallyApproved => 'gold',
-            self::PendingSupervisor, self::PendingDepartmentHead, self::PendingAdministrativeHead, self::PendingHr => 'warn',
+            self::PendingSupervisor, self::PendingDepartmentHead, self::PendingAdministrativeHead, self::PendingCeoFinalApproval, self::PendingHr => 'warn',
         };
     }
 
@@ -53,6 +55,7 @@ enum LeaveStatus: string
             self::PendingSupervisor,
             self::PendingDepartmentHead,
             self::PendingAdministrativeHead,
+            self::PendingCeoFinalApproval,
             self::PendingHr,
             self::PartiallyApproved,
         ], true);
@@ -74,6 +77,7 @@ enum LeaveStatus: string
             self::PendingSupervisor => LeaveApprovalStage::ImmediateSupervisor,
             self::PendingDepartmentHead => LeaveApprovalStage::DepartmentHead,
             self::PendingAdministrativeHead => LeaveApprovalStage::AdministrativeHead,
+            self::PendingCeoFinalApproval => LeaveApprovalStage::CeoFinalApproval,
             self::PendingHr, self::PartiallyApproved => LeaveApprovalStage::HrOfficer,
             default => null,
         };
