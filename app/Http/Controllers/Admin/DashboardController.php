@@ -6,57 +6,53 @@ use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\CalendarEvent;
-use App\Models\Department;
 use App\Models\Employee;
 use App\Services\AttendanceService;
 use App\Services\CalendarService;
+use App\Services\DirectoryCatalog;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
     public function __construct(
         private readonly AttendanceService $attendanceService,
         private readonly CalendarService $calendar,
+        private readonly DirectoryCatalog $catalog,
     ) {}
 
     public function index(Request $request)
     {
         $date = $request->string('date')->toString() ?: ManilaTime::todayDate();
-        $summary = $this->attendanceService->dashboardSummary($date);
+        $snapshot = $this->attendanceService->dashboardSnapshot($date);
         $rows = $this->rosterQuery($request)->paginate(15)->withQueryString();
         $attendance = $this->attendanceMap($date, $rows->getCollection()->pluck('id'));
 
         return view('admin.dashboard', [
-            'summary' => $summary,
-            'departmentSummaries' => $this->attendanceService->departmentSummaries($date),
+            'summary' => $snapshot['summary'],
+            'departmentSummaries' => $snapshot['departments'],
             'rows' => $rows,
             'attendance' => $attendance,
-            'departments' => Department::query()->active()->ordered()->get(),
-            'employees' => Employee::query()
-                ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
-                ->orderBy('last_name')
-                ->get(),
+            'departments' => $this->catalog->departments(),
+            'employees' => $this->catalog->employeeOptions($request->filled('department_id') ? $request->integer('department_id') : null),
             'statuses' => AttendanceStatus::cases(),
             'filters' => $request->only(['q', 'department_id', 'employee_id', 'status', 'date']),
             'date' => $date,
-            'upcomingEvents' => Schema::hasTable('calendar_events')
-                ? $this->calendar->upcoming(CalendarEvent::query()->published(), days: 90, limit: 6)
-                : collect(),
+            'upcomingEvents' => $this->calendar->upcoming(CalendarEvent::query()->published(), days: 90, limit: 6),
+            'liveUrl' => route('admin.dashboard.live'),
         ]);
     }
 
     public function live(Request $request)
     {
         $date = $request->string('date')->toString() ?: ManilaTime::todayDate();
-        $summary = $this->attendanceService->dashboardSummary($date);
+        $snapshot = $this->attendanceService->dashboardSnapshot($date);
         $employees = $this->rosterQuery($request)->limit(50)->get();
         $attendance = $this->attendanceMap($date, $employees->pluck('id'));
 
         return response()->json([
-            'summary' => $summary,
-            'departments' => $this->attendanceService->departmentSummaries($date),
+            'summary' => $snapshot['summary'],
+            'departments' => $snapshot['departments'],
             'server_time' => ManilaTime::now()->format('h:i:s A'),
             'rows' => $employees->map(function (Employee $employee) use ($attendance) {
                 $row = $attendance->get($employee->id);
@@ -64,14 +60,17 @@ class DashboardController extends Controller
                 return [
                     'id' => $employee->id,
                     'employee' => $employee->fullName(),
+                    'number' => $employee->employee_number,
                     'position' => $employee->position,
                     'department' => $employee->department?->name,
+                    'show_url' => route('admin.employees.show', $employee),
                     'time_in' => ManilaTime::formatTime($row?->time_in) ?? '—',
                     'time_out' => ManilaTime::formatTime($row?->time_out) ?? '—',
                     'hours' => $row?->totalHoursLabel() ?? '0:00',
                     'status' => $row?->displayStatus() ?? 'Absent',
                     'status_value' => $row?->status?->value ?? 'absent',
                     'status_color' => $row?->status?->color() ?? 'red',
+                    'working' => (bool) ($row?->hasTimeIn() && ! $row?->hasTimeOut()),
                 ];
             }),
         ]);
@@ -80,7 +79,7 @@ class DashboardController extends Controller
     private function rosterQuery(Request $request)
     {
         return Employee::query()
-            ->with(['department', 'user', 'workSchedule'])
+            ->with(['department:id,name', 'workSchedule'])
             ->active()
             ->search($request->string('q')->toString())
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
@@ -90,9 +89,9 @@ class DashboardController extends Controller
                 $date = $request->string('date')->toString() ?: ManilaTime::todayDate();
 
                 if ($status === AttendanceStatus::Absent->value) {
-                    $q->whereDoesntHave('attendance', fn ($a) => $a->whereDate('attendance_date', $date)->whereNotNull('time_in'));
+                    $q->whereDoesntHave('attendance', fn ($a) => $a->onDate($date)->whereNotNull('time_in'));
                 } else {
-                    $q->whereHas('attendance', fn ($a) => $a->whereDate('attendance_date', $date)->where('status', $status));
+                    $q->whereHas('attendance', fn ($a) => $a->onDate($date)->where('status', $status));
                 }
             })
             ->orderBy('last_name')
@@ -101,9 +100,15 @@ class DashboardController extends Controller
 
     private function attendanceMap(string $date, $employeeIds)
     {
+        $ids = collect($employeeIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
         return Attendance::query()
-            ->whereDate('attendance_date', $date)
-            ->whereIn('employee_id', $employeeIds)
+            ->onDate($date)
+            ->whereIn('employee_id', $ids)
             ->get()
             ->keyBy('employee_id');
     }

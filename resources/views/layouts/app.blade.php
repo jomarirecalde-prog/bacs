@@ -1,5 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+@if (request()->headers->get('X-BACS-Partial') === '1')
+<body>
+<div id="bacs-partial"
+     data-title="@yield('title', 'Dashboard') · {{ config('app.name') }}"
+     data-page-title="@yield('page-title', 'Dashboard')"
+     data-page-subtitle="@yield('page-subtitle', 'Philippine Standard Time')"
+     data-route="{{ optional(request()->route())->getName() }}">
+    @if (session('success'))
+        <div class="alert-success mb-4">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+    @if (session('warning'))
+        <div class="alert-warning mb-4">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-warn-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+            <span>{{ session('warning') }}</span>
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="alert-danger mb-4">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-critical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+    @if ($errors->any())
+        <div class="alert-danger mb-4">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-critical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+            <span>{{ $errors->first() }}</span>
+        </div>
+    @endif
+    @yield('content')
+</div>
+</body>
+</html>
+@else
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,6 +49,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen" x-data="{ sidebar: false }">
+    <div id="nav-progress" class="nav-progress" hidden></div>
     <div class="flex min-h-screen">
         <aside class="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-shell-900 text-brand-50 shadow-float transition duration-300 ease-out lg:translate-x-0"
                :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
@@ -159,8 +196,8 @@
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
                     <div class="min-w-0">
-                        <h1 class="truncate text-base font-extrabold tracking-tight text-ink">@yield('page-title', 'Dashboard')</h1>
-                        <p class="truncate text-xs text-muted">@yield('page-subtitle', 'Philippine Standard Time')</p>
+                        <h1 id="page-heading" class="truncate text-base font-extrabold tracking-tight text-ink">@yield('page-title', 'Dashboard')</h1>
+                        <p id="page-subheading" class="truncate text-xs text-muted">@yield('page-subtitle', 'Philippine Standard Time')</p>
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -214,7 +251,7 @@
                 </div>
             </header>
 
-            <main class="p-4 lg:p-8">
+            <main id="app-main" class="p-4 lg:p-8">
                 @if (session('success'))
                     <div class="alert-success mb-4">
                         <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -255,3 +292,4 @@
          x-text="message"></div>
 </body>
 </html>
+@endif

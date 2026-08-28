@@ -724,3 +724,23 @@
         }
     }
 }
+
+.nav-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 80;
+    height: 2px;
+    width: 100%;
+    background: transparent;
+    pointer-events: none;
+}
+.nav-progress.is-active {
+    background: linear-gradient(90deg, #047857, #d4af37, #047857);
+    background-size: 200% 100%;
+    animation: nav-progress-slide 0.9s linear infinite;
+}
+@keyframes nav-progress-slide {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}

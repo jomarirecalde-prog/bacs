@@ -21,13 +21,17 @@ class ReportService
     public function query(Request $request)
     {
         return Attendance::query()
-            ->with(['employee.department'])
-            ->when($request->filled('date'), fn ($q) => $q->whereDate('attendance_date', $request->string('date')))
-            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('attendance_date', '>=', $request->string('date_from')))
-            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('attendance_date', '<=', $request->string('date_to')))
+            ->with(['employee.department:id,name'])
+            ->when($request->filled('date'), fn ($q) => $q->onDate((string) $request->string('date')))
+            ->when($request->filled('date_from'), fn ($q) => $q->where('attendance_date', '>=', $request->string('date_from')))
+            ->when($request->filled('date_to'), function ($q) use ($request) {
+                $end = ManilaTime::parse((string) $request->string('date_to'))->addDay()->toDateString();
+                $q->where('attendance_date', '<', $end);
+            })
             ->when($request->filled('month') && $request->filled('year'), function ($q) use ($request) {
-                $q->whereMonth('attendance_date', $request->integer('month'))
-                    ->whereYear('attendance_date', $request->integer('year'));
+                $start = sprintf('%04d-%02d-01', $request->integer('year'), $request->integer('month'));
+                $end = date('Y-m-t', strtotime($start));
+                $q->betweenDates($start, $end);
             })
             ->when($request->filled('department_id'), function ($q) use ($request) {
                 $q->whereHas('employee', fn ($e) => $e->where('department_id', $request->integer('department_id')));

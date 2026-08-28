@@ -5,7 +5,12 @@
 @section('page-subtitle', 'Clock in and out using Philippine Standard Time')
 
 @section('content')
-<div class="space-y-6" x-data="clockPanel()">
+<div class="space-y-6" x-data="clockPanel({
+    timeInUrl: @js(route('attendance.time-in')),
+    timeOutUrl: @js(route('attendance.time-out')),
+    canTimeIn: @js($canTimeIn),
+    canTimeOut: @js($canTimeOut),
+})">
     @if ($todayHoliday)
         <div class="alert-success">
             <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118L2.58 9.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
@@ -39,7 +44,7 @@
                     <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-in-label">{{ $today?->time_in?->format('h:i A') ?? '—' }}</div>
                     <form method="POST" action="{{ route('attendance.time-in') }}" class="mt-4" @submit.prevent="confirmIn">
                         @csrf
-                        <button id="btn-in" type="submit" class="btn-primary btn-block" @disabled(! $canTimeIn)>Time In</button>
+                        <button id="btn-in" type="submit" class="btn-primary btn-block" :disabled="!canTimeIn" @disabled(! $canTimeIn)>Time In</button>
                     </form>
                 </div>
                 <div class="rounded-2xl border border-info-200 bg-info-50/50 p-5">
@@ -52,7 +57,7 @@
                     <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-out-label">{{ $today?->time_out?->format('h:i A') ?? '—' }}</div>
                     <form method="POST" action="{{ route('attendance.time-out') }}" class="mt-4" @submit.prevent="confirmOut">
                         @csrf
-                        <button id="btn-out" type="submit" class="btn-secondary btn-block" @disabled(! $canTimeOut)>Time Out</button>
+                        <button id="btn-out" type="submit" class="btn-secondary btn-block" :disabled="!canTimeOut" @disabled(! $canTimeOut)>Time Out</button>
                     </form>
                 </div>
             </div>
@@ -172,64 +177,4 @@
         </div>
     </div>
 </div>
-
-<script>
-function clockPanel() {
-    return {
-        dateLabel: '',
-        timeLabel: '',
-        offset: 0,
-        dialog: false,
-        dialogTitle: '',
-        dialogBody: '',
-        pendingUrl: null,
-        async init() {
-            try {
-                const res = await fetch('{{ route('server-time') }}', { headers: { Accept: 'application/json' } });
-                const data = await res.json();
-                this.offset = data.timestamp - Date.now();
-            } catch { this.offset = 0; }
-            this.tick();
-            setInterval(() => this.tick(), 1000);
-        },
-        tick() {
-            const now = new Date(Date.now() + this.offset);
-            const opts = { timeZone: 'Asia/Manila' };
-            this.dateLabel = now.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', ...opts });
-            this.timeLabel = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, ...opts });
-        },
-        confirmIn() {
-            this.dialogTitle = 'Confirm Time In';
-            this.dialogBody = 'Record your Time In using the server timestamp?';
-            this.pendingUrl = '{{ route('attendance.time-in') }}';
-            this.dialog = true;
-        },
-        confirmOut() {
-            this.dialogTitle = 'Confirm Time Out';
-            this.dialogBody = 'Record your Time Out using the server timestamp?';
-            this.pendingUrl = '{{ route('attendance.time-out') }}';
-            this.dialog = true;
-        },
-        async submitPending() {
-            this.dialog = false;
-            const token = document.querySelector('meta[name="csrf-token"]').content;
-            try {
-                const res = await fetch(this.pendingUrl, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                    window.dtrToast(data.message || Object.values(data.errors || { e: ['Unable to save'] })[0][0], 'error');
-                    return;
-                }
-                window.dtrToast(data.message, 'success');
-                setTimeout(() => window.location.reload(), 700);
-            } catch {
-                window.dtrToast('Unable to record attendance.', 'error');
-            }
-        }
-    }
-}
-</script>
 @endsection

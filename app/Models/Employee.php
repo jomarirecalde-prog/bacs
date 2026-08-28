@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AccountStatus;
 use App\Enums\EmploymentStatus;
+use App\Services\DirectoryCatalog;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -98,6 +99,9 @@ class Employee extends Model
                 $employee->full_name = trim($employee->last_name.', '.$employee->first_name.$middle);
             }
         });
+
+        static::saved(fn () => DirectoryCatalog::flush());
+        static::deleted(fn () => DirectoryCatalog::flush());
     }
 
     public function schedule(): WorkSchedule

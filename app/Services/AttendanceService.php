@@ -11,15 +11,27 @@ use App\Models\Leave;
 use App\Models\User;
 use App\Support\ManilaTime;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
+    /** @var array<string, array{summary: array, departments: array}> */
+    private array $snapshots = [];
+
+    /** @var Collection<int, Employee>|null */
+    private $activeRoster = null;
+
+    /** @var array<string, Collection<int, Attendance>> */
+    private array $attendanceByDate = [];
+
     public function __construct(
         private readonly AttendanceCalculator $calculator,
         private readonly AuditLogger $auditLogger,
         private readonly NotificationService $notifications,
+        private readonly LeaveResolver $leaves,
+        private readonly HolidayResolver $holidays,
     ) {}
 
     public function clockIn(User $user): Attendance
@@ -31,7 +43,7 @@ class AttendanceService
         return DB::transaction(function () use ($employee, $user, $now, $date) {
             $record = Attendance::query()
                 ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $date)
+                ->onDate($date)
                 ->lockForUpdate()
                 ->first();
 
@@ -81,7 +93,7 @@ class AttendanceService
         return DB::transaction(function () use ($employee, $user, $now, $date) {
             $record = Attendance::query()
                 ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $date)
+                ->onDate($date)
                 ->lockForUpdate()
                 ->first();
 
@@ -131,7 +143,7 @@ class AttendanceService
         return DB::transaction(function () use ($station, $employee, $now, $date) {
             $record = Attendance::query()
                 ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $date)
+                ->onDate($date)
                 ->lockForUpdate()
                 ->first();
 
@@ -215,7 +227,7 @@ class AttendanceService
     {
         return Attendance::query()
             ->where('employee_id', $employee->id)
-            ->whereDate('attendance_date', ManilaTime::todayDate())
+            ->onDate(ManilaTime::todayDate())
             ->first();
     }
 
@@ -227,7 +239,7 @@ class AttendanceService
         return DB::transaction(function () use ($actor, $employee, $date, $data) {
             $exists = Attendance::query()
                 ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $date)
+                ->onDate($date)
                 ->lockForUpdate()
                 ->exists();
 
@@ -342,9 +354,11 @@ class AttendanceService
 
         $records = Attendance::query()
             ->where('employee_id', $employee->id)
-            ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
+            ->betweenDates($start->toDateString(), $end->toDateString())
             ->get()
             ->keyBy(fn (Attendance $row) => $row->attendance_date->toDateString());
+
+        $this->leaves->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
 
         $rows = [];
         $cursor = $start->copy();
@@ -378,49 +392,57 @@ class AttendanceService
 
     public function dashboardSummary(?string $date = null): array
     {
-        $date ??= ManilaTime::todayDate();
-        $now = ManilaTime::now();
-        $employees = $this->activeEmployees();
-        $attendance = $this->attendanceForDate($date);
-
-        $present = $late = $absent = $onLeave = $missingTimeout = $clockedIn = $completed = 0;
-
-        foreach ($employees as $employee) {
-            $row = $attendance->get($employee->id);
-            $bucket = $this->classify($employee, $row, $date, $now);
-
-            $present += $bucket['present'] ? 1 : 0;
-            $late += $bucket['late'] ? 1 : 0;
-            $absent += $bucket['absent'] ? 1 : 0;
-            $onLeave += $bucket['on_leave'] ? 1 : 0;
-            $clockedIn += $bucket['working'] ? 1 : 0;
-            $completed += $bucket['completed'] ? 1 : 0;
-            $missingTimeout += $bucket['missing_timeout'] ? 1 : 0;
-        }
-
-        return [
-            'date' => $date,
-            'total_employees' => $employees->count(),
-            'present' => $present,
-            'late' => $late,
-            'absent' => $absent,
-            'on_leave' => $onLeave,
-            'missing_timeout' => $missingTimeout,
-            'clocked_in' => $clockedIn,
-            'completed' => $completed,
-        ];
+        return $this->dashboardSnapshot($date)['summary'];
     }
 
     public function departmentSummaries(?string $date = null): array
     {
+        return $this->dashboardSnapshot($date)['departments'];
+    }
+
+    /**
+     * One pass over the active roster: summary cards and per-department
+     * totals share the same employee, attendance, and leave loads.
+     *
+     * @return array{summary: array, departments: array}
+     */
+    public function dashboardSnapshot(?string $date = null): array
+    {
         $date ??= ManilaTime::todayDate();
+
+        if (isset($this->snapshots[$date])) {
+            return $this->snapshots[$date];
+        }
+
         $now = ManilaTime::now();
         $employees = $this->activeEmployees();
         $attendance = $this->attendanceForDate($date);
+        $this->leaves->loadForDate($employees->pluck('id'), $date);
+        $this->holidays->rememberEmployees($employees);
 
+        $summary = [
+            'date' => $date,
+            'total_employees' => $employees->count(),
+            'present' => 0,
+            'late' => 0,
+            'absent' => 0,
+            'on_leave' => 0,
+            'missing_timeout' => 0,
+            'clocked_in' => 0,
+            'completed' => 0,
+        ];
         $groups = [];
 
         foreach ($employees as $employee) {
+            $bucket = $this->classify($employee, $attendance->get($employee->id), $date, $now);
+            $summary['present'] += $bucket['present'] ? 1 : 0;
+            $summary['late'] += $bucket['late'] ? 1 : 0;
+            $summary['absent'] += $bucket['absent'] ? 1 : 0;
+            $summary['on_leave'] += $bucket['on_leave'] ? 1 : 0;
+            $summary['clocked_in'] += $bucket['working'] ? 1 : 0;
+            $summary['completed'] += $bucket['completed'] ? 1 : 0;
+            $summary['missing_timeout'] += $bucket['missing_timeout'] ? 1 : 0;
+
             $name = $employee->department?->name ?? 'Unassigned';
             $sort = $employee->department?->sort_order ?? 999;
             $groups[$name] ??= [
@@ -432,8 +454,6 @@ class AttendanceService
                 'absent' => 0,
                 'working' => 0,
             ];
-
-            $bucket = $this->classify($employee, $attendance->get($employee->id), $date, $now);
             $groups[$name]['employees']++;
             $groups[$name]['present'] += $bucket['present'] ? 1 : 0;
             $groups[$name]['late'] += $bucket['late'] ? 1 : 0;
@@ -441,7 +461,10 @@ class AttendanceService
             $groups[$name]['working'] += $bucket['working'] ? 1 : 0;
         }
 
-        return collect($groups)->sortBy('sort_order')->values()->all();
+        return $this->snapshots[$date] = [
+            'summary' => $summary,
+            'departments' => collect($groups)->sortBy('sort_order')->values()->all(),
+        ];
     }
 
     public function monthlySummary(Employee $employee, ?int $year = null, ?int $month = null): array
@@ -492,16 +515,16 @@ class AttendanceService
 
     private function activeEmployees()
     {
-        return Employee::query()
-            ->with(['user', 'department', 'workSchedule'])
+        return $this->activeRoster ??= Employee::query()
+            ->with(['department:id,name,sort_order', 'workSchedule'])
             ->active()
             ->get();
     }
 
     private function attendanceForDate(string $date)
     {
-        return Attendance::query()
-            ->whereDate('attendance_date', $date)
+        return $this->attendanceByDate[$date] ??= Attendance::query()
+            ->onDate($date)
             ->get()
             ->keyBy('employee_id');
     }
@@ -519,13 +542,13 @@ class AttendanceService
         ];
 
         if (! $row) {
-            if (Leave::approvedOn($employee->id, $date)) {
+            if ($this->leaves->approvedOn($employee->id, $date)) {
                 $flags['on_leave'] = true;
 
                 return $flags;
             }
 
-            if (app(HolidayResolver::class)->isNonWorking($date, $employee) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
+            if ($this->holidays->isNonWorking($date, $employee) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
                 return $flags;
             }
 
@@ -607,7 +630,7 @@ class AttendanceService
     {
         $previous = Attendance::query()
             ->where('employee_id', $employee->id)
-            ->whereDate('attendance_date', '<', $today)
+            ->where('attendance_date', '<', $today)
             ->whereNotNull('time_in')
             ->whereNull('time_out')
             ->orderByDesc('attendance_date')

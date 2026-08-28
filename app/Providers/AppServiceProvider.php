@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
+use App\Services\DirectoryCatalog;
 use App\Services\HolidayResolver;
+use App\Services\LeaveResolver;
 use App\Services\NotificationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,10 +24,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Shared per request so a monthly DTR resolves holidays once, not per day.
         $this->app->singleton(HolidayResolver::class);
+        $this->app->singleton(LeaveResolver::class);
+        $this->app->singleton(DirectoryCatalog::class);
     }
 
     public function boot(): void
     {
+        if (! $this->app->runningInConsole()) {
+            $request = request();
+            $appPath = parse_url((string) config('app.url'), PHP_URL_PATH) ?: '';
+
+            // Match generated URLs/cookies to the host the user actually opened
+            // (localhost vs 127.0.0.1) while keeping the /BACS/public path prefix.
+            URL::forceRootUrl(rtrim($request->getSchemeAndHttpHost().$appPath, '/'));
+        }
+
         date_default_timezone_set(config('app.timezone', 'Asia/Manila'));
 
         try {
@@ -42,21 +56,41 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('layouts.app', function ($view) {
             $user = auth()->user();
+
+            if ($user && ! $user->relationLoaded('employee')) {
+                $user->load('employee');
+            }
+
+            // Partial navigations keep the existing header, so skip the bell queries.
+            if (request()->headers->get('X-BACS-Partial') === '1') {
+                $view->with([
+                    'unreadNotifications' => 0,
+                    'latestNotifications' => collect(),
+                    'notificationBell' => [
+                        'userId' => $user?->id,
+                        'unread' => 0,
+                        'items' => [],
+                        'feedUrl' => route('notifications.index'),
+                        'readAllUrl' => route('notifications.read-all'),
+                    ],
+                ]);
+
+                return;
+            }
+
             $unread = 0;
-            $latest = collect();
 
             if ($user) {
                 $unread = app(NotificationService::class)->unreadCount($user);
-                $latest = app(NotificationService::class)->latest($user, 8);
             }
 
             $view->with([
                 'unreadNotifications' => $unread,
-                'latestNotifications' => $latest,
+                'latestNotifications' => collect(),
                 'notificationBell' => [
                     'userId' => $user?->id,
                     'unread' => $unread,
-                    'items' => $latest->map->toBellArray()->values(),
+                    'items' => [],
                     'feedUrl' => route('notifications.index'),
                     'readAllUrl' => route('notifications.read-all'),
                 ],

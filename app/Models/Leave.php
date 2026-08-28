@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\LeaveResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -44,11 +45,6 @@ class Leave extends Model
 
     public static function approvedOn(int $employeeId, string $date): ?self
     {
-        return static::query()
-            ->where('employee_id', $employeeId)
-            ->where('status', 'approved')
-            ->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date)
-            ->first();
+        return app(LeaveResolver::class)->approvedOn($employeeId, $date);
     }
 }

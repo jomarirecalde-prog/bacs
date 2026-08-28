@@ -1,17 +1,18 @@
 {
-  "_browser-BvT2ThoN.js": {
-    "file": "assets/browser-BvT2ThoN.js",
+  "_browser-DqRBC6CU.js": {
+    "file": "assets/browser-DqRBC6CU.js",
     "name": "browser",
+    "isDynamicEntry": true,
     "imports": [
-      "_module.esm-Clbi2HHA.js"
+      "_module.esm-CFjFigNF.js"
     ]
   },
-  "_module.esm-Clbi2HHA.js": {
-    "file": "assets/module.esm-Clbi2HHA.js",
+  "_module.esm-CFjFigNF.js": {
+    "file": "assets/module.esm-CFjFigNF.js",
     "name": "module.esm"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CAK5jNrD.css",
+    "file": "assets/app-CCdzTRz0.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -20,32 +21,34 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CdOyuCE9.js",
+    "file": "assets/app-UiHO81Qk.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_module.esm-Clbi2HHA.js",
-      "_browser-BvT2ThoN.js"
+      "_module.esm-CFjFigNF.js"
+    ],
+    "dynamicImports": [
+      "_browser-DqRBC6CU.js"
     ]
   },
   "resources/js/qrcode-page.js": {
-    "file": "assets/qrcode-page-DBpi_Zq_.js",
+    "file": "assets/qrcode-page-BK0F1MLZ.js",
     "name": "qrcode-page",
     "src": "resources/js/qrcode-page.js",
     "isEntry": true,
     "imports": [
-      "_module.esm-Clbi2HHA.js",
-      "_browser-BvT2ThoN.js"
+      "_module.esm-CFjFigNF.js",
+      "_browser-DqRBC6CU.js"
     ]
   },
   "resources/js/station.js": {
-    "file": "assets/station-od9Ab9-x.js",
+    "file": "assets/station-Boxh5hlW.js",
     "name": "station",
     "src": "resources/js/station.js",
     "isEntry": true,
     "imports": [
-      "_module.esm-Clbi2HHA.js"
+      "_module.esm-CFjFigNF.js"
     ]
   }
 }

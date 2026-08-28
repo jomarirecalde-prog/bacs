@@ -52,7 +52,7 @@
                 <h2 class="text-2xl font-extrabold tracking-tight text-ink">Welcome back</h2>
                 <p class="mt-1 text-sm text-muted">Use your employee number, username, or email.</p>
 
-                <form method="POST" action="{{ url('/login') }}" class="mt-6 space-y-4">
+                <form method="POST" action="{{ route('login') }}" class="mt-6 space-y-4">
                     @csrf
                     <div>
                         <label class="label" for="login">Username, employee number, or email</label>
@@ -77,7 +77,7 @@
 
             <p class="mt-6 text-center text-xs text-muted">Authorized personnel only. All sign-ins are audited.</p>
             <p class="mt-3 text-center">
-                <a class="link inline-flex items-center gap-1.5 text-xs" href="{{ url('/attendance-station/login') }}">
+                <a class="link inline-flex items-center gap-1.5 text-xs" href="{{ route('station.login') }}">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                     Attendance Station login
                 </a>

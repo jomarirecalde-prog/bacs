@@ -5,7 +5,7 @@
 @section('page-subtitle', \App\Models\Setting::get('company_name', config('app.name')).' · '. \Carbon\Carbon::parse($date)->toFormattedDateString())
 
 @section('content')
-<div x-data="adminLive()" class="space-y-6">
+<div x-data="adminLive({ liveUrl: @js($liveUrl) })" class="space-y-6">
     <form method="GET" class="filter-bar">
         <div class="min-w-[9rem] flex-1">
             <label class="label" for="filter-date">Date</label>
@@ -49,14 +49,14 @@
     </form>
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-stat-card label="Total Employees" :value="$summary['total_employees']" tone="info" icon="users" />
-        <x-stat-card label="Present Today" :value="$summary['present']" tone="green" icon="check" />
-        <x-stat-card label="Late Today" :value="$summary['late']" tone="yellow" icon="clock" />
-        <x-stat-card label="Absent Today" :value="$summary['absent']" tone="red" icon="x" />
-        <x-stat-card label="Currently Working" :value="$summary['clocked_in']" tone="gold" icon="star" />
-        <x-stat-card label="Completed" :value="$summary['completed']" tone="green" icon="document" />
-        <x-stat-card label="Missing Time Out" :value="$summary['missing_timeout']" tone="yellow" icon="warning" />
-        <x-stat-card label="On Leave" :value="$summary['on_leave']" tone="blue" icon="calendar" />
+        <x-stat-card label="Total Employees" :value="$summary['total_employees']" live="total_employees" tone="info" icon="users" />
+        <x-stat-card label="Present Today" :value="$summary['present']" live="present" tone="green" icon="check" />
+        <x-stat-card label="Late Today" :value="$summary['late']" live="late" tone="yellow" icon="clock" />
+        <x-stat-card label="Absent Today" :value="$summary['absent']" live="absent" tone="red" icon="x" />
+        <x-stat-card label="Currently Working" :value="$summary['clocked_in']" live="clocked_in" tone="gold" icon="star" />
+        <x-stat-card label="Completed" :value="$summary['completed']" live="completed" tone="green" icon="document" />
+        <x-stat-card label="Missing Time Out" :value="$summary['missing_timeout']" live="missing_timeout" tone="yellow" icon="warning" />
+        <x-stat-card label="On Leave" :value="$summary['on_leave']" live="on_leave" tone="blue" icon="calendar" />
     </div>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -81,7 +81,7 @@
                         <th class="w-40">Attendance rate</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="live-dept-body">
                     @forelse ($departmentSummaries as $deptSummary)
                         @php
                             $headcount = max(1, (int) $deptSummary['employees']);
@@ -135,7 +135,7 @@
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="live-roster-body">
                     @forelse ($rows as $employee)
                         @php $record = $attendance->get($employee->id); @endphp
                         <tr class="{{ $record && ! $record->time_out && $record->time_in ? 'row-attention' : '' }}">
@@ -166,21 +166,4 @@
         <div class="card-footer">{{ $rows->links() }}</div>
     </div>
 </div>
-
-<script>
-function adminLive() {
-    return {
-        serverTime: @json(now()->format('h:i:s A')),
-        init() {
-            setInterval(() => this.refresh(), 15000);
-        },
-        async refresh() {
-            const params = new URLSearchParams(window.location.search);
-            const res = await fetch('{{ route('admin.dashboard.live') }}?' + params.toString(), { headers: { Accept: 'application/json' } });
-            const data = await res.json();
-            this.serverTime = data.server_time;
-        }
-    }
-}
-</script>
 @endsection

@@ -1,4 +1,4 @@
-@props(['label', 'value', 'hint' => null, 'tone' => 'slate', 'icon' => null])
+@props(['label', 'value', 'hint' => null, 'tone' => 'slate', 'icon' => null, 'live' => null])
 
 @php
     /*
@@ -44,7 +44,7 @@
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="stat-label">{{ $label }}</div>
-            <div class="stat-value">{{ $value }}</div>
+            <div class="stat-value" @if (! empty($live)) data-live-stat="{{ $live }}" @endif>{{ $value }}</div>
             @if ($hint)
                 <div class="stat-hint">{{ $hint }}</div>
             @endif

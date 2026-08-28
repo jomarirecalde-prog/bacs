@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AttendanceStatus;
+use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -72,6 +73,28 @@ class Attendance extends Model
     public function edits(): HasMany
     {
         return $this->hasMany(AttendanceEdit::class);
+    }
+
+    /**
+     * Range compare so DATE and DATETIME storage both hit the
+     * (attendance_date, status) index. Equality on a DATE string misses
+     * SQLite values stored as "Y-m-d 00:00:00"; whereDate() wraps the
+     * column in DATE() and prevents the PostgreSQL index from being used.
+     */
+    public function scopeOnDate($query, string $date)
+    {
+        $end = ManilaTime::parse($date)->addDay()->toDateString();
+
+        return $query->where('attendance_date', '>=', $date)
+            ->where('attendance_date', '<', $end);
+    }
+
+    public function scopeBetweenDates($query, string $from, string $to)
+    {
+        $end = ManilaTime::parse($to)->addDay()->toDateString();
+
+        return $query->where('attendance_date', '>=', $from)
+            ->where('attendance_date', '<', $end);
     }
 
     public function totalHoursLabel(): string

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Employee;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Services\AttendanceService;
+use App\Support\ManilaTime;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
@@ -14,11 +15,12 @@ class AttendanceController extends Controller
     public function index(Request $request)
     {
         $employee = $this->ownEmployee($request);
+        $from = $request->input('date_from') ?: ManilaTime::today()->startOfMonth()->toDateString();
+        $to = $request->input('date_to') ?: ManilaTime::todayDate();
 
         $records = Attendance::query()
             ->where('employee_id', $employee->id)
-            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('attendance_date', '>=', $request->string('date_from')))
-            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('attendance_date', '<=', $request->string('date_to')))
+            ->betweenDates($from, $to)
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->orderByDesc('attendance_date')
             ->paginate(20)
@@ -28,6 +30,8 @@ class AttendanceController extends Controller
             'employee' => $employee,
             'records' => $records,
             'today' => $this->attendanceService->todayFor($employee),
+            'dateFrom' => $from,
+            'dateTo' => $to,
         ]);
     }
 

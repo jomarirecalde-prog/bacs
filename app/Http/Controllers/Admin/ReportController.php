@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Department;
 use App\Models\Employee;
+use App\Services\DirectoryCatalog;
 use App\Services\ReportService;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(private readonly ReportService $reports) {}
+    public function __construct(
+        private readonly ReportService $reports,
+        private readonly DirectoryCatalog $catalog,
+    ) {}
 
     public function index()
     {
@@ -116,8 +119,8 @@ class ReportController extends Controller
     private function filterPayload(Request $request): array
     {
         return [
-            'departments' => Department::query()->active()->ordered()->get(),
-            'employees' => Employee::query()->orderBy('last_name')->get(),
+            'departments' => $this->catalog->departments(),
+            'employees' => $this->catalog->employeeOptions(),
             'statuses' => AttendanceStatus::cases(),
             'values' => $request->all(),
         ];

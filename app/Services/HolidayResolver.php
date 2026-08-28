@@ -2,30 +2,34 @@
 
 namespace App\Services;
 
+use App\Enums\EventAudience;
+use App\Enums\EventStatus;
 use App\Models\CalendarEvent;
 use App\Models\Employee;
 use App\Models\Holiday;
 use App\Support\HolidayInfo;
 use App\Support\ManilaTime;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Single point of truth for "is this date a non-working day, and what is it called?".
  *
- * Unions two sources so the calendar module drives attendance without the
- * legacy holidays table (and the tests around it) having to change:
- *   1. calendar_events — holiday / special non-working events with a
- *      non-informational attendance effect
- *   2. holidays — the original Settings-managed list
- *
- * Calendar events honour audience. Settings holidays remain company-wide.
- * Lookups are resolved a whole month at a time and memoised per viewer, so
- * iterating a monthly DTR costs two queries rather than two per day.
+ * Settings holidays and calendar events are loaded once per month. Employee
+ * visibility is applied in memory so dashboard roster loops do not issue
+ * two remote queries per employee.
  */
 class HolidayResolver
 {
-    /** @var array<string, array<string, HolidayInfo>> cache key => (date => info) */
+    /** @var array<string, array<string, HolidayInfo>> employee cache key => (date => info) */
     private array $months = [];
+
+    /** @var array<string, array<string, HolidayInfo>> */
+    private array $settingsMonths = [];
+
+    /** @var array<string, Collection<int, CalendarEvent>> */
+    private array $eventMonths = [];
 
     /** @var array<int, Employee|null> */
     private array $employees = [];
@@ -76,12 +80,26 @@ class HolidayResolver
     }
 
     /**
+     * @param  iterable<int, Employee>  $employees
+     */
+    public function rememberEmployees(iterable $employees): void
+    {
+        foreach ($employees as $employee) {
+            if ($employee instanceof Employee) {
+                $this->employees[$employee->id] = $employee;
+            }
+        }
+    }
+
+    /**
      * Drops memoised data. Called whenever a calendar event changes so a
      * single request never observes a stale holiday map.
      */
     public function flush(): void
     {
         $this->months = [];
+        $this->settingsMonths = [];
+        $this->eventMonths = [];
         $this->employees = [];
     }
 
@@ -96,14 +114,44 @@ class HolidayResolver
             return $this->months[$cacheKey];
         }
 
+        $map = $this->settingsHolidaysForMonth($monthKey);
+        $employee = $employeeId !== null ? $this->employee($employeeId) : null;
+        [$startDate, $endDate] = $this->monthBounds($monthKey);
+
+        foreach ($this->nonWorkingEventsForMonth($monthKey) as $event) {
+            if ($employeeId !== null && ! $this->eventVisibleToEmployee($event, $employee)) {
+                continue;
+            }
+
+            $this->mergeEventIntoMap($event, $map, $startDate, $endDate);
+        }
+
+        return $this->months[$cacheKey] = $map;
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function monthBounds(string $monthKey): array
+    {
         $start = ManilaTime::parse($monthKey.'-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
-        $startDate = $start->toDateString();
-        $endDate = $end->toDateString();
 
+        return [$start->toDateString(), $end->toDateString()];
+    }
+
+    /**
+     * @return array<string, HolidayInfo>
+     */
+    private function settingsHolidaysForMonth(string $monthKey): array
+    {
+        if (isset($this->settingsMonths[$monthKey])) {
+            return $this->settingsMonths[$monthKey];
+        }
+
+        [$startDate, $endDate] = $this->monthBounds($monthKey);
         $map = [];
 
-        // Legacy settings-managed holidays first; calendar events may refine them.
         Holiday::query()
             ->whereBetween('holiday_date', [$startDate, $endDate])
             ->get()
@@ -116,41 +164,89 @@ class HolidayResolver
                 );
             });
 
-        if ($this->calendarEventsReady()) {
-            $query = CalendarEvent::query()
-                ->nonWorking()
-                ->overlapping($startDate, $endDate);
+        return $this->settingsMonths[$monthKey] = $map;
+    }
 
-            if ($employeeId !== null) {
-                $query->visibleToEmployee($this->employee($employeeId));
-            }
-
-            $query->get()->each(function (CalendarEvent $event) use (&$map, $startDate, $endDate) {
-                $cursor = $event->start_date->copy();
-                $stop = $event->end_date;
-
-                while ($cursor->lte($stop)) {
-                    $date = $cursor->toDateString();
-                    if ($date >= $startDate && $date <= $endDate) {
-                        $map[$date] = new HolidayInfo(
-                            date: $date,
-                            name: $event->title,
-                            source: 'calendar',
-                            effect: $event->attendance_effect,
-                            eventId: $event->id,
-                        );
-                    }
-                    $cursor->addDay();
-                }
-            });
+    /**
+     * @return Collection<int, CalendarEvent>
+     */
+    private function nonWorkingEventsForMonth(string $monthKey): Collection
+    {
+        if (isset($this->eventMonths[$monthKey])) {
+            return $this->eventMonths[$monthKey];
         }
 
-        return $this->months[$cacheKey] = $map;
+        if (! $this->calendarEventsReady()) {
+            return $this->eventMonths[$monthKey] = collect();
+        }
+
+        [$startDate, $endDate] = $this->monthBounds($monthKey);
+
+        return $this->eventMonths[$monthKey] = CalendarEvent::query()
+            ->nonWorking()
+            ->overlapping($startDate, $endDate)
+            ->with(['departments:id', 'employees:id'])
+            ->get();
+    }
+
+    /**
+     * @param  array<string, HolidayInfo>  $map
+     */
+    private function mergeEventIntoMap(CalendarEvent $event, array &$map, string $startDate, string $endDate): void
+    {
+        $cursor = $event->start_date->copy();
+        $stop = $event->end_date;
+
+        while ($cursor->lte($stop)) {
+            $date = $cursor->toDateString();
+            if ($date >= $startDate && $date <= $endDate) {
+                $map[$date] = new HolidayInfo(
+                    date: $date,
+                    name: $event->title,
+                    source: 'calendar',
+                    effect: $event->attendance_effect,
+                    eventId: $event->id,
+                );
+            }
+            $cursor->addDay();
+        }
+    }
+
+    private function eventVisibleToEmployee(CalendarEvent $event, ?Employee $employee): bool
+    {
+        if (! in_array($event->status?->value ?? $event->status, EventStatus::employeeVisibleValues(), true)) {
+            return false;
+        }
+
+        $audience = $event->audience_type instanceof EventAudience
+            ? $event->audience_type
+            : EventAudience::tryFrom((string) $event->audience_type);
+
+        if ($audience === EventAudience::All) {
+            return true;
+        }
+
+        if (! $employee) {
+            return false;
+        }
+
+        if ($audience === EventAudience::Departments) {
+            return $employee->department_id
+                && $event->departments->contains('id', $employee->department_id);
+        }
+
+        if ($audience === EventAudience::Employees) {
+            return $event->employees->contains('id', $employee->id);
+        }
+
+        return false;
     }
 
     private function calendarEventsReady(): bool
     {
-        return $this->calendarReady ??= Schema::hasTable('calendar_events');
+        return $this->calendarReady ??= Cache::remember('schema:calendar_events', 3600, function () {
+            return Schema::hasTable('calendar_events');
+        });
     }
 
     private function employeeId(Employee|int|null $for): ?int

@@ -13,12 +13,17 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $items = $this->notifications->latest($user, 20);
+        $includeItems = $request->boolean('items', true);
 
-        return response()->json([
+        $payload = [
             'unread' => $this->notifications->unreadCount($user),
-            'items' => $items->map->toBellArray()->values(),
-        ]);
+        ];
+
+        if ($includeItems) {
+            $payload['items'] = $this->notifications->latest($user, 20)->map->toBellArray()->values();
+        }
+
+        return response()->json($payload);
     }
 
     public function markRead(Request $request, AppNotification $notification)

@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureStationDeviceBound;
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\LogRequestPerformance;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->appendToGroup('web', LogRequestPerformance::class);
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'account.active' => EnsureAccountActive::class,

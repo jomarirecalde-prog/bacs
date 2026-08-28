@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Services\AttendanceService;
 use App\Services\AuditLogger;
+use App\Services\DirectoryCatalog;
 use App\Services\EmployeeQrService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,7 @@ class EmployeeController extends Controller
 
         return view('admin.employees.index', [
             'employees' => $employees,
-            'departments' => Department::query()->active()->ordered()->get(),
+            'departments' => app(DirectoryCatalog::class)->departments(),
             'filters' => $request->only(['q', 'department_id', 'status']),
         ]);
     }

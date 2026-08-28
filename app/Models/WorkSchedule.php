@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AccountStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class WorkSchedule extends Model
 {
@@ -54,7 +55,20 @@ class WorkSchedule extends Model
 
     public static function defaultSchedule(): ?self
     {
-        return static::query()->where('is_default', true)->first()
-            ?? static::query()->active()->first();
+        return Cache::remember('work_schedule:default', 600, function () {
+            return static::query()->where('is_default', true)->first()
+                ?? static::query()->active()->first();
+        });
+    }
+
+    public static function flushDefaultCache(): void
+    {
+        Cache::forget('work_schedule:default');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => static::flushDefaultCache());
+        static::deleted(fn () => static::flushDefaultCache());
     }
 }

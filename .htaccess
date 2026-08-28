@@ -1,0 +1,13 @@
+Options -Indexes
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /BACS/
+
+    # Laravel front controller and static assets live here.
+    RewriteRule ^public/ - [L]
+
+    # /BACS/login, /BACS/, etc. → index.php (absolute redirect to /BACS/public/…)
+    RewriteRule ^ index.php [L]
+</IfModule>

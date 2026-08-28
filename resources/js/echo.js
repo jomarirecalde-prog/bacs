@@ -45,8 +45,17 @@ if (key && host && userId) {
  */
 window.listenToUser = function listenToUser(event, handler) {
     if (!window.Echo || !userId) {
-        return;
+        return () => {};
     }
 
-    window.Echo.private(`App.Models.User.${userId}`).listen(event, handler);
+    const channel = window.Echo.private(`App.Models.User.${userId}`);
+    channel.listen(event, handler);
+
+    return () => {
+        try {
+            channel.stopListening(event, handler);
+        } catch {
+            // Channel may already be gone after a full reload.
+        }
+    };
 };
