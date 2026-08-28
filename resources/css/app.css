@@ -5,48 +5,313 @@
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+/* ==========================================================================
+   BACS DTR — Design tokens
+   Emerald (primary) · Blue (secondary) · Gold (accent) · Yellow (attention)
+   Every color in the UI must come from a token defined here.
+   ========================================================================== */
 @theme {
     --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-    --color-brand-50: #f0fdfa;
-    --color-brand-100: #ccfbf1;
-    --color-brand-200: #99f6e4;
-    --color-brand-500: #14b8a6;
-    --color-brand-600: #0d9488;
-    --color-brand-700: #0f766e;
-    --color-brand-800: #115e59;
-    --color-brand-900: #134e4a;
-    --color-ink: #0f172a;
-    --color-muted: #64748b;
+
+    /* Primary — Emerald Green: primary actions, active states, success */
+    --color-brand-50: #ecfdf5;
+    --color-brand-100: #d1fae5;
+    --color-brand-200: #a7f3d0;
+    --color-brand-300: #6ee7b7;
+    --color-brand-400: #34d399;
+    --color-brand-500: #10b981;
+    --color-brand-600: #059669;
+    --color-brand-700: #047857;
+    --color-brand-800: #065f46;
+    --color-brand-900: #064e3b;
+    --color-brand-950: #022c22;
+
+    /* Secondary — Blue: navigation, links, information */
+    --color-info-50: #eff6ff;
+    --color-info-100: #dbeafe;
+    --color-info-200: #bfdbfe;
+    --color-info-300: #93c5fd;
+    --color-info-400: #60a5fa;
+    --color-info-500: #3b82f6;
+    --color-info-600: #2563eb;
+    --color-info-700: #1d4ed8;
+    --color-info-800: #1e40af;
+    --color-info-900: #1e3a8a;
+    --color-info-950: #172554;
+
+    /* Accent — Gold: premium highlights, featured items, special actions */
+    --color-gold-50: #fdfaef;
+    --color-gold-100: #fef3c7;
+    --color-gold-200: #fbe8a6;
+    --color-gold-300: #f2d581;
+    --color-gold-400: #e3c159;
+    --color-gold-500: #d4af37;
+    --color-gold-600: #b8942c;
+    --color-gold-700: #927324;
+    --color-gold-800: #6b551c;
+    --color-gold-900: #4a3a14;
+
+    /* Attention — Yellow: warnings, pending states, reminders */
+    --color-warn-50: #fefce8;
+    --color-warn-100: #fef9c3;
+    --color-warn-200: #fef08a;
+    --color-warn-300: #fde047;
+    --color-warn-400: #facc15;
+    --color-warn-500: #eab308;
+    --color-warn-600: #ca8a04;
+    --color-warn-700: #a16207;
+    --color-warn-800: #854d0e;
+    --color-warn-900: #713f12;
+
+    /* Critical — reserved for destructive actions and hard failures */
+    --color-critical-50: #fef2f2;
+    --color-critical-100: #fee2e2;
+    --color-critical-200: #fecaca;
+    --color-critical-300: #fca5a5;
+    --color-critical-500: #ef4444;
+    --color-critical-600: #dc2626;
+    --color-critical-700: #b91c1c;
+    --color-critical-800: #991b1b;
+    --color-critical-900: #7f1d1d;
+
+    /* Neutrals — clean, near-neutral grays with a faint emerald undertone */
+    --color-canvas: #f6f8f7;
+    --color-surface: #ffffff;
+    --color-line: #e3e8e6;
+    --color-line-strong: #cfd6d3;
+    --color-ink: #10201b;
+    --color-ink-soft: #3f4d48;
+    --color-muted: #6b7975;
+    --color-faint: #9aa5a1;
+
+    /* Dark surfaces — used for the sidebar, station kiosk, and auth artwork */
+    --color-shell-700: #10382c;
+    --color-shell-800: #0b2b22;
+    --color-shell-900: #072019;
+    --color-shell-950: #04140f;
+
+    --radius-card: 1rem;
+
+    --shadow-soft: 0 1px 2px 0 rgb(16 32 27 / 0.04), 0 1px 3px 0 rgb(16 32 27 / 0.06);
+    --shadow-raised: 0 4px 6px -2px rgb(16 32 27 / 0.05), 0 12px 24px -8px rgb(16 32 27 / 0.12);
+    --shadow-float: 0 8px 12px -4px rgb(16 32 27 / 0.06), 0 24px 48px -12px rgb(16 32 27 / 0.18);
 }
 
 @layer base {
+    * {
+        border-color: var(--color-line);
+    }
+
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-        @apply bg-slate-50 text-slate-800 antialiased;
+        @apply bg-canvas text-ink-soft antialiased;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        @apply text-ink;
+    }
+
+    ::selection {
+        background-color: var(--color-brand-100);
+        color: var(--color-brand-900);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-brand-600);
+        outline-offset: 2px;
+    }
+
+    /* Slim, theme-tinted scrollbars */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-line-strong) transparent;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--color-line-strong);
+        border-radius: 9999px;
+        border: 3px solid transparent;
+        background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-brand-300);
+        background-clip: content-box;
+    }
+
+    [x-cloak] {
+        display: none !important;
     }
 }
 
 @layer components {
-    .card {
-        @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm;
+    /* ---------------------------------------------------------------- Layout */
+    .page-header {
+        @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
     }
+    .page-title {
+        @apply text-xl font-extrabold tracking-tight text-ink;
+    }
+    .page-subtitle {
+        @apply mt-0.5 text-sm text-muted;
+    }
+    .section-title {
+        @apply text-sm font-bold uppercase tracking-wide text-muted;
+    }
+    .divider {
+        @apply border-t border-line;
+    }
+
+    /* ----------------------------------------------------------------- Cards */
+    .card {
+        @apply rounded-2xl border border-line bg-surface shadow-soft;
+    }
+    .card-interactive {
+        @apply rounded-2xl border border-line bg-surface shadow-soft transition duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-raised;
+    }
+    .card-header {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4;
+    }
+    .card-title {
+        @apply text-sm font-bold text-ink;
+    }
+    .card-body {
+        @apply p-5;
+    }
+    .card-footer {
+        @apply border-t border-line bg-canvas/60 px-5 py-3;
+    }
+
+    /* Accent rails — a single hair-line of color to signal a card's role */
+    .card-accent-brand {
+        @apply border-t-2 border-t-brand-600;
+    }
+    .card-accent-info {
+        @apply border-t-2 border-t-info-600;
+    }
+    .card-accent-gold {
+        @apply border-t-2 border-t-gold-500;
+    }
+    .card-accent-warn {
+        @apply border-t-2 border-t-warn-400;
+    }
+
+    /* Gold-framed panel for premium / featured content. Used sparingly. */
+    .card-featured {
+        @apply rounded-2xl border border-gold-300 bg-gradient-to-br from-gold-50 to-surface shadow-soft;
+    }
+
+    /* --------------------------------------------------------------- Buttons */
     .btn {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed;
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
     }
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-brand-700 text-white hover:bg-brand-800;
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply bg-brand-600 text-white shadow-soft hover:bg-brand-700 active:bg-brand-800;
     }
     .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-white text-slate-700 border border-slate-200 hover:bg-slate-50;
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply bg-info-600 text-white shadow-soft hover:bg-info-700 active:bg-info-800;
+    }
+    .btn-gold {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply bg-gold-500 text-gold-900 shadow-soft hover:bg-gold-400 active:bg-gold-600;
+    }
+    .btn-warning {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply bg-warn-400 text-warn-900 shadow-soft hover:bg-warn-300 active:bg-warn-500;
     }
     .btn-danger {
-        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700;
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply bg-critical-600 text-white shadow-soft hover:bg-critical-700 active:bg-critical-800;
     }
-    .input {
-        @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15;
+    /* Neutral outline button — the default for cancel / back / filters */
+    .btn-outline {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply border-line bg-surface text-ink-soft shadow-soft hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800;
     }
+    .btn-outline-info {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply border-info-200 bg-info-50 text-info-700 hover:border-info-300 hover:bg-info-100;
+    }
+    .btn-outline-danger {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+        @apply border-critical-200 bg-critical-50 text-critical-700 hover:border-critical-300 hover:bg-critical-100;
+    }
+    .btn-ghost {
+        @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent px-4 py-2.5 text-sm font-semibold text-muted transition duration-150 hover:bg-brand-50 hover:text-brand-800 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+    .btn-sm {
+        @apply gap-1.5 rounded-lg px-3 py-1.5 text-xs;
+    }
+    .btn-lg {
+        @apply gap-2.5 rounded-2xl px-6 py-3.5 text-base;
+    }
+    .btn-block {
+        @apply w-full;
+    }
+    .icon-btn {
+        @apply inline-flex cursor-pointer items-center justify-center rounded-xl p-2 text-muted transition hover:bg-brand-50 hover:text-brand-700;
+    }
+
+    /* ----------------------------------------------------------------- Links */
+    .link {
+        @apply font-semibold text-info-700 underline-offset-2 transition hover:text-info-800 hover:underline;
+    }
+    .link-brand {
+        @apply font-semibold text-brand-700 underline-offset-2 transition hover:text-brand-800 hover:underline;
+    }
+
+    /* ----------------------------------------------------------------- Forms */
     .label {
-        @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500;
+        @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted;
     }
+    .input,
+    .select,
+    .textarea {
+        @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink shadow-soft transition outline-none placeholder:text-faint hover:border-line-strong focus:border-brand-600 focus:ring-4 focus:ring-brand-600/12 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-muted;
+    }
+    .select {
+        @apply cursor-pointer pr-10;
+    }
+    .input-error {
+        @apply border-critical-300 focus:border-critical-600 focus:ring-critical-600/12;
+    }
+    .checkbox {
+        @apply h-4 w-4 cursor-pointer rounded border-line-strong text-brand-600 transition focus:ring-2 focus:ring-brand-600/25;
+    }
+    .radio {
+        @apply h-4 w-4 cursor-pointer border-line-strong text-brand-600 transition focus:ring-2 focus:ring-brand-600/25;
+    }
+    .hint {
+        @apply mt-1.5 text-xs text-muted;
+    }
+    .error-text {
+        @apply mt-1.5 text-xs font-medium text-critical-600;
+    }
+    .fieldset {
+        @apply space-y-4 rounded-2xl border border-line bg-canvas/50 p-5;
+    }
+    .filter-bar {
+        @apply flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-surface p-4 shadow-soft;
+    }
+
+    /* ---------------------------------------------------------------- Tables */
     .table-wrap {
         @apply overflow-x-auto;
     }
@@ -54,12 +319,408 @@
         @apply w-full text-sm;
     }
     .data-table th {
-        @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50 border-b border-slate-200;
+        @apply border-b border-line bg-canvas px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-muted;
     }
     .data-table td {
-        @apply px-4 py-3 border-b border-slate-100 align-middle;
+        @apply border-b border-line/70 px-4 py-3 align-middle text-ink-soft;
+    }
+    .data-table tbody tr {
+        @apply transition-colors;
     }
     .data-table tbody tr:hover {
-        @apply bg-slate-50/80;
+        @apply bg-brand-50/45;
+    }
+    .data-table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+    /* Row highlight for featured / flagged records */
+    .data-table tbody tr.row-featured {
+        @apply bg-gold-50/70 hover:bg-gold-50;
+    }
+    .data-table tbody tr.row-attention {
+        @apply bg-warn-50/70 hover:bg-warn-50;
+    }
+
+    /* ---------------------------------------------------------------- Badges */
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+    }
+    .badge-brand {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800;
+    }
+    .badge-info {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-info-200 bg-info-50 px-2.5 py-1 text-xs font-semibold text-info-800;
+    }
+    .badge-gold {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-gold-300 bg-gold-100 px-2.5 py-1 text-xs font-semibold text-gold-800;
+    }
+    .badge-warn {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-warn-200 bg-warn-50 px-2.5 py-1 text-xs font-semibold text-warn-800;
+    }
+    .badge-critical {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-critical-200 bg-critical-50 px-2.5 py-1 text-xs font-semibold text-critical-800;
+    }
+    .badge-neutral {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft;
+    }
+    /* Solid gold ribbon for "featured"/premium markers */
+    .badge-featured {
+        @apply inline-flex items-center gap-1.5 rounded-full bg-gold-500 px-2.5 py-1 text-xs font-bold text-gold-900 shadow-soft;
+    }
+    .chip {
+        @apply inline-flex items-center gap-1.5 rounded-lg border border-line bg-canvas px-2 py-1 text-xs font-semibold text-ink-soft;
+    }
+
+    /* ---------------------------------------------------------------- Alerts */
+    .alert {
+        @apply flex items-start gap-3 rounded-xl border px-4 py-3 text-sm;
+    }
+    .alert-success {
+        @apply flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900;
+    }
+    .alert-info {
+        @apply flex items-start gap-3 rounded-xl border border-info-200 bg-info-50 px-4 py-3 text-sm text-info-900;
+    }
+    .alert-warning {
+        @apply flex items-start gap-3 rounded-xl border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900;
+    }
+    .alert-danger {
+        @apply flex items-start gap-3 rounded-xl border border-critical-200 bg-critical-50 px-4 py-3 text-sm text-critical-900;
+    }
+    .alert-gold {
+        @apply flex items-start gap-3 rounded-xl border border-gold-300 bg-gold-50 px-4 py-3 text-sm text-gold-900;
+    }
+
+    /* ------------------------------------------------------------ Navigation */
+    /* Sidebar sits on the dark emerald shell */
+    .nav-link {
+        @apply relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition duration-150;
+    }
+    .nav-link-idle {
+        @apply text-brand-100/70 hover:bg-white/8 hover:text-white;
+    }
+    .nav-link-active {
+        @apply bg-brand-600/22 font-semibold text-white;
+    }
+    /* Gold rail marks the active route — the subtle complementary accent */
+    .nav-link-active::before {
+        content: '';
+        @apply absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gold-400;
+    }
+    .nav-section-label {
+        @apply px-3 pb-1.5 pt-4 text-[10px] font-bold uppercase tracking-widest text-brand-200/50;
+    }
+
+    /* Horizontal sub-navigation / tabs */
+    .tabs {
+        @apply flex flex-wrap items-center gap-1 border-b border-line;
+    }
+    .tab {
+        @apply -mb-px cursor-pointer border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold text-muted transition hover:border-brand-200 hover:text-brand-700;
+    }
+    .tab-active {
+        @apply -mb-px cursor-pointer border-b-2 border-brand-600 px-4 py-2.5 text-sm font-bold text-brand-700;
+    }
+    .pill-tabs {
+        @apply inline-flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-soft;
+    }
+    .pill-tab {
+        @apply cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-brand-50 hover:text-brand-700;
+    }
+    .pill-tab-active {
+        @apply cursor-pointer rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-soft;
+    }
+    .breadcrumb {
+        @apply flex items-center gap-1.5 text-xs font-medium text-muted;
+    }
+
+    /* -------------------------------------------------------------- Dropdown */
+    .dropdown-panel {
+        @apply overflow-hidden rounded-2xl border border-line bg-surface shadow-float;
+    }
+    .dropdown-header {
+        @apply flex items-center justify-between border-b border-line bg-canvas/70 px-4 py-3;
+    }
+    .dropdown-item {
+        @apply flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-ink-soft transition hover:bg-brand-50 hover:text-brand-800;
+    }
+    .dropdown-item-danger {
+        @apply flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-critical-700 transition hover:bg-critical-50;
+    }
+
+    /* ----------------------------------------------------------------- Modal */
+    .modal-backdrop {
+        @apply fixed inset-0 z-50 bg-shell-950/55 backdrop-blur-sm;
+    }
+    .modal-panel {
+        @apply w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-float;
+    }
+    .modal-title {
+        @apply text-base font-bold text-ink;
+    }
+    .modal-actions {
+        @apply mt-6 flex justify-end gap-2;
+    }
+
+    /* ------------------------------------------------------- Stats & metrics */
+    .stat-label {
+        @apply text-xs font-bold uppercase tracking-wide text-muted;
+    }
+    .stat-value {
+        @apply mt-2 text-3xl font-extrabold tracking-tight text-ink tabular-nums;
+    }
+    .stat-hint {
+        @apply mt-1 text-xs text-muted;
+    }
+    .stat-icon {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl;
+    }
+    .stat-icon-brand {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700;
+    }
+    .stat-icon-info {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-info-100 text-info-700;
+    }
+    .stat-icon-gold {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-100 text-gold-700;
+    }
+    .stat-icon-warn {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warn-100 text-warn-700;
+    }
+    .stat-icon-critical {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-critical-100 text-critical-700;
+    }
+
+    /* Simple CSS bar chart track/fill — keeps charts on-palette */
+    .meter {
+        @apply h-2 w-full overflow-hidden rounded-full bg-line;
+    }
+    .meter-fill {
+        @apply h-full rounded-full bg-brand-600 transition-all duration-500;
+    }
+    .meter-fill-info {
+        @apply h-full rounded-full bg-info-600 transition-all duration-500;
+    }
+    .meter-fill-gold {
+        @apply h-full rounded-full bg-gold-500 transition-all duration-500;
+    }
+    .meter-fill-warn {
+        @apply h-full rounded-full bg-warn-400 transition-all duration-500;
+    }
+    .meter-fill-critical {
+        @apply h-full rounded-full bg-critical-500 transition-all duration-500;
+    }
+
+    /* ------------------------------------------------ Loading & empty states */
+    .skeleton {
+        @apply animate-pulse rounded-lg bg-line/70;
+    }
+    .spinner {
+        @apply inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent;
+    }
+    .empty-state {
+        @apply flex flex-col items-center justify-center px-6 py-16 text-center;
+    }
+    .empty-state-icon {
+        @apply mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500;
+    }
+    .empty-state-title {
+        @apply text-base font-bold text-ink;
+    }
+    .empty-state-message {
+        @apply mt-1.5 max-w-sm text-sm text-muted;
+    }
+
+    /* ---------------------------------------------------------------- Calendar */
+    .cal-shell {
+        @apply overflow-hidden rounded-card border border-line bg-surface shadow-soft;
+    }
+    .cal-toolbar {
+        @apply flex flex-col gap-3 border-b border-line bg-canvas/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between;
+    }
+    .cal-nav {
+        @apply flex items-center gap-1;
+    }
+    .cal-nav-btn {
+        @apply inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-line bg-surface text-ink-soft transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700;
+    }
+    .cal-period {
+        @apply min-w-0 text-base font-extrabold tracking-tight text-ink sm:text-lg;
+    }
+
+    /* Weekday header + day matrix */
+    .cal-weekhead {
+        @apply grid grid-cols-7 border-b border-line bg-canvas/40;
+    }
+    .cal-weekday {
+        @apply px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-muted;
+    }
+    .cal-grid {
+        @apply grid grid-cols-7;
+    }
+    .cal-cell {
+        @apply relative flex min-h-24 flex-col gap-1 border-b border-r border-line/70 p-1.5 text-left align-top transition sm:min-h-28 sm:p-2;
+    }
+    .cal-cell:nth-child(7n) {
+        @apply border-r-0;
+    }
+    .cal-cell-out {
+        @apply bg-canvas/50;
+    }
+    .cal-cell-today {
+        @apply bg-brand-50/60 ring-1 ring-inset ring-brand-300;
+    }
+    .cal-cell-holiday {
+        @apply bg-brand-50/40;
+    }
+    .cal-daynum {
+        @apply inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-bold text-ink-soft;
+    }
+    .cal-daynum-out {
+        @apply text-faint;
+    }
+    .cal-daynum-today {
+        @apply bg-brand-600 text-white shadow-soft;
+    }
+    .cal-holiday-tag {
+        @apply truncate text-[10px] font-bold uppercase tracking-wide text-brand-700;
+    }
+    .cal-more {
+        @apply px-1 text-[11px] font-semibold text-muted;
+    }
+
+    /* Event chip inside a month cell — compact, colour + icon + label */
+    .cal-chip {
+        @apply flex w-full cursor-pointer items-center gap-1 rounded-md border-l-2 px-1.5 py-1 text-left text-[11px] font-semibold leading-tight transition hover:brightness-97;
+    }
+    .cal-chip-brand {
+        @apply border-l-brand-600 bg-brand-50 text-brand-900;
+    }
+    .cal-chip-info {
+        @apply border-l-info-600 bg-info-50 text-info-900;
+    }
+    .cal-chip-gold {
+        @apply border-l-gold-500 bg-gold-100 text-gold-900;
+    }
+    .cal-chip-warn {
+        @apply border-l-warn-400 bg-warn-50 text-warn-900;
+    }
+    .cal-chip-neutral {
+        @apply border-l-line-strong bg-canvas text-ink-soft;
+    }
+
+    /* Roomier event card for week / day / agenda views */
+    .cal-event {
+        @apply flex w-full cursor-pointer items-start gap-2.5 rounded-xl border border-l-4 bg-surface px-3 py-2.5 text-left shadow-soft transition hover:-translate-y-px hover:shadow-raised;
+    }
+    .cal-event-brand {
+        @apply border-brand-200 border-l-brand-600;
+    }
+    .cal-event-info {
+        @apply border-info-200 border-l-info-600;
+    }
+    .cal-event-gold {
+        @apply border-gold-200 border-l-gold-500;
+    }
+    .cal-event-warn {
+        @apply border-warn-200 border-l-warn-400;
+    }
+    .cal-event-neutral {
+        @apply border-line border-l-line-strong;
+    }
+    .cal-event-icon {
+        @apply mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg;
+    }
+    .cal-event-icon-brand {
+        @apply bg-brand-100 text-brand-700;
+    }
+    .cal-event-icon-info {
+        @apply bg-info-100 text-info-700;
+    }
+    .cal-event-icon-gold {
+        @apply bg-gold-100 text-gold-700;
+    }
+    .cal-event-icon-warn {
+        @apply bg-warn-100 text-warn-700;
+    }
+    .cal-event-icon-neutral {
+        @apply bg-canvas text-muted;
+    }
+    .cal-event-title {
+        @apply truncate text-sm font-bold text-ink;
+    }
+    .cal-event-meta {
+        @apply mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted;
+    }
+
+    /* Week view day column */
+    .cal-daycol {
+        @apply flex min-h-40 flex-col gap-2 border-r border-line/70 p-2 last:border-r-0;
+    }
+    .cal-daycol-head {
+        @apply flex items-center justify-between gap-1 border-b border-line/70 pb-2;
+    }
+
+    /* Agenda rows */
+    .cal-agenda-row {
+        @apply flex flex-col gap-3 border-b border-line px-4 py-4 last:border-b-0 sm:flex-row sm:gap-5;
+    }
+    .cal-agenda-date {
+        @apply flex shrink-0 items-center gap-3 sm:w-40 sm:flex-col sm:items-start sm:gap-0.5;
+    }
+
+    /* Legend */
+    .cal-legend {
+        @apply flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-canvas/50 px-4 py-3;
+    }
+    .cal-legend-item {
+        @apply inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted;
+    }
+    .cal-legend-dot {
+        @apply h-2.5 w-2.5 rounded-full;
+    }
+
+    /* Banner strip at the top of the event details modal */
+    .cal-banner {
+        @apply rounded-xl px-3 py-2 text-center text-[11px] font-extrabold uppercase tracking-wider;
+    }
+    .cal-banner-brand {
+        @apply bg-brand-600 text-white;
+    }
+    .cal-banner-info {
+        @apply bg-info-600 text-white;
+    }
+    .cal-banner-gold {
+        @apply bg-gold-500 text-gold-900;
+    }
+    .cal-banner-warn {
+        @apply bg-warn-400 text-warn-900;
+    }
+    .cal-banner-neutral {
+        @apply bg-canvas text-ink-soft;
+    }
+
+    /* --------------------------------------------------- Dark shell surfaces */
+    .shell-panel {
+        @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur;
+    }
+    .shell-muted {
+        @apply text-brand-100/60;
+    }
+
+    /* Brand mark used in sidebar, auth, and kiosk headers */
+    .brand-mark {
+        @apply flex items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-extrabold text-white shadow-soft ring-1 ring-gold-400/40;
+    }
+}
+
+@layer utilities {
+    .tabular {
+        font-variant-numeric: tabular-nums;
+    }
+    .no-print {
+        @media print {
+            display: none !important;
+        }
     }
 }

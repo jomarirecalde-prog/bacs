@@ -23,6 +23,9 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="REVERB_APP_ID" value="bacs-test"/>
+        <env name="REVERB_APP_KEY" value="bacs-test-key"/>
+        <env name="REVERB_APP_SECRET" value="bacs-test-secret"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>

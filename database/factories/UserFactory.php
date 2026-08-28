@@ -35,6 +35,11 @@ class UserFactory extends Factory
         return $this->state(fn () => ['role' => UserRole::Admin]);
     }
 
+    public function supervisor(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::Supervisor]);
+    }
+
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [

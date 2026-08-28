@@ -4,8 +4,8 @@
     "start_url": "/attendance-station",
     "scope": "/attendance-station",
     "display": "standalone",
-    "background_color": "#020617",
-    "theme_color": "#0f766e",
+    "background_color": "#04140f",
+    "theme_color": "#047857",
     "icons": [
         {
             "src": "/station-icon.svg",

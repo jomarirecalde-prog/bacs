@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\AttendanceStationController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\CalendarController as AdminCalendarController;
+use App\Http\Controllers\Admin\CalendarEventController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DtrController as AdminDtrController;
@@ -14,6 +16,7 @@ use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClockController;
 use App\Http\Controllers\Employee\AttendanceController as EmployeeAttendanceController;
+use App\Http\Controllers\Employee\CalendarController as EmployeeCalendarController;
 use App\Http\Controllers\Employee\DashboardController as EmployeeDashboardController;
 use App\Http\Controllers\Employee\DtrController as EmployeeDtrController;
 use App\Http\Controllers\Employee\QrCodeController as EmployeeQrCodeController;
@@ -86,6 +89,10 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/dtr/{employee}', [EmployeeDtrController::class, 'show'])->name('dtr.show');
         Route::get('/qr-code', [EmployeeQrCodeController::class, 'show'])->name('qr');
         Route::get('/qr-code/print', [EmployeeQrCodeController::class, 'print'])->name('qr.print');
+
+        // Read-only company calendar. No write routes exist for employees.
+        Route::get('/calendar', [EmployeeCalendarController::class, 'index'])->name('calendar');
+        Route::get('/calendar/live', [EmployeeCalendarController::class, 'live'])->name('calendar.live');
     });
 
     Route::middleware('role:admin,supervisor')->prefix('admin')->name('admin.')->group(function () {
@@ -148,6 +155,16 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/reports/absences', [ReportController::class, 'absences'])->name('reports.absences');
         Route::get('/reports/overtime', [ReportController::class, 'overtime'])->name('reports.overtime');
         Route::get('/reports/undertime', [ReportController::class, 'undertime'])->name('reports.undertime');
+
+        Route::get('/calendar', [AdminCalendarController::class, 'index'])->name('calendar.index');
+        Route::get('/calendar/live', [AdminCalendarController::class, 'live'])->name('calendar.live');
+        Route::get('/calendar/events', [CalendarEventController::class, 'index'])->name('calendar.events.index');
+        Route::get('/calendar/events/create', [CalendarEventController::class, 'create'])->middleware('role:admin')->name('calendar.events.create');
+        Route::post('/calendar/events', [CalendarEventController::class, 'store'])->middleware('role:admin')->name('calendar.events.store');
+        Route::get('/calendar/events/{event}', [CalendarEventController::class, 'show'])->name('calendar.events.show');
+        Route::get('/calendar/events/{event}/edit', [CalendarEventController::class, 'edit'])->middleware('role:admin')->name('calendar.events.edit');
+        Route::put('/calendar/events/{event}', [CalendarEventController::class, 'update'])->middleware('role:admin')->name('calendar.events.update');
+        Route::delete('/calendar/events/{event}', [CalendarEventController::class, 'destroy'])->middleware('role:admin')->name('calendar.events.destroy');
 
         Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
         Route::post('/schedules', [ScheduleController::class, 'store'])->middleware('role:admin')->name('schedules.store');

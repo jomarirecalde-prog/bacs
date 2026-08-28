@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\AttendanceStatus;
-use App\Models\Holiday;
 use App\Models\Leave;
 use App\Models\WorkSchedule;
 use App\Support\ManilaTime;
@@ -11,6 +10,17 @@ use Carbon\Carbon;
 
 class AttendanceCalculator
 {
+    /**
+     * Optional so existing callers (and unit tests) can still do
+     * `new AttendanceCalculator` without wiring the container.
+     */
+    public function __construct(private ?HolidayResolver $holidays = null) {}
+
+    private function holidays(): HolidayResolver
+    {
+        return $this->holidays ??= app(HolidayResolver::class);
+    }
+
     public function calculate(
         string $date,
         ?Carbon $timeIn,
@@ -27,7 +37,7 @@ class AttendanceCalculator
             return $this->emptyResult(AttendanceStatus::OnLeave);
         }
 
-        $holiday = Holiday::forDate($date);
+        $holiday = $this->holidays()->forDate($date, $employeeId);
         $day = ManilaTime::parse($date);
         $isWorkDay = $schedule->isWorkDay((int) $day->isoWeekday());
 

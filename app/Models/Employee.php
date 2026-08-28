@@ -135,7 +135,7 @@ class Employee extends Model
             return asset('storage/'.$this->photo);
         }
 
-        return 'https://ui-avatars.com/api/?name='.urlencode($this->fullName()).'&background=0f766e&color=fff';
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->fullName()).'&background=047857&color=fff';
     }
 
     public function scopeSearch($query, ?string $term)

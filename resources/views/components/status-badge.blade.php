@@ -6,21 +6,28 @@
         : (is_string($status) ? \App\Enums\AttendanceStatus::tryFrom($status) : null);
     $label = $value?->label() ?? (is_string($status) && $status !== '' ? $status : '—');
     $color = $value?->color() ?? 'slate';
+
+    /*
+     * Maps the enum's legacy color names onto the four-color theme:
+     * emerald = good, blue = informational, gold = special, yellow = attention,
+     * red = reserved for absence/failure, neutral = non-working days.
+     */
     $classes = [
-        'green' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        'orange' => 'bg-orange-50 text-orange-800 border-orange-200',
-        'red' => 'bg-red-50 text-red-800 border-red-200',
-        'yellow' => 'bg-yellow-50 text-yellow-800 border-yellow-200',
-        'blue' => 'bg-blue-50 text-blue-800 border-blue-200',
-        'purple' => 'bg-purple-50 text-purple-800 border-purple-200',
-        'slate' => 'bg-slate-100 text-slate-700 border-slate-200',
-        'indigo' => 'bg-indigo-50 text-indigo-800 border-indigo-200',
-        'amber' => 'bg-amber-50 text-amber-800 border-amber-200',
-        'teal' => 'bg-teal-50 text-teal-800 border-teal-200',
-    ][$color] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+        'green' => 'border-brand-200 bg-brand-50 text-brand-800',
+        'teal' => 'border-brand-300 bg-brand-100 text-brand-900',
+        'blue' => 'border-info-200 bg-info-50 text-info-800',
+        'purple' => 'border-info-200 bg-info-50 text-info-700',
+        'indigo' => 'border-gold-300 bg-gold-100 text-gold-800',
+        'gold' => 'border-gold-300 bg-gold-100 text-gold-800',
+        'yellow' => 'border-warn-200 bg-warn-50 text-warn-800',
+        'orange' => 'border-warn-300 bg-warn-100 text-warn-900',
+        'amber' => 'border-warn-200 bg-warn-50 text-warn-900',
+        'red' => 'border-critical-200 bg-critical-50 text-critical-800',
+        'slate' => 'border-line bg-canvas text-ink-soft',
+    ][$color] ?? 'border-line bg-canvas text-ink-soft';
 @endphp
 
-<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold $classes"]) }}>
-    <span class="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true"></span>
+<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap $classes"]) }}>
+    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true"></span>
     <span>{{ $label }}</span>
 </span>

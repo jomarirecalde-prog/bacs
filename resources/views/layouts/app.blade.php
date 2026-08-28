@@ -4,141 +4,210 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="user-id" content="{{ auth()->id() }}">
+    <meta name="theme-color" content="#047857">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
+    <link rel="icon" href="{{ asset('station-icon.svg') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen" x-data="{ sidebar: false }">
     <div class="flex min-h-screen">
-        <aside class="fixed inset-y-0 left-0 z-40 w-72 bg-slate-950 text-slate-200 transform transition lg:translate-x-0"
+        <aside class="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-shell-900 text-brand-50 shadow-float transition duration-300 ease-out lg:translate-x-0"
                :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
-            <div class="flex h-16 items-center gap-3 px-6 border-b border-white/10">
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white font-extrabold">D</div>
+            <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-6">
+                <div class="brand-mark h-9 w-9 text-sm">B</div>
                 <div>
-                    <div class="text-sm font-bold text-white tracking-wide">BACS DTR</div>
-                    <div class="text-[11px] text-slate-400">BACS Construction</div>
+                    <div class="text-sm font-extrabold tracking-wide text-white">BACS DTR</div>
+                    <div class="text-[11px] text-brand-200/70">BACS Construction</div>
                 </div>
             </div>
-            <nav class="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
+
+            <nav class="flex-1 space-y-0.5 overflow-y-auto p-4">
                 @php
                     $isAdmin = auth()->user()->isManagement();
-                    $adminLinks = [
-                        ['admin.dashboard', 'Dashboard', 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
-                        ['admin.employees.index', 'Employees', 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
-                        ['admin.departments.index', 'Departments', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1'],
+                    $isFullAdmin = auth()->user()->isAdmin();
+
+                    $icons = [
+                        'dashboard' => 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+                        'employees' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+                        'departments' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1',
+                        'device' => 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
+                        'monitor' => 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+                        'clock' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+                        'document' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+                        'chart' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+                        'calendar' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+                        'calendar-events' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zm7-8v3m0 0h-1.5m1.5 0H13',
+                        'list' => 'M4 6h16M4 10h16M4 14h10M4 18h7',
+                        'qr' => 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 4h2v2h-2v-2zm0-4h2v2h-2v-2z',
+                        'shield' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+                        'cog' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
+                        'user' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+                        'lock' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+                        'logout' => 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
                     ];
-                    if (auth()->user()->isAdmin()) {
-                        $adminLinks[] = ['admin.stations.index', 'Attendance Stations', 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z'];
-                        $adminLinks[] = ['admin.stations.monitoring', 'Station Monitoring', 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'];
-                    }
-                    $adminLinks = array_merge($adminLinks, [
-                        ['admin.attendance.index', 'Attendance', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
-                        ['admin.dtr.index', 'DTR Management', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
-                        ['admin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
-                        ['admin.schedules.index', 'Schedules', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                    ]);
-                    $employeeLinks = [
-                        ['employee.dashboard', 'Dashboard', 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
-                        ['employee.attendance', 'My Attendance', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
-                        ['employee.dtr', 'My DTR', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
-                        ['employee.qr', 'My QR Code', 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 4h2v2h-2v-2zm0-4h2v2h-2v-2z'],
-                    ];
-                    $links = $isAdmin ? $adminLinks : $employeeLinks;
-                    if ($isAdmin && auth()->user()->employee) {
-                        $links[] = ['employee.dashboard', 'My Time In / Out', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'];
-                        $links[] = ['employee.dtr', 'My DTR', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'];
-                        $links[] = ['employee.qr', 'My QR Code', 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 4h2v2h-2v-2zm0-4h2v2h-2v-2z'];
+
+                    if ($isAdmin) {
+                        $stationLinks = [];
+                        if ($isFullAdmin) {
+                            $stationLinks = [
+                                ['admin.stations.index', 'Attendance Stations', $icons['device']],
+                                ['admin.stations.monitoring', 'Station Monitoring', $icons['monitor']],
+                            ];
+                        }
+
+                        $navGroups = [
+                            ['label' => null, 'items' => [
+                                ['admin.dashboard', 'Dashboard', $icons['dashboard']],
+                            ]],
+                            ['label' => 'Workforce', 'items' => [
+                                ['admin.employees.index', 'Employees', $icons['employees']],
+                                ['admin.departments.index', 'Departments', $icons['departments']],
+                                ['admin.schedules.index', 'Schedules', $icons['calendar']],
+                            ]],
+                            ['label' => 'Timekeeping', 'items' => array_merge($stationLinks, [
+                                ['admin.attendance.index', 'Attendance', $icons['clock']],
+                                ['admin.dtr.index', 'DTR Management', $icons['document']],
+                                ['admin.reports.index', 'Reports', $icons['chart']],
+                            ])],
+                            ['label' => 'Calendar & Events', 'items' => [
+                                ['admin.calendar.index', 'Calendar', $icons['calendar-events'], 'admin.calendar.index'],
+                                ['admin.calendar.events.index', 'Manage Events', $icons['list'], 'admin.calendar.events*'],
+                            ]],
+                        ];
+
+                        if (auth()->user()->employee) {
+                            $navGroups[] = ['label' => 'Personal', 'items' => [
+                                ['employee.dashboard', 'My Time In / Out', $icons['clock']],
+                                ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.calendar', 'My Calendar', $icons['calendar']],
+                                ['employee.qr', 'My QR Code', $icons['qr']],
+                            ]];
+                        }
+
+                        if ($isFullAdmin) {
+                            $navGroups[] = ['label' => 'System', 'items' => [
+                                ['admin.audit.index', 'Audit Logs', $icons['shield']],
+                                ['admin.settings.index', 'Settings', $icons['cog']],
+                            ]];
+                        }
+                    } else {
+                        $navGroups = [
+                            ['label' => null, 'items' => [
+                                ['employee.dashboard', 'Dashboard', $icons['dashboard']],
+                            ]],
+                            ['label' => 'My Records', 'items' => [
+                                ['employee.attendance', 'My Attendance', $icons['clock']],
+                                ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.qr', 'My QR Code', $icons['qr']],
+                            ]],
+                            ['label' => 'Calendar & Events', 'items' => [
+                                ['employee.calendar', 'Calendar', $icons['calendar-events']],
+                            ]],
+                        ];
                     }
                 @endphp
 
-                @foreach ($links as [$route, $label, $icon])
-                    <a href="{{ route($route) }}"
-                       class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm {{ request()->routeIs(str_replace('.index','*', $route).'*') || request()->routeIs($route) ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
-                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icon }}"/></svg>
-                        {{ $label }}
-                    </a>
-                @endforeach
-
-                @if ($isAdmin && auth()->user()->isAdmin())
-                    <a href="{{ route('admin.audit.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm {{ request()->routeIs('admin.audit.*') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Audit Logs
-                    </a>
-                    <a href="{{ route('admin.settings.index') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm {{ request()->routeIs('admin.settings.*') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Settings
-                    </a>
-                @endif
-
-                <div class="pt-4 mt-4 border-t border-white/10 space-y-1">
-                    <a href="{{ route('profile.show') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm {{ request()->routeIs('profile.show') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        My Profile
-                    </a>
-                    @unless ($isAdmin)
-                        <a href="{{ route('profile.password') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm {{ request()->routeIs('profile.password*') ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white' }}">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                            Change Password
+                @foreach ($navGroups as $group)
+                    @if ($group['label'])
+                        <div class="nav-section-label">{{ $group['label'] }}</div>
+                    @endif
+                    @foreach ($group['items'] as $item)
+                        @php
+                            [$route, $label, $icon] = $item;
+                            // Items may pin an explicit pattern when sibling routes share a prefix.
+                            $pattern = $item[3] ?? str_replace('.index', '*', $route).'*';
+                            $active = request()->routeIs($pattern) || request()->routeIs($route);
+                        @endphp
+                        <a href="{{ route($route) }}" class="nav-link {{ $active ? 'nav-link-active' : 'nav-link-idle' }}">
+                            <svg class="h-5 w-5 shrink-0 {{ $active ? 'text-gold-300' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icon }}"/></svg>
+                            <span class="truncate">{{ $label }}</span>
                         </a>
-                    @endunless
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                            Logout
-                        </button>
-                    </form>
-                </div>
+                    @endforeach
+                @endforeach
             </nav>
+
+            <div class="shrink-0 space-y-0.5 border-t border-white/10 p-4">
+                @php $profileActive = request()->routeIs('profile.show'); @endphp
+                <a href="{{ route('profile.show') }}" class="nav-link {{ $profileActive ? 'nav-link-active' : 'nav-link-idle' }}">
+                    <svg class="h-5 w-5 shrink-0 {{ $profileActive ? 'text-gold-300' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icons['user'] }}"/></svg>
+                    <span>My Profile</span>
+                </a>
+                @unless ($isAdmin)
+                    @php $passwordActive = request()->routeIs('profile.password*'); @endphp
+                    <a href="{{ route('profile.password') }}" class="nav-link {{ $passwordActive ? 'nav-link-active' : 'nav-link-idle' }}">
+                        <svg class="h-5 w-5 shrink-0 {{ $passwordActive ? 'text-gold-300' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icons['lock'] }}"/></svg>
+                        <span>Change Password</span>
+                    </a>
+                @endunless
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="nav-link nav-link-idle w-full cursor-pointer">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icons['logout'] }}"/></svg>
+                        <span>Logout</span>
+                    </button>
+                </form>
+            </div>
         </aside>
 
-        <div class="flex-1 lg:pl-72 min-h-screen">
-            <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:px-8">
-                <div class="flex items-center gap-3">
-                    <button class="lg:hidden rounded-lg p-2 hover:bg-slate-100" @click="sidebar = true" aria-label="Open menu">
+        <div class="min-h-screen flex-1 lg:pl-72">
+            <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-line bg-surface/90 px-4 backdrop-blur-md lg:px-8">
+                <div class="flex min-w-0 items-center gap-3">
+                    <button class="icon-btn lg:hidden" @click="sidebar = true" aria-label="Open menu">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
-                    <div>
-                        <h1 class="text-base font-bold text-slate-900">@yield('page-title', 'Dashboard')</h1>
-                        <p class="text-xs text-slate-500">@yield('page-subtitle', 'Philippine Standard Time')</p>
+                    <div class="min-w-0">
+                        <h1 class="truncate text-base font-extrabold tracking-tight text-ink">@yield('page-title', 'Dashboard')</h1>
+                        <p class="truncate text-xs text-muted">@yield('page-subtitle', 'Philippine Standard Time')</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="hidden sm:block text-right mr-2" x-data="manilaClock()">
-                        <div class="text-xs text-slate-500" x-text="dateLabel"></div>
-                        <div class="text-sm font-bold tabular-nums" x-text="timeLabel"></div>
+                <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+                    <div class="mr-1 hidden text-right sm:block" x-data="manilaClock()">
+                        <div class="text-[11px] text-muted" x-text="dateLabel"></div>
+                        <div class="text-sm font-bold text-brand-700 tabular-nums" x-text="timeLabel"></div>
                     </div>
-                    <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" class="relative rounded-xl p-2 hover:bg-slate-100" aria-label="Notifications">
-                            <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            @if (($unreadNotifications ?? 0) > 0)
-                                <span class="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{{ $unreadNotifications }}</span>
-                            @endif
+
+                    <div class="relative" x-data="notificationBell(@js($notificationBell))">
+                        <button @click="toggle()" class="icon-btn relative" aria-label="Notifications">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                            <span x-show="unread > 0" x-cloak
+                                  class="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warn-400 px-1 text-[10px] font-bold text-warn-900 ring-2 ring-white"
+                                  x-text="unread > 99 ? '99+' : unread"></span>
                         </button>
-                        <div x-show="open" @click.outside="open = false" x-cloak class="absolute right-0 mt-2 w-80 card p-0 overflow-hidden z-50">
-                            <div class="flex items-center justify-between px-4 py-3 border-b">
-                                <span class="text-sm font-semibold">Notifications</span>
-                                <form method="POST" action="{{ route('notifications.read-all') }}">@csrf<button class="text-xs text-brand-700">Mark all read</button></form>
+                        <div x-show="open" @click.outside="open = false" x-cloak x-transition.opacity.duration.150ms
+                             class="dropdown-panel absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)]">
+                            <div class="dropdown-header">
+                                <span class="text-sm font-bold text-ink">Notifications</span>
+                                <button type="button" @click="markAllRead()" class="cursor-pointer text-xs font-semibold text-info-700 hover:text-info-800 hover:underline">Mark all read</button>
                             </div>
                             <div class="max-h-80 overflow-y-auto">
-                                @forelse ($latestNotifications ?? [] as $note)
-                                    <a href="{{ $note->link ?: '#' }}" class="block px-4 py-3 hover:bg-slate-50 {{ $note->isUnread() ? 'bg-brand-50/60' : '' }}">
-                                        <div class="text-sm font-semibold">{{ $note->title }}</div>
-                                        <div class="text-xs text-slate-500">{{ $note->message }}</div>
+                                <template x-for="note in items" :key="note.id">
+                                    <a :href="note.link || '#'" @click="markRead(note, $event)"
+                                       class="block border-b border-line/70 px-4 py-3 transition last:border-b-0 hover:bg-brand-50/60"
+                                       :class="note.unread ? 'border-l-2 border-l-warn-400 bg-warn-50/50' : ''">
+                                        <div class="text-sm font-semibold text-ink" x-text="note.title"></div>
+                                        <div class="mt-0.5 text-xs text-muted" x-text="note.message"></div>
+                                        <div class="mt-1 text-[11px] text-faint" x-text="note.created_at"></div>
                                     </a>
-                                @empty
-                                    <div class="px-4 py-8 text-center text-sm text-slate-500">No notifications yet.</div>
-                                @endforelse
+                                </template>
+                                <div x-show="items.length === 0" class="px-4 py-10 text-center">
+                                    <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-500">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                                    </div>
+                                    <p class="text-sm text-muted">No notifications yet.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="hidden sm:block text-right">
-                            <div class="text-sm font-semibold leading-tight">{{ auth()->user()->name }}</div>
-                            <div class="text-[11px] text-slate-500">{{ auth()->user()->role?->label() }}</div>
+
+                    <div class="flex items-center gap-2.5 border-l border-line pl-2 sm:pl-3">
+                        <div class="hidden text-right sm:block">
+                            <div class="text-sm font-bold leading-tight text-ink">{{ auth()->user()->name }}</div>
+                            <div class="text-[11px] font-medium text-info-700">{{ auth()->user()->role?->label() }}</div>
                         </div>
-                        <div class="h-9 w-9 rounded-full bg-brand-700 text-white flex items-center justify-center text-sm font-bold">
+                        <div class="brand-mark h-9 w-9 text-sm">
                             {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
                         </div>
                     </div>
@@ -147,14 +216,27 @@
 
             <main class="p-4 lg:p-8">
                 @if (session('success'))
-                    <div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
+                    <div class="alert-success mb-4">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>{{ session('success') }}</span>
+                    </div>
+                @endif
+                @if (session('warning'))
+                    <div class="alert-warning mb-4">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-warn-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+                        <span>{{ session('warning') }}</span>
+                    </div>
                 @endif
                 @if (session('error'))
-                    <div class="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+                    <div class="alert-danger mb-4">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-critical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>{{ session('error') }}</span>
+                    </div>
                 @endif
                 @if ($errors->any())
-                    <div class="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-800">
-                        {{ $errors->first() }}
+                    <div class="alert-danger mb-4">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-critical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+                        <span>{{ $errors->first() }}</span>
                     </div>
                 @endif
                 @yield('content')
@@ -162,14 +244,14 @@
         </div>
     </div>
 
-    <div x-show="sidebar" class="fixed inset-0 z-30 bg-black/40 lg:hidden" @click="sidebar = false" x-cloak></div>
+    <div x-show="sidebar" x-cloak x-transition.opacity class="fixed inset-0 z-30 bg-shell-950/55 backdrop-blur-sm lg:hidden" @click="sidebar = false"></div>
 
-    <div x-data="{ show: false, message: '', type: 'success' }"
-         x-on:dtr-toast.window="show = true; message = $event.detail.message; type = $event.detail.type || 'success'; setTimeout(() => show = false, 3500)"
+    <div x-data="{ show: false, message: '', type: 'success', timer: null }"
+         x-on:dtr-toast.window="show = true; message = $event.detail.message; type = $event.detail.type || 'success'; clearTimeout(timer); timer = setTimeout(() => show = false, $event.detail.duration || 3500)"
          x-show="show" x-cloak
-         class="fixed bottom-6 right-6 z-50 rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-lg"
-         :class="type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-red-600' : 'bg-slate-800')"
+         x-transition.duration.200ms
+         class="fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl px-4 py-3 text-sm font-semibold shadow-float"
+         :class="type === 'success' ? 'bg-brand-600 text-white' : (type === 'error' ? 'bg-critical-600 text-white' : (type === 'warning' ? 'bg-warn-400 text-warn-900' : 'bg-info-600 text-white'))"
          x-text="message"></div>
-    <style>[x-cloak]{display:none !important}</style>
 </body>
 </html>

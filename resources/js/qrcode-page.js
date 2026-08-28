@@ -13,7 +13,7 @@ document.addEventListener('alpine:init', () => {
             await QRCode.toCanvas(this.$refs.canvas, this.token, {
                 width: 320,
                 margin: 1,
-                color: { dark: '#0f172a', light: '#ffffff' },
+                color: { dark: '#064e3b', light: '#ffffff' },
             });
         },
         download() {

@@ -12,15 +12,12 @@ class NotificationController extends Controller
 
     public function index(Request $request)
     {
-        $items = $request->user()
-            ->appNotifications()
-            ->latest()
-            ->limit(20)
-            ->get();
+        $user = $request->user();
+        $items = $this->notifications->latest($user, 20);
 
         return response()->json([
-            'unread' => $this->notifications->unreadCount($request->user()),
-            'items' => $items,
+            'unread' => $this->notifications->unreadCount($user),
+            'items' => $items->map->toBellArray()->values(),
         ]);
     }
 
@@ -29,12 +26,23 @@ class NotificationController extends Controller
         abort_unless($notification->user_id === $request->user()->id, 403);
         $this->notifications->markRead($notification);
 
-        return response()->json(['ok' => true]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'unread' => $this->notifications->unreadCount($request->user()),
+            ]);
+        }
+
+        return back();
     }
 
     public function markAllRead(Request $request)
     {
         $this->notifications->markAllRead($request->user());
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'unread' => 0]);
+        }
 
         return back()->with('success', 'All notifications marked as read.');
     }

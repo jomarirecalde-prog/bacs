@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Models\AppNotification;
+use App\Services\HolidayResolver;
 use App\Services\NotificationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -18,6 +18,9 @@ class AppServiceProvider extends ServiceProvider
         if (($_ENV['VERCEL'] ?? getenv('VERCEL')) === '1') {
             $this->app->useStoragePath('/tmp/storage');
         }
+
+        // Shared per request so a monthly DTR resolves holidays once, not per day.
+        $this->app->singleton(HolidayResolver::class);
     }
 
     public function boot(): void
@@ -44,16 +47,19 @@ class AppServiceProvider extends ServiceProvider
 
             if ($user) {
                 $unread = app(NotificationService::class)->unreadCount($user);
-                $latest = AppNotification::query()
-                    ->where('user_id', $user->id)
-                    ->latest()
-                    ->limit(8)
-                    ->get();
+                $latest = app(NotificationService::class)->latest($user, 8);
             }
 
             $view->with([
                 'unreadNotifications' => $unread,
                 'latestNotifications' => $latest,
+                'notificationBell' => [
+                    'userId' => $user?->id,
+                    'unread' => $unread,
+                    'items' => $latest->map->toBellArray()->values(),
+                    'feedUrl' => route('notifications.index'),
+                    'readAllUrl' => route('notifications.read-all'),
+                ],
             ]);
         });
     }

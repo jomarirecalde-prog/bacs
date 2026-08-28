@@ -1,29 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <title>Print DTR</title>
-    <style>
-        body { font-family: Georgia, serif; margin: 32px; color: #111; }
-        h1 { margin: 0; font-size: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
-        th, td { border: 1px solid #333; padding: 6px; }
-        th { background: #eee; }
-        .sign { display: flex; justify-content: space-between; margin-top: 48px; }
-        .line { border-top: 1px solid #111; width: 240px; padding-top: 6px; }
-        @media print { .no-print { display: none; } }
-    </style>
+    @include('reports.partials.print-theme', ['font' => 'serif'])
 </head>
 <body>
-    <p class="no-print"><button onclick="window.print()">Print</button></p>
-    <h1>{{ $company }}</h1>
-    <div>{{ $address }}</div>
-    <h2>Daily Time Record</h2>
-    <p>
+    <p class="no-print"><button type="button" onclick="window.print()">Print this DTR</button></p>
+
+    <div class="doc-header">
+        <h1>{{ $company }}</h1>
+        <div class="muted">{{ $address }}</div>
+    </div>
+    <div class="doc-rule-gold"></div>
+
+    <h3>DAILY TIME RECORD</h3>
+    <p class="meta">
         <strong>{{ $employee->fullName() }}</strong> ({{ $employee->employee_number }})<br>
         {{ $employee->department?->name }} · {{ $employee->position }}<br>
         {{ DateTime::createFromFormat('!m', $month)->format('F') }} {{ $year }}
     </p>
+
     <table>
         <thead>
             <tr>
@@ -33,21 +30,26 @@
         <tbody>
             @foreach ($rows as $row)
                 <tr>
-                    <td>{{ optional($row->attendance_date)->format('M d, Y D') }}</td>
+                    @php $holiday = app(\App\Services\HolidayResolver::class)->forDate(optional($row->attendance_date)->toDateString() ?: now()->toDateString(), $employee); @endphp
+                    <td>
+                        {{ optional($row->attendance_date)->format('M d, Y D') }}
+                        @if ($holiday)<br><span class="muted">{{ $holiday->name }}</span>@endif
+                    </td>
                     <td>{{ $row->time_in?->format('h:i A') }}</td>
                     <td>{{ $row->time_out?->format('h:i A') }}</td>
-                    <td>{{ $row->totalHoursLabel() }}</td>
-                    <td>{{ $row->late_minutes }}</td>
-                    <td>{{ $row->undertime_minutes }}</td>
-                    <td>{{ $row->overtimeHoursLabel() }}</td>
+                    <td class="num">{{ $row->totalHoursLabel() }}</td>
+                    <td class="num">{{ $row->late_minutes }}</td>
+                    <td class="num">{{ $row->undertime_minutes }}</td>
+                    <td class="num">{{ $row->overtimeHoursLabel() }}</td>
                     <td>{{ $row->status?->label() }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
+
     <div class="sign">
-        <div class="line">Employee Signature</div>
-        <div class="line">Authorized Official</div>
+        <div><div class="line">Employee Signature</div></div>
+        <div><div class="line">Authorized Official</div></div>
     </div>
 </body>
 </html>

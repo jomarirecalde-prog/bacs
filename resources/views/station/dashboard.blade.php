@@ -3,74 +3,89 @@
 @section('title', $station->station_name)
 
 @section('content')
-<div class="min-h-screen" x-data="stationKiosk({
+<div class="min-h-screen bg-gradient-to-b from-shell-950 to-shell-900" x-data="stationKiosk({
     scanUrl: '{{ route('station.scan') }}',
     heartbeatUrl: '{{ route('station.heartbeat') }}',
     locked: {{ $station->isLocked() ? 'true' : 'false' }},
     csrf: '{{ csrf_token() }}'
 })">
-    <header class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-        <div>
-            <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-300">BACS Attendance Station</div>
-            <h1 class="text-xl font-extrabold sm:text-2xl">{{ $station->station_name }}</h1>
-            <p class="text-sm text-slate-400">Location: {{ $station->location }}</p>
+    <header class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-shell-950/60 px-5 py-4 backdrop-blur">
+        <div class="flex items-center gap-3">
+            <div class="brand-mark h-11 w-11 rounded-2xl text-lg">B</div>
+            <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-gold-300">BACS Attendance Station</div>
+                <h1 class="text-xl font-extrabold text-white sm:text-2xl">{{ $station->station_name }}</h1>
+                <p class="text-sm text-brand-200/70">Location: {{ $station->location }}</p>
+            </div>
         </div>
         <div class="text-right">
-            <div class="flex items-center justify-end gap-2 text-sm font-semibold" :class="locked ? 'text-red-300' : 'text-emerald-300'">
-                <span class="h-2.5 w-2.5 rounded-full" :class="locked ? 'bg-red-400' : 'bg-emerald-400'"></span>
+            <div class="flex items-center justify-end gap-2 text-sm font-bold" :class="locked ? 'text-critical-300' : 'text-brand-300'">
+                <span class="h-2.5 w-2.5 rounded-full" :class="locked ? 'bg-critical-400' : 'bg-brand-400 animate-pulse'"></span>
                 <span x-text="locked ? 'Station Locked' : 'Station Active'"></span>
             </div>
-            <div class="mt-1 text-sm text-slate-300" x-text="dateLabel">{{ $now->format('F j, Y') }}</div>
-            <div class="text-2xl font-extrabold tabular-nums text-white sm:text-3xl" x-text="timeLabel">{{ $now->format('g:i A') }}</div>
-            <a href="{{ route('station.settings') }}" class="mt-2 inline-block text-xs font-semibold text-slate-400 hover:text-white">Station Settings</a>
+            <div class="mt-1 text-sm text-brand-100/70" x-text="dateLabel">{{ $now->format('F j, Y') }}</div>
+            <div class="text-2xl font-extrabold text-white tabular-nums sm:text-3xl" x-text="timeLabel">{{ $now->format('g:i A') }}</div>
+            <a href="{{ route('station.settings') }}" class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-200/70 transition hover:text-white">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Station Settings
+            </a>
         </div>
     </header>
 
     <main class="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-2 lg:p-8">
-        <section class="rounded-3xl border border-white/10 bg-slate-900 p-5">
-            <h2 class="text-center text-lg font-extrabold tracking-wide sm:text-2xl">SCAN YOUR EMPLOYEE QR CODE</h2>
-            <div class="relative mt-4 overflow-hidden rounded-3xl bg-black">
-                <video x-ref="video" class="aspect-[4/3] w-full object-cover" playsinline muted autoplay></video>
+        <section class="shell-panel p-5">
+            <h2 class="text-center text-lg font-extrabold tracking-wide text-white sm:text-2xl">SCAN YOUR EMPLOYEE QR CODE</h2>
+            <div class="relative mt-4 overflow-hidden rounded-3xl bg-black ring-1 ring-white/10">
+                <video x-ref="video" class="aspect-4/3 w-full object-cover" playsinline muted autoplay></video>
                 <div class="pointer-events-none absolute inset-0 border-[6px] border-brand-500/40"></div>
-                <div x-show="busy" class="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold">Processing…</div>
+                <div class="pointer-events-none absolute inset-6 rounded-2xl border-2 border-gold-400/50"></div>
+                <div x-show="busy" x-cloak class="absolute inset-0 flex items-center justify-center gap-3 bg-shell-950/70 text-sm font-bold text-brand-200 backdrop-blur-sm">
+                    <span class="spinner"></span> Processing…
+                </div>
             </div>
-            <p class="mt-3 text-center text-xs text-slate-400" x-text="cameraStatus">Point the camera at the employee QR code.</p>
+            <p class="mt-3 text-center text-xs text-brand-200/70" x-text="cameraStatus">Point the camera at the employee QR code.</p>
         </section>
 
-        <section class="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-slate-900 p-6">
+        <section class="shell-panel flex min-h-[420px] items-center justify-center p-6">
             <div x-show="locked" x-cloak class="text-center">
-                <h2 class="text-4xl font-extrabold text-red-300">STATION LOCKED</h2>
-                <p class="mt-3 text-slate-300">This attendance station has been temporarily disabled.</p>
-                <p class="mt-1 text-slate-400">Please contact the administrator.</p>
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-critical-500/15 text-critical-300">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </div>
+                <h2 class="text-4xl font-extrabold text-critical-300">STATION LOCKED</h2>
+                <p class="mt-3 text-brand-100/80">This attendance station has been temporarily disabled.</p>
+                <p class="mt-1 text-brand-200/60">Please contact the administrator.</p>
             </div>
 
-            <div x-show="!locked && !result" class="text-center text-slate-400">
-                <p class="text-lg font-semibold text-white">Ready to scan</p>
-                <p class="mt-2 text-sm">Employees present their QR code. Time In and Time Out are recorded automatically using server time.</p>
+            <div x-show="!locked && !result" class="text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2z"/></svg>
+                </div>
+                <p class="text-lg font-bold text-white">Ready to scan</p>
+                <p class="mt-2 max-w-sm text-sm text-brand-200/70">Employees present their QR code. Time In and Time Out are recorded automatically using server time.</p>
             </div>
 
             <div x-show="!locked && result" x-cloak class="w-full text-center">
                 <div class="text-xs font-bold uppercase tracking-[0.25em]" :class="resultTone" x-text="result.codeLabel"></div>
-                <h2 class="mt-2 text-3xl font-extrabold sm:text-5xl" x-text="result.title"></h2>
-                <img x-show="result.photo" :src="result.photo" alt="" class="mx-auto mt-5 h-28 w-28 rounded-3xl object-cover ring-4 ring-white/10">
-                <div class="mt-4 text-2xl font-extrabold" x-text="result.name"></div>
-                <div class="text-sm uppercase tracking-wide text-slate-400" x-text="[result.department, result.position].filter(Boolean).join(' · ')"></div>
+                <h2 class="mt-2 text-3xl font-extrabold text-white sm:text-5xl" x-text="result.title"></h2>
+                <img x-show="result.photo" :src="result.photo" alt="" class="mx-auto mt-5 h-28 w-28 rounded-3xl object-cover ring-4 ring-gold-400/30">
+                <div class="mt-4 text-2xl font-extrabold text-white" x-text="result.name"></div>
+                <div class="text-sm uppercase tracking-wide text-brand-200/70" x-text="[result.department, result.position].filter(Boolean).join(' · ')"></div>
                 <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                    <div class="rounded-2xl bg-white/5 p-4">
-                        <div class="text-xs uppercase text-slate-400">Action</div>
-                        <div class="text-xl font-extrabold" x-text="result.action || '—'"></div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-brand-200/60">Action</div>
+                        <div class="mt-1 text-xl font-extrabold text-white" x-text="result.action || '—'"></div>
                     </div>
-                    <div class="rounded-2xl bg-white/5 p-4">
-                        <div class="text-xs uppercase text-slate-400">Time</div>
-                        <div class="text-xl font-extrabold tabular-nums" x-text="result.time || '—'"></div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-brand-200/60">Time</div>
+                        <div class="mt-1 text-xl font-extrabold text-white tabular-nums" x-text="result.time || '—'"></div>
                     </div>
                 </div>
-                <div class="mt-3 text-sm text-slate-300">
-                    Time In: <span class="font-semibold text-white" x-text="result.timeIn || '—'"></span>
-                    · Time Out: <span class="font-semibold text-white" x-text="result.timeOut || '—'"></span>
+                <div class="mt-3 text-sm text-brand-100/70">
+                    Time In: <span class="font-bold text-brand-300" x-text="result.timeIn || '—'"></span>
+                    · Time Out: <span class="font-bold text-info-300" x-text="result.timeOut || '—'"></span>
                 </div>
-                <div class="mt-2 text-lg font-bold" x-text="result.status"></div>
-                <p class="mt-3 text-sm text-slate-300" x-text="result.message"></p>
+                <div class="mt-2 text-lg font-bold text-gold-300" x-text="result.status"></div>
+                <p class="mt-3 text-sm text-brand-200/70" x-text="result.message"></p>
             </div>
         </section>
     </main>

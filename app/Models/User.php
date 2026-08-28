@@ -93,4 +93,9 @@ class User extends Authenticatable
     {
         return $this->isAdmin();
     }
+
+    public function canManageCalendar(): bool
+    {
+        return $this->isAdmin();
+    }
 }

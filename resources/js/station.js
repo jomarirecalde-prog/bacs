@@ -5,9 +5,9 @@ import jsQR from 'jsqr';
 window.Alpine = Alpine;
 
 function toneFor(code) {
-    if (code === 'TIME_IN' || code === 'TIME_OUT') return 'text-emerald-300';
-    if (code === 'ALREADY_TIMED_IN' || code === 'ATTENDANCE_COMPLETED') return 'text-amber-300';
-    return 'text-red-300';
+    if (code === 'TIME_IN' || code === 'TIME_OUT') return 'text-brand-300';
+    if (code === 'ALREADY_TIMED_IN' || code === 'ATTENDANCE_COMPLETED') return 'text-warn-300';
+    return 'text-critical-300';
 }
 
 document.addEventListener('alpine:init', () => {
@@ -158,7 +158,7 @@ document.addEventListener('alpine:init', () => {
             clearTimeout(this.resultTimer);
             this.resultTimer = setTimeout(() => { this.result = null; }, 4500);
         },
-        resultTone: 'text-emerald-300',
+        resultTone: 'text-brand-300',
     }));
 });
 

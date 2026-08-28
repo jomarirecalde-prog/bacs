@@ -5,15 +5,20 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\CalendarEvent;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Services\AttendanceService;
+use App\Services\CalendarService;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly AttendanceService $attendanceService) {}
+    public function __construct(
+        private readonly AttendanceService $attendanceService,
+        private readonly CalendarService $calendar,
+    ) {}
 
     public function index(Request $request)
     {
@@ -35,6 +40,7 @@ class DashboardController extends Controller
             'statuses' => AttendanceStatus::cases(),
             'filters' => $request->only(['q', 'department_id', 'employee_id', 'status', 'date']),
             'date' => $date,
+            'upcomingEvents' => $this->calendar->upcoming(CalendarEvent::query()->published(), days: 90, limit: 6),
         ]);
     }
 

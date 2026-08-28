@@ -7,7 +7,6 @@ use App\Models\Attendance;
 use App\Models\AttendanceEdit;
 use App\Models\AttendanceStation;
 use App\Models\Employee;
-use App\Models\Holiday;
 use App\Models\Leave;
 use App\Models\User;
 use App\Support\ManilaTime;
@@ -526,7 +525,7 @@ class AttendanceService
                 return $flags;
             }
 
-            if (Holiday::isHoliday($date) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
+            if (app(HolidayResolver::class)->isNonWorking($date, $employee) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
                 return $flags;
             }
 

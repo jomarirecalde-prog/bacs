@@ -84,8 +84,9 @@ class Attendance extends Model
         return self::minutesToLabel($this->overtime_minutes);
     }
 
-    public static function minutesToLabel(int $minutes): string
+    public static function minutesToLabel(?int $minutes): string
     {
+        $minutes ??= 0;
         $hours = intdiv($minutes, 60);
         $mins = $minutes % 60;
 

@@ -64,7 +64,7 @@ document.addEventListener('alpine:init', () => {
             await QRCode.toCanvas(this.$refs.canvas, this.token, {
                 width: 320,
                 margin: 1,
-                color: { dark: '#0f172a', light: '#ffffff' },
+                color: { dark: '#064e3b', light: '#ffffff' },
             });
         },
         download() {
@@ -75,10 +75,149 @@ document.addEventListener('alpine:init', () => {
             link.click();
         },
     }));
+
+    Alpine.data('notificationBell', (payload = {}) => ({
+        open: false,
+        unread: payload.unread || 0,
+        items: payload.items || [],
+        feedUrl: payload.feedUrl,
+        readAllUrl: payload.readAllUrl,
+        init() {
+            window.listenToUser?.('.notification.received', (data) => this.receive(data));
+            window.addEventListener('echo-connected', () => this.sync());
+        },
+        toggle() {
+            this.open = !this.open;
+        },
+        receive(data) {
+            const note = data.notification;
+            if (!note?.id) {
+                return;
+            }
+
+            this.items = [note, ...this.items.filter((item) => item.id !== note.id)].slice(0, 20);
+            this.unread = typeof data.unread === 'number' ? data.unread : this.unread + 1;
+
+            if (data.toast !== false) {
+                window.dtrToast(note.title, this.toastType(note.type), 5000);
+            }
+        },
+        toastType(type) {
+            if (type === 'warning') return 'warning';
+            if (type === 'success') return 'success';
+            if (type === 'error') return 'error';
+            return 'info';
+        },
+        async sync() {
+            if (!this.feedUrl) {
+                return;
+            }
+
+            try {
+                const { data } = await window.axios.get(this.feedUrl);
+                this.unread = data.unread ?? this.unread;
+                this.items = data.items ?? this.items;
+            } catch {
+                // Offline users keep the last known list until the next reconnect.
+            }
+        },
+        async markRead(note, event) {
+            if (!note.unread) {
+                return;
+            }
+
+            note.unread = false;
+            this.unread = Math.max(0, this.unread - 1);
+
+            try {
+                await window.axios.post(`/notifications/${note.id}/read`, {}, {
+                    headers: { Accept: 'application/json' },
+                });
+            } catch {
+                note.unread = true;
+                this.unread += 1;
+                event?.preventDefault();
+            }
+        },
+        async markAllRead() {
+            const previous = this.items;
+            this.items = this.items.map((item) => ({ ...item, unread: false }));
+            this.unread = 0;
+
+            try {
+                await window.axios.post(this.readAllUrl, {}, {
+                    headers: { Accept: 'application/json' },
+                });
+            } catch {
+                this.items = previous;
+            }
+        },
+    }));
+
+    Alpine.data('calendarLive', (payload = {}) => ({
+        events: payload.events || {},
+        eventCount: payload.eventCount || 0,
+        view: payload.view,
+        focus: payload.focus,
+        start: payload.start,
+        end: payload.end,
+        liveUrl: payload.liveUrl,
+        type: payload.type || '',
+        selected: null,
+        open: false,
+        refreshing: false,
+        init() {
+            window.listenToUser?.('.calendar.changed', (data) => this.onChanged(data));
+            window.addEventListener('echo-connected', () => this.refresh());
+        },
+        show(id) {
+            this.selected = this.events[id] ?? null;
+            this.open = this.selected !== null;
+        },
+        close() {
+            this.open = false;
+        },
+        onChanged(data) {
+            const from = data.start_date;
+            const to = data.end_date;
+            if (from && to && (to < this.start || from > this.end)) {
+                return;
+            }
+
+            this.refresh();
+        },
+        async refresh() {
+            if (!this.liveUrl || this.refreshing) {
+                return;
+            }
+
+            this.refreshing = true;
+            try {
+                const { data } = await window.axios.get(this.liveUrl, {
+                    params: { view: this.view, date: this.focus, type: this.type || undefined },
+                    headers: { Accept: 'application/json' },
+                });
+
+                this.events = data.events || this.events;
+                this.eventCount = data.eventCount ?? this.eventCount;
+                if (data.start) this.start = data.start;
+                if (data.end) this.end = data.end;
+
+                if (data.html && this.$refs.body) {
+                    this.$refs.body.innerHTML = data.html;
+                    window.Alpine.initTree(this.$refs.body);
+                }
+            } catch {
+                // Keep the last rendered grid; the next event or reconnect retries.
+            } finally {
+                this.refreshing = false;
+            }
+        },
+    }));
 });
 
 Alpine.start();
 
-window.dtrToast = function (message, type = 'success') {
-    window.dispatchEvent(new CustomEvent('dtr-toast', { detail: { message, type } }));
+window.dtrToast = function (message, type = 'success', duration = 3500) {
+    window.dispatchEvent(new CustomEvent('dtr-toast', { detail: { message, type, duration } }));
 };
