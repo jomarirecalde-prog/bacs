@@ -20,7 +20,7 @@
     </div>
 
     <form class="filter-bar">
-        <div class="min-w-[9rem]">
+        <div class="sm:min-w-[9rem]">
             <label class="label" for="bal-year">Year</label>
             <input id="bal-year" type="number" name="year" value="{{ $year }}" class="input" min="2020" max="2100">
         </div>

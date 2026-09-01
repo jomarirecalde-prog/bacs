@@ -37,35 +37,35 @@
                 </div>
 
                 <dl class="mt-5 space-y-3 border-t border-line pt-4 text-sm">
-                    <div class="flex gap-3">
-                        <dt class="w-28 shrink-0 text-muted">Date</dt>
+                    <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                        <dt class="shrink-0 text-muted sm:w-28">Date</dt>
                         <dd class="font-semibold text-ink" x-text="selected.date"></dd>
                     </div>
-                    <div class="flex gap-3">
-                        <dt class="w-28 shrink-0 text-muted">Time</dt>
+                    <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                        <dt class="shrink-0 text-muted sm:w-28">Time</dt>
                         <dd class="font-semibold text-ink" x-text="selected.time"></dd>
                     </div>
                     <template x-if="selected.location">
-                        <div class="flex gap-3">
-                            <dt class="w-28 shrink-0 text-muted">Location</dt>
+                        <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                            <dt class="shrink-0 text-muted sm:w-28">Location</dt>
                             <dd class="font-semibold text-ink" x-text="selected.location"></dd>
                         </div>
                     </template>
                     <template x-if="selected.supports_effect && selected.effect">
-                        <div class="flex gap-3">
-                            <dt class="w-28 shrink-0 text-muted">Attendance</dt>
+                        <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                            <dt class="shrink-0 text-muted sm:w-28">Attendance</dt>
                             <dd class="font-semibold text-ink" x-text="selected.effect"></dd>
                         </div>
                     </template>
                     <template x-if="selected.audience">
-                        <div class="flex gap-3">
-                            <dt class="w-28 shrink-0 text-muted">Audience</dt>
+                        <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                            <dt class="shrink-0 text-muted sm:w-28">Audience</dt>
                             <dd class="font-semibold text-ink" x-text="selected.audience"></dd>
                         </div>
                     </template>
                     <template x-if="selected.created_by">
-                        <div class="flex gap-3">
-                            <dt class="w-28 shrink-0 text-muted">Created by</dt>
+                        <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                            <dt class="shrink-0 text-muted sm:w-28">Created by</dt>
                             <dd class="text-ink-soft"><span x-text="selected.created_by"></span> · <span x-text="selected.created_at"></span></dd>
                         </div>
                     </template>
@@ -95,15 +95,15 @@
                     client-side flag: employees receive no management URLs at all.
                 --}}
                 <div class="modal-actions">
-                    <div class="flex flex-1 flex-wrap gap-2">
+                    <div class="flex w-full flex-col gap-2 sm:flex-1 sm:flex-row sm:flex-wrap">
                         <template x-if="selected.show_url">
-                            <a :href="selected.show_url" class="btn-outline btn-sm">View full details</a>
+                            <a :href="selected.show_url" class="btn-outline btn-sm w-full sm:w-auto">View full details</a>
                         </template>
                         <template x-if="selected.edit_url">
-                            <a :href="selected.edit_url" class="btn-secondary btn-sm">Edit</a>
+                            <a :href="selected.edit_url" class="btn-secondary btn-sm w-full sm:w-auto">Edit</a>
                         </template>
                     </div>
-                    <button type="button" @click="close()" class="btn-outline btn-sm">Close</button>
+                    <button type="button" @click="close()" class="btn-outline btn-sm w-full sm:w-auto">Close</button>
                 </div>
             </div>
         </template>

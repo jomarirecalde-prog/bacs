@@ -20,7 +20,7 @@
     </div>
 
     <form class="filter-bar">
-        <div class="min-w-[14rem] flex-[2]">
+        <div class="sm:min-w-[14rem] flex-[2]">
             <label class="label" for="monthly-employee">Employee</label>
             <select id="monthly-employee" name="employee_id" class="select" required>
                 <option value="">Select employee</option>
@@ -29,7 +29,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="monthly-month">Month</label>
             <select id="monthly-month" name="month" class="select">
                 @for ($m = 1; $m <= 12; $m++)
@@ -37,7 +37,7 @@
                 @endfor
             </select>
         </div>
-        <div class="min-w-[7rem] flex-1">
+        <div class="sm:min-w-[7rem] flex-1">
             <label class="label" for="monthly-year">Year</label>
             <select id="monthly-year" name="year" class="select">
                 @for ($y = now()->year; $y >= now()->year - 5; $y--)

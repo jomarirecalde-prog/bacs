@@ -7,11 +7,11 @@
 @section('content')
 <div x-data="adminLive({ liveUrl: @js($liveUrl) })" class="space-y-6">
     <form method="GET" class="filter-bar">
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="filter-date">Date</label>
             <input id="filter-date" type="date" name="date" value="{{ $date }}" class="input">
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="filter-department">Department</label>
             <select id="filter-department" name="department_id" class="select">
                 <option value="">All Departments</option>
@@ -20,7 +20,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="filter-employee">Employee</label>
             <select id="filter-employee" name="employee_id" class="select">
                 <option value="">All employees</option>
@@ -29,7 +29,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="filter-status">Status</label>
             <select id="filter-status" name="status" class="select">
                 <option value="">All statuses</option>
@@ -38,7 +38,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[12rem] flex-[2]">
+        <div class="sm:min-w-[12rem] flex-[2]">
             <label class="label" for="filter-q">Search</label>
             <input id="filter-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Name, ID, position">
         </div>

@@ -8,11 +8,11 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <form class="filter-bar flex-1">
-            <div class="min-w-[12rem] flex-[2]">
+            <div class="sm:min-w-[12rem] flex-[2]">
                 <label class="label" for="ent-q">Search</label>
                 <input id="ent-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Name, ID, department, position">
             </div>
-            <div class="min-w-[11rem]">
+            <div class="sm:min-w-[11rem]">
                 <label class="label" for="ent-dept">Department</label>
                 <select id="ent-dept" name="department_id" class="select">
                     <option value="">All departments</option>
@@ -21,7 +21,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[10rem]">
+            <div class="sm:min-w-[10rem]">
                 <label class="label" for="ent-employment">Employment</label>
                 <select id="ent-employment" name="employment_status" class="select">
                     <option value="">All statuses</option>
@@ -30,13 +30,13 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[9rem]">
+            <div class="sm:min-w-[9rem]">
                 <label class="label" for="ent-year">Year</label>
                 <input id="ent-year" type="number" name="year" value="{{ $year }}" class="input" min="2020" max="2100">
             </div>
             <button type="submit" class="btn-secondary">Filter</button>
         </form>
-        <a href="{{ route('admin.leave.policy') }}" class="btn-outline shrink-0">Company default policy</a>
+        <a href="{{ route('admin.leave.policy') }}" class="btn-outline w-full shrink-0 lg:w-auto">Company default policy</a>
     </div>
 
     <div class="alert-info">
@@ -45,7 +45,7 @@
     </div>
 
     <div class="card overflow-hidden">
-        <div class="table-wrap overflow-x-auto">
+        <div class="table-wrap table-scroll-mobile">
             <table class="data-table text-sm">
                 <thead>
                     <tr>
@@ -90,8 +90,12 @@
                                 </td>
                             @endforeach
                             <td class="whitespace-nowrap text-xs text-muted">{{ $row['last_updated']?->format('M j, Y g:i A') ?? '—' }}</td>
-                            <td class="text-right whitespace-nowrap">
-                                <div class="inline-flex flex-wrap justify-end gap-1">
+                            <td class="text-right">
+                                <x-action-menu label="Actions" class="sm:hidden">
+                                    <a href="{{ route('admin.leave.entitlements.show', ['employee' => $employee, 'year' => $year]) }}" class="dropdown-item">View</a>
+                                    <a href="{{ route('admin.leave.entitlements.edit', ['employee' => $employee, 'year' => $year]) }}" class="dropdown-item">Edit</a>
+                                </x-action-menu>
+                                <div class="action-group hidden justify-end sm:flex">
                                     <a class="btn-outline btn-sm" href="{{ route('admin.leave.entitlements.show', ['employee' => $employee, 'year' => $year]) }}">View</a>
                                     <a class="btn-primary btn-sm" href="{{ route('admin.leave.entitlements.edit', ['employee' => $employee, 'year' => $year]) }}">Edit</a>
                                 </div>

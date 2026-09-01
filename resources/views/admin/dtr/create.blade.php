@@ -31,7 +31,7 @@
                 <label class="label" for="attendance_date">Date</label>
                 <input id="attendance_date" class="input" type="date" name="attendance_date" value="{{ old('attendance_date', now()->toDateString()) }}" required>
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <label class="label" for="am_time_in">AM Time In</label>
                     <input id="am_time_in" class="input" type="time" name="am_time_in" value="{{ old('am_time_in') }}">

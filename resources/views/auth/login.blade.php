@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            <div class="card card-accent-brand p-8">
+            <div class="card card-accent-brand p-5 sm:p-8">
                 <div class="mb-6 hidden justify-center lg:flex">
                     <x-bacs-logo class="h-14 w-auto" />
                 </div>

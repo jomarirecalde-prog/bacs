@@ -189,7 +189,7 @@
         </div>
     </div>
 
-    <div x-show="dialog" x-cloak class="modal-backdrop flex items-center justify-center p-4" @click.self="dialog = false">
+    <div x-show="dialog" x-cloak class="modal-backdrop" @click.self="dialog = false">
         <div class="modal-panel max-w-sm">
             <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>

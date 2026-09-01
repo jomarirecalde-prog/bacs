@@ -7,11 +7,11 @@
 @section('content')
 <div class="space-y-6">
     <form class="filter-bar">
-        <div class="min-w-[12rem] flex-[2]">
+        <div class="sm:min-w-[12rem] flex-[2]">
             <label class="label" for="admin-leave-q">Search</label>
             <input id="admin-leave-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Number, employee, reason">
         </div>
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label" for="admin-leave-dept">Department</label>
             <select id="admin-leave-dept" name="department_id" class="select">
                 <option value="">All departments</option>
@@ -20,7 +20,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label" for="admin-leave-emp">Employee</label>
             <select id="admin-leave-emp" name="employee_id" class="select">
                 <option value="">All employees</option>
@@ -29,7 +29,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[10rem]">
+        <div class="sm:min-w-[10rem]">
             <label class="label" for="admin-leave-type">Leave type</label>
             <select id="admin-leave-type" name="leave_type" class="select">
                 <option value="">All types</option>
@@ -38,7 +38,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label" for="admin-leave-status">Status</label>
             <select id="admin-leave-status" name="status" class="select">
                 <option value="">All statuses</option>
@@ -47,11 +47,11 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem]">
+        <div class="sm:min-w-[9rem]">
             <label class="label" for="admin-leave-from">From</label>
             <input id="admin-leave-from" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="input">
         </div>
-        <div class="min-w-[9rem]">
+        <div class="sm:min-w-[9rem]">
             <label class="label" for="admin-leave-to">To</label>
             <input id="admin-leave-to" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="input">
         </div>

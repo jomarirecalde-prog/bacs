@@ -8,11 +8,11 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <form class="filter-bar flex-1">
-            <div class="min-w-[14rem] flex-[2]">
+            <div class="sm:min-w-[14rem] flex-[2]">
                 <label class="label" for="station-q">Search</label>
                 <input id="station-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Station ID, name, location">
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="station-status">Status</label>
                 <select id="station-status" name="status" class="select">
                     <option value="">All statuses</option>
@@ -24,7 +24,7 @@
             <button type="submit" class="btn-secondary">Search</button>
         </form>
 
-        <div class="flex shrink-0 gap-2">
+        <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
             <a href="{{ route('admin.stations.monitoring') }}" class="btn-outline-info">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 Monitoring

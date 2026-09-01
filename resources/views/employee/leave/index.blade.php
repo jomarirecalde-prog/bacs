@@ -8,11 +8,11 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <form class="filter-bar flex-1">
-            <div class="min-w-[12rem] flex-[2]">
+            <div class="sm:min-w-[12rem] flex-[2]">
                 <label class="label" for="leave-q">Search</label>
                 <input id="leave-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Application number or reason">
             </div>
-            <div class="min-w-[11rem] flex-1">
+            <div class="sm:min-w-[11rem] flex-1">
                 <label class="label" for="leave-status">Status</label>
                 <select id="leave-status" name="status" class="select">
                     <option value="">All statuses</option>
@@ -21,11 +21,11 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[9rem]">
+            <div class="sm:min-w-[9rem]">
                 <label class="label" for="leave-from">From</label>
                 <input id="leave-from" type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="input">
             </div>
-            <div class="min-w-[9rem]">
+            <div class="sm:min-w-[9rem]">
                 <label class="label" for="leave-to">To</label>
                 <input id="leave-to" type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="input">
             </div>

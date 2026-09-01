@@ -43,7 +43,7 @@
         </div>
         <form method="POST" action="{{ route('admin.dtr.update', $attendance) }}" class="space-y-4 p-5" onsubmit="return confirm('Save this DTR correction? The original values will be kept in the audit trail.')">
             @csrf @method('PUT')
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <label class="label" for="am_time_in">AM Time In</label>
                     <input id="am_time_in" class="input" type="time" name="am_time_in" value="{{ old('am_time_in', $attendance->am_time_in?->format('H:i')) }}">

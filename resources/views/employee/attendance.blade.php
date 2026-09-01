@@ -7,15 +7,15 @@
 @section('content')
 <div class="space-y-6">
     <form class="filter-bar">
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="att-from">From</label>
             <input id="att-from" type="date" name="date_from" value="{{ $dateFrom }}" class="input">
         </div>
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="att-to">To</label>
             <input id="att-to" type="date" name="date_to" value="{{ $dateTo }}" class="input">
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="att-status">Status</label>
             <select id="att-status" name="status" class="select">
                 <option value="">All statuses</option>

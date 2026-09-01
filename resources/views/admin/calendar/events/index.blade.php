@@ -118,10 +118,21 @@
                                     <span class="badge-{{ $event->status->tone() }}">{{ $event->status->label() }}</span>
                                 </td>
                                 <td>
-                                    <div class="flex items-center justify-end gap-1.5">
+                                    <div class="hidden items-center justify-end gap-1.5 sm:flex">
                                         <a href="{{ route('admin.calendar.events.show', $event) }}" class="btn-outline btn-sm">View</a>
                                         @if ($canManage)
                                             <a href="{{ route('admin.calendar.events.edit', $event) }}" class="btn-outline-info btn-sm">Edit</a>
+                                            @include('admin.calendar.events.partials.delete-button', ['event' => $event])
+                                        @endif
+                                    </div>
+                                    <div class="space-y-2 sm:hidden">
+                                        <x-action-menu label="Actions" class="w-full">
+                                            <a href="{{ route('admin.calendar.events.show', $event) }}" class="dropdown-item">View</a>
+                                            @if ($canManage)
+                                                <a href="{{ route('admin.calendar.events.edit', $event) }}" class="dropdown-item">Edit</a>
+                                            @endif
+                                        </x-action-menu>
+                                        @if ($canManage)
                                             @include('admin.calendar.events.partials.delete-button', ['event' => $event])
                                         @endif
                                     </div>

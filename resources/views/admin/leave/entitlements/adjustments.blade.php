@@ -10,7 +10,7 @@
 
     <form class="filter-bar">
         <input type="hidden" name="year" value="{{ $year }}">
-        <div class="min-w-[12rem]">
+        <div class="sm:min-w-[12rem]">
             <label class="label" for="adj-type">Leave type</label>
             <select id="adj-type" name="leave_type_code" class="select">
                 <option value="">All types</option>

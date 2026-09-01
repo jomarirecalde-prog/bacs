@@ -92,7 +92,7 @@
                 </div>
             </div>
 
-            <div x-show="resetDevice" x-cloak class="modal-backdrop flex items-center justify-center p-4" @click.self="resetDevice = false">
+            <div x-show="resetDevice" x-cloak class="modal-backdrop" @click.self="resetDevice = false">
                 <div class="modal-panel">
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-critical-100 text-critical-700">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
@@ -113,7 +113,7 @@
                 </div>
             </div>
 
-            <div x-show="resetPassword" x-cloak class="modal-backdrop flex items-center justify-center p-4" @click.self="resetPassword = false">
+            <div x-show="resetPassword" x-cloak class="modal-backdrop" @click.self="resetPassword = false">
                 <form method="POST" action="{{ route('admin.stations.reset-password', $station) }}" class="modal-panel">
                     @csrf
                     <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-info-100 text-info-700">

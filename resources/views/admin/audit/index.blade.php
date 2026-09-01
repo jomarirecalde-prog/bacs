@@ -7,11 +7,11 @@
 @section('content')
 <div class="space-y-6">
     <form class="filter-bar">
-        <div class="min-w-[14rem] flex-[2]">
+        <div class="sm:min-w-[14rem] flex-[2]">
             <label class="label" for="audit-q">Search</label>
             <input id="audit-q" name="q" value="{{ request('q') }}" class="input" placeholder="Action, module, description">
         </div>
-        <div class="min-w-[11rem] flex-1">
+        <div class="sm:min-w-[11rem] flex-1">
             <label class="label" for="audit-module">Module</label>
             <select id="audit-module" name="module" class="select">
                 <option value="">All modules</option>

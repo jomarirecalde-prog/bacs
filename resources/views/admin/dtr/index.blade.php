@@ -20,11 +20,11 @@
     </div>
 
     <form method="GET" class="filter-bar">
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="dtr-date">Date</label>
             <input id="dtr-date" type="date" name="date" value="{{ $date }}" class="input">
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="dtr-dept">Department</label>
             <select id="dtr-dept" name="department_id" class="select">
                 <option value="">All departments</option>
@@ -33,7 +33,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="dtr-employee">Employee</label>
             <select id="dtr-employee" name="employee_id" class="select">
                 <option value="">All employees</option>
@@ -42,7 +42,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="dtr-status">Status</label>
             <select id="dtr-status" name="status" class="select">
                 <option value="">All statuses</option>
@@ -51,7 +51,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="dtr-q">Search</label>
             <input id="dtr-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Name or ID">
         </div>
@@ -93,10 +93,18 @@
                             <td class="text-right font-semibold text-ink tabular-nums">{{ $row->totalHoursLabel() }}</td>
                             <td><x-status-badge :status="$row->status" /></td>
                             <td class="whitespace-nowrap text-right">
-                                <a class="btn-outline btn-sm" href="{{ route('admin.dtr.show', $row) }}">View</a>
-                                @if (auth()->user()->isAdmin())
-                                    <a class="btn-outline-info btn-sm ml-1" href="{{ route('admin.dtr.edit', $row) }}">Edit</a>
-                                @endif
+                                <span class="hidden items-center justify-end gap-1 sm:inline-flex">
+                                    <a class="btn-outline btn-sm" href="{{ route('admin.dtr.show', $row) }}">View</a>
+                                    @if (auth()->user()->isAdmin())
+                                        <a class="btn-outline-info btn-sm" href="{{ route('admin.dtr.edit', $row) }}">Edit</a>
+                                    @endif
+                                </span>
+                                <x-action-menu class="sm:hidden">
+                                    <a href="{{ route('admin.dtr.show', $row) }}" class="dropdown-item">View</a>
+                                    @if (auth()->user()->isAdmin())
+                                        <a href="{{ route('admin.dtr.edit', $row) }}" class="dropdown-item">Edit</a>
+                                    @endif
+                                </x-action-menu>
                             </td>
                         </tr>
                     @empty

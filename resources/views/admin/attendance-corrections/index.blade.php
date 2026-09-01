@@ -7,11 +7,11 @@
 @section('content')
 <div class="space-y-6">
     <form method="GET" class="filter-bar">
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="date">Date</label>
             <input id="date" type="date" name="date" value="{{ $filters['date'] ?? '' }}" class="input">
         </div>
-        <div class="min-w-[10rem] flex-1">
+        <div class="sm:min-w-[10rem] flex-1">
             <label class="label" for="employee_id">Employee</label>
             <select id="employee_id" name="employee_id" class="select">
                 <option value="">All employees</option>
@@ -20,7 +20,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem] flex-1">
+        <div class="sm:min-w-[9rem] flex-1">
             <label class="label" for="status">Status</label>
             <select id="status" name="status" class="select">
                 <option value="">All statuses</option>

@@ -8,7 +8,7 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <form class="filter-bar flex-1">
-            <div class="min-w-[11rem] flex-1">
+            <div class="sm:min-w-[11rem] flex-1">
                 <label class="label" for="status">Status</label>
                 <select id="status" name="status" class="select">
                     <option value="">All statuses</option>

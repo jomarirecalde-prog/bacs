@@ -7,7 +7,7 @@
 @section('content')
 <div class="space-y-6">
     <form class="filter-bar">
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label">Department</label>
             <select name="department_id" class="select">
                 <option value="">All departments</option>
@@ -16,7 +16,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[10rem]">
+        <div class="sm:min-w-[10rem]">
             <label class="label">Leave type</label>
             <select name="leave_type" class="select">
                 <option value="">All types</option>
@@ -25,7 +25,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label">Status</label>
             <select name="status" class="select">
                 <option value="">All statuses</option>
@@ -34,11 +34,11 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[9rem]">
+        <div class="sm:min-w-[9rem]">
             <label class="label">From</label>
             <input type="date" name="from" value="{{ $filters['from'] ?? '' }}" class="input">
         </div>
-        <div class="min-w-[9rem]">
+        <div class="sm:min-w-[9rem]">
             <label class="label">To</label>
             <input type="date" name="to" value="{{ $filters['to'] ?? '' }}" class="input">
         </div>

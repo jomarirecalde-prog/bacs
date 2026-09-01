@@ -43,7 +43,33 @@
     </form>
 
     <div class="grid gap-6 xl:grid-cols-3">
-        <div class="card overflow-hidden xl:col-span-2">
+        {{-- Mobile: agenda list --}}
+        <div class="card overflow-hidden md:hidden">
+            <div class="card-header">
+                <h3 class="card-title">Leave this month</h3>
+            </div>
+            <div class="divide-y divide-line">
+                @for ($day = 1; $day <= $daysInMonth; $day++)
+                    @php $date = sprintf('%04d-%02d-%02d', $year, $month, $day); $items = $byDate[$date] ?? []; @endphp
+                    @if ($items)
+                        <div class="px-4 py-3">
+                            <div class="text-xs font-bold uppercase tracking-wide text-muted">{{ DateTime::createFromFormat('!Y-m-d', $date)->format('D, M j') }}</div>
+                            <div class="mt-2 space-y-1">
+                                @foreach ($items as $item)
+                                    <a href="{{ route('employee.leave.show', $item) }}" class="block rounded-lg border border-line bg-brand-50/60 px-3 py-2 text-sm font-semibold {{ $item->status->badgeClass() }}">{{ $item->leaveTypeLabel() }} · {{ $item->status->label() }}</a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @endfor
+                @if (empty($applications))
+                    <div class="p-4 text-center text-sm text-muted">No leave scheduled this month.</div>
+                @endif
+            </div>
+        </div>
+
+        {{-- Desktop: month grid --}}
+        <div class="card hidden overflow-hidden md:block xl:col-span-2">
             <div class="grid grid-cols-7 border-b border-line bg-canvas text-center text-[11px] font-bold uppercase tracking-wide text-muted">
                 @foreach (['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $d)
                     <div class="px-1 py-2">{{ $d }}</div>
@@ -51,11 +77,11 @@
             </div>
             <div class="grid grid-cols-7">
                 @for ($i = 0; $i < $lead; $i++)
-                    <div class="min-h-20 border-b border-r border-line bg-canvas/40"></div>
+                    <div class="min-h-24 border-b border-r border-line bg-canvas/40"></div>
                 @endfor
                 @for ($day = 1; $day <= $daysInMonth; $day++)
                     @php $date = sprintf('%04d-%02d-%02d', $year, $month, $day); $items = $byDate[$date] ?? []; @endphp
-                    <div class="min-h-20 border-b border-r border-line p-1.5 {{ $items ? 'bg-brand-50/60' : '' }}">
+                    <div class="min-h-24 border-b border-r border-line p-1.5 sm:min-h-28 {{ $items ? 'bg-brand-50/60' : '' }}">
                         <div class="text-xs font-bold text-ink">{{ $day }}</div>
                         @foreach (array_slice($items, 0, 2) as $item)
                             <a href="{{ route('employee.leave.show', $item) }}" class="mt-0.5 block truncate rounded bg-white px-1 py-0.5 text-[10px] font-semibold {{ $item->status->badgeClass() }}">{{ $item->leaveTypeLabel() }}</a>

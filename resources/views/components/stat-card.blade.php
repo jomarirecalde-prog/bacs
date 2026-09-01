@@ -40,7 +40,7 @@
     $iconPath = $icon ? ($icons[$icon] ?? null) : null;
 @endphp
 
-<div {{ $attributes->merge(['class' => "card card-interactive {$t['accent']} p-5"]) }}>
+<div {{ $attributes->merge(['class' => "card card-interactive {$t['accent']} p-4 sm:p-5"]) }}>
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="stat-label">{{ $label }}</div>

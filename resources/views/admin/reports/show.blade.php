@@ -15,7 +15,7 @@
 
     <form method="GET" class="filter-bar no-print">
         @if ($type === 'monthly')
-            <div class="min-w-[14rem] flex-[2]">
+            <div class="sm:min-w-[14rem] flex-[2]">
                 <label class="label" for="rep-employee">Employee</label>
                 <select id="rep-employee" name="employee_id" class="select" required>
                     <option value="">Select employee</option>
@@ -24,7 +24,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="rep-month">Month</label>
                 <select id="rep-month" name="month" class="select">
                     @for ($m = 1; $m <= 12; $m++)
@@ -32,7 +32,7 @@
                     @endfor
                 </select>
             </div>
-            <div class="min-w-[7rem] flex-1">
+            <div class="sm:min-w-[7rem] flex-1">
                 <label class="label" for="rep-year">Year</label>
                 <select id="rep-year" name="year" class="select">
                     @for ($y = now()->year; $y >= now()->year - 5; $y--)
@@ -41,19 +41,19 @@
                 </select>
             </div>
         @else
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="rep-date">Date</label>
                 <input id="rep-date" type="date" name="date" value="{{ $filters['values']['date'] ?? '' }}" class="input">
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="rep-date-from">From</label>
                 <input id="rep-date-from" type="date" name="date_from" value="{{ $filters['values']['date_from'] ?? '' }}" class="input">
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="rep-date-to">To</label>
                 <input id="rep-date-to" type="date" name="date_to" value="{{ $filters['values']['date_to'] ?? '' }}" class="input">
             </div>
-            <div class="min-w-[10rem] flex-1">
+            <div class="sm:min-w-[10rem] flex-1">
                 <label class="label" for="rep-dept">Department</label>
                 <select id="rep-dept" name="department_id" class="select">
                     <option value="">All departments</option>
@@ -62,7 +62,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[10rem] flex-1">
+            <div class="sm:min-w-[10rem] flex-1">
                 <label class="label" for="rep-emp">Employee</label>
                 <select id="rep-emp" name="employee_id" class="select">
                     <option value="">All employees</option>
@@ -71,7 +71,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="rep-status">Status</label>
                 <select id="rep-status" name="status" class="select">
                     <option value="">All statuses</option>
@@ -82,13 +82,14 @@
             </div>
         @endif
 
-        <div class="flex w-full flex-wrap items-center gap-2 border-t border-line pt-4">
-            <button type="submit" class="btn-primary" name="export" value="">View report</button>
-            <span class="mx-1 hidden h-6 w-px bg-line sm:block"></span>
-            <button type="submit" class="btn-secondary btn-sm" name="export" value="pdf">PDF</button>
-            <button type="submit" class="btn-secondary btn-sm" name="export" value="excel">Excel</button>
-            <button type="submit" class="btn-secondary btn-sm" name="export" value="csv">CSV</button>
-            <button type="button" class="btn-outline btn-sm" onclick="window.print()">Print</button>
+        <div class="flex w-full flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:flex-wrap sm:items-center">
+            <button type="submit" class="btn-primary w-full sm:w-auto" name="export" value="">View report</button>
+            <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+                <button type="submit" class="btn-secondary btn-sm w-full sm:w-auto" name="export" value="pdf">PDF</button>
+                <button type="submit" class="btn-secondary btn-sm w-full sm:w-auto" name="export" value="excel">Excel</button>
+                <button type="submit" class="btn-secondary btn-sm w-full sm:w-auto" name="export" value="csv">CSV</button>
+                <button type="button" class="btn-outline btn-sm w-full sm:w-auto" onclick="window.print()">Print</button>
+            </div>
         </div>
     </form>
 

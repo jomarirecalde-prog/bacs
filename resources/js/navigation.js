@@ -5,6 +5,8 @@
  * main column is replaced, previous page timers are cleared, and in-flight
  * navigations are aborted when the user clicks another link.
  */
+import { closeMobileSidebar } from './responsive';
+
 const PARTIAL_HEADER = { 'X-BACS-Partial': '1', Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' };
 
 let inflight = null;
@@ -173,6 +175,7 @@ export async function navigate(url, { replace = false, push = true } = {}) {
         }
 
         mountPartial(html, response.url || target);
+        closeMobileSidebar();
 
         if (push) {
             const method = replace ? 'replaceState' : 'pushState';

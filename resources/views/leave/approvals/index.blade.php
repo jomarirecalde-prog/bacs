@@ -6,10 +6,10 @@
 
 @section('content')
 <div class="space-y-6">
-    <div class="flex gap-2">
-        <a href="{{ route('leave.approvals.index') }}" class="{{ $mode === 'pending' ? 'btn-primary' : 'btn-outline' }} btn-sm">Pending</a>
-        <a href="{{ route('leave.approvals.history') }}" class="{{ $mode === 'history' ? 'btn-primary' : 'btn-outline' }} btn-sm">History</a>
-    </div>
+    <nav class="pill-tabs w-full sm:w-auto">
+        <a href="{{ route('leave.approvals.index') }}" class="{{ $mode === 'pending' ? 'pill-tab-active' : 'pill-tab' }}">Pending</a>
+        <a href="{{ route('leave.approvals.history') }}" class="{{ $mode === 'history' ? 'pill-tab-active' : 'pill-tab' }}">History</a>
+    </nav>
 
     <div class="card overflow-hidden">
         <div class="table-wrap">

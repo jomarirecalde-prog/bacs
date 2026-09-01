@@ -5,14 +5,14 @@
 @section('page-subtitle', 'Manage employee accounts and assignments')
 
 @section('content')
-<div class="space-y-6">
+<div class="page-stack">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <form class="filter-bar flex-1">
-            <div class="min-w-[14rem] flex-[2]">
+        <form class="filter-bar min-w-0 flex-1">
+            <div class="sm:min-w-[14rem] flex-[2]">
                 <label class="label" for="emp-q">Search</label>
                 <input id="emp-q" name="q" value="{{ $filters['q'] ?? '' }}" class="input" placeholder="Name, number, department, position">
             </div>
-            <div class="min-w-[11rem] flex-1">
+            <div class="sm:min-w-[11rem] flex-1">
                 <label class="label" for="emp-dept">Department</label>
                 <select id="emp-dept" name="department_id" class="select">
                     <option value="">All departments</option>
@@ -21,7 +21,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="min-w-[9rem] flex-1">
+            <div class="sm:min-w-[9rem] flex-1">
                 <label class="label" for="emp-status">Status</label>
                 <select id="emp-status" name="status" class="select">
                     <option value="">All statuses</option>
@@ -37,7 +37,7 @@
         </form>
 
         @if (auth()->user()->canManageEmployees())
-            <a href="{{ route('admin.employees.create') }}" class="btn-primary shrink-0">
+            <a href="{{ route('admin.employees.create') }}" class="btn-primary w-full shrink-0 lg:w-auto">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Add employee
             </a>
@@ -51,8 +51,8 @@
                     <tr>
                         <th>Employee</th>
                         <th>ID No.</th>
-                        <th>Department</th>
-                        <th>Position</th>
+                        <th class="hidden md:table-cell">Department</th>
+                        <th class="hidden md:table-cell">Position</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th class="text-right">Actions</th>
@@ -71,8 +71,8 @@
                                 </div>
                             </td>
                             <td class="font-medium tabular-nums">{{ $employee->employee_number }}</td>
-                            <td>{{ $employee->department?->name ?? '—' }}</td>
-                            <td>{{ $employee->position ?? '—' }}</td>
+                            <td class="hidden md:table-cell">{{ $employee->department?->name ?? '—' }}</td>
+                            <td class="hidden md:table-cell">{{ $employee->position ?? '—' }}</td>
                             <td>
                                 @if ($employee->user?->role)
                                     <span class="badge-info">{{ $employee->user->role->label() }}</span>

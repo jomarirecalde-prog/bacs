@@ -17,7 +17,7 @@
                     <label class="label" for="sched-name">Name</label>
                     <input id="sched-name" class="input" name="name" required>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                         <label class="label" for="sched-start">Work start</label>
                         <input id="sched-start" class="input" type="time" name="start_time" value="08:00" required>
@@ -31,7 +31,7 @@
                     <label class="label" for="sched-grace">Grace period (minutes)</label>
                     <input id="sched-grace" class="input" type="number" name="grace_period_minutes" value="10" min="0" required>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                         <label class="label" for="sched-break-start">Lunch start</label>
                         <input id="sched-break-start" class="input" type="time" name="break_start" value="12:00">

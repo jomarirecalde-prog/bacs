@@ -8,11 +8,11 @@
 <div class="space-y-6">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <form class="filter-bar flex-1">
-            <div class="min-w-[12rem] flex-[2]">
+            <div class="sm:min-w-[12rem] flex-[2]">
                 <label class="label" for="cfg-q">Search departments</label>
                 <input id="cfg-q" name="q" value="{{ $filters['q'] }}" class="input" placeholder="Department name">
             </div>
-            <div class="min-w-[10rem]">
+            <div class="sm:min-w-[10rem]">
                 <label class="label" for="cfg-status">Status</label>
                 <select id="cfg-status" name="status" class="select">
                     <option value="">All statuses</option>
@@ -76,8 +76,12 @@
                                     <div class="text-xs">{{ $workflow->updatedByUser->name }}</div>
                                 @endif
                             </td>
-                            <td class="whitespace-nowrap">
-                                <div class="flex flex-wrap gap-1">
+                            <td class="text-right">
+                                <x-action-menu label="Actions" class="sm:hidden">
+                                    <a href="{{ route('admin.leave.workflow.show', $department) }}" class="dropdown-item">Configure</a>
+                                    <a href="{{ route('admin.leave.workflow.history', $department) }}" class="dropdown-item">History</a>
+                                </x-action-menu>
+                                <div class="action-group hidden sm:flex">
                                     <a href="{{ route('admin.leave.workflow.show', $department) }}" class="btn-outline btn-sm">Configure</a>
                                     <a href="{{ route('admin.leave.workflow.history', $department) }}" class="btn-ghost btn-sm">History</a>
                                 </div>

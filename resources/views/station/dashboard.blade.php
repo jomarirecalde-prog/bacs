@@ -3,38 +3,40 @@
 @section('title', $station->station_name)
 
 @section('content')
-<div class="min-h-screen bg-gradient-to-b from-shell-950 to-shell-900" x-data="stationKiosk({
+<div class="min-h-[100dvh] bg-gradient-to-b from-shell-950 to-shell-900" x-data="stationKiosk({
     scanUrl: '{{ route('station.scan') }}',
     heartbeatUrl: '{{ route('station.heartbeat') }}',
     locked: {{ $station->isLocked() ? 'true' : 'false' }},
     csrf: '{{ csrf_token() }}'
 })">
-    <header class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-shell-950/60 px-5 py-4 backdrop-blur">
-        <div class="flex items-center gap-3">
-            <div class="brand-mark h-11 w-11 rounded-2xl text-lg">B</div>
-            <div>
+    <header class="flex flex-col gap-4 border-b border-white/10 bg-shell-950/60 px-4 py-4 backdrop-blur safe-top sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div class="flex min-w-0 items-center gap-3">
+            <div class="brand-mark h-11 w-11 shrink-0 rounded-2xl text-lg">B</div>
+            <div class="min-w-0">
                 <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-gold-300">BACS Attendance Station</div>
-                <h1 class="text-xl font-extrabold text-white sm:text-2xl">{{ $station->station_name }}</h1>
-                <p class="text-sm text-brand-200/70">Location: {{ $station->location }}</p>
+                <h1 class="truncate text-lg font-extrabold text-white sm:text-2xl">{{ $station->station_name }}</h1>
+                <p class="truncate text-sm text-brand-200/70">Location: {{ $station->location }}</p>
             </div>
         </div>
-        <div class="text-right">
-            <div class="flex items-center justify-end gap-2 text-sm font-bold" :class="locked ? 'text-critical-300' : 'text-brand-300'">
-                <span class="h-2.5 w-2.5 rounded-full" :class="locked ? 'bg-critical-400' : 'bg-brand-400 animate-pulse'"></span>
+        <div class="flex items-center justify-between gap-4 sm:block sm:text-right">
+            <div class="flex items-center gap-2 text-sm font-bold" :class="locked ? 'text-critical-300' : 'text-brand-300'">
+                <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="locked ? 'bg-critical-400' : 'bg-brand-400 animate-pulse'"></span>
                 <span x-text="locked ? 'Station Locked' : 'Station Active'"></span>
             </div>
-            <div class="mt-1 text-sm text-brand-100/70" x-text="dateLabel">{{ $now->format('F j, Y') }}</div>
-            <div class="text-2xl font-extrabold text-white tabular-nums sm:text-3xl" x-text="timeLabel">{{ $now->format('g:i A') }}</div>
-            <a href="{{ route('station.settings') }}" class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-200/70 transition hover:text-white">
+            <div class="text-right">
+                <div class="text-sm text-brand-100/70" x-text="dateLabel">{{ $now->format('F j, Y') }}</div>
+                <div class="text-2xl font-extrabold text-white tabular-nums sm:text-3xl" x-text="timeLabel">{{ $now->format('g:i A') }}</div>
+            </div>
+            <a href="{{ route('station.settings') }}" class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-brand-200/70 transition hover:bg-white/5 hover:text-white sm:mt-2">
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 Station Settings
             </a>
         </div>
     </header>
 
-    <main class="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-2 lg:p-8">
-        <section class="shell-panel p-5">
-            <h2 class="text-center text-lg font-extrabold tracking-wide text-white sm:text-2xl">SCAN YOUR EMPLOYEE QR CODE</h2>
+    <main class="mx-auto grid max-w-6xl gap-4 p-3 safe-bottom sm:gap-6 sm:p-4 lg:grid-cols-2 lg:p-8">
+        <section class="shell-panel p-4 sm:p-5">
+            <h2 class="text-center text-base font-extrabold tracking-wide text-white sm:text-2xl">SCAN YOUR EMPLOYEE QR CODE</h2>
             <div class="relative mt-4 overflow-hidden rounded-3xl bg-black ring-1 ring-white/10">
                 <video x-ref="video" class="aspect-4/3 w-full object-cover" playsinline muted autoplay></video>
                 <div class="pointer-events-none absolute inset-0 border-[6px] border-brand-500/40"></div>
@@ -46,7 +48,7 @@
             <p class="mt-3 text-center text-xs text-brand-200/70" x-text="cameraStatus">Point the camera at the employee QR code.</p>
         </section>
 
-        <section class="shell-panel flex min-h-[420px] items-center justify-center p-6">
+        <section class="shell-panel flex min-h-[280px] items-center justify-center p-4 sm:min-h-[420px] sm:p-6">
             <div x-show="locked" x-cloak class="text-center">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-critical-500/15 text-critical-300">
                     <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>

@@ -9,7 +9,7 @@
     @include('admin.leave.entitlements.partials.employee-header', ['employee' => $employee, 'year' => now()->year])
 
     <form class="filter-bar">
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label" for="lh-status">Status</label>
             <select id="lh-status" name="status" class="select">
                 <option value="">All statuses</option>
@@ -18,7 +18,7 @@
                 @endforeach
             </select>
         </div>
-        <div class="min-w-[11rem]">
+        <div class="sm:min-w-[11rem]">
             <label class="label" for="lh-type">Leave type</label>
             <select id="lh-type" name="leave_type" class="select">
                 <option value="">All types</option>

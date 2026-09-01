@@ -28,7 +28,7 @@
     </div>
 
     <form class="filter-bar no-print" method="get" action="{{ route('employee.dtr') }}">
-        <div class="min-w-[16rem] flex-[2]">
+        <div class="sm:min-w-[16rem] flex-[2]">
             <label class="label" for="dtr-period">Cut-Off</label>
             <select id="dtr-period" name="period" class="select">
                 <optgroup label="Payroll cut-off">
@@ -48,18 +48,21 @@
             </select>
         </div>
         <button type="submit" class="btn-primary">View DTR</button>
-        <span class="mx-1 hidden h-6 w-px self-center bg-line sm:block"></span>
-        <a class="btn-outline btn-sm" href="{{ route('employee.attendance-corrections.create', ['date' => $period->end]) }}">Request correction</a>
-        <a class="btn-primary btn-sm" href="{{ route('employee.dtr.export', $query + ['format' => 'pdf']) }}">
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Download PDF
-        </a>
-        <a class="btn-secondary btn-sm" href="{{ route('employee.dtr.print', $query) }}" target="_blank">
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-            Print DTR
-        </a>
-        <a class="btn-outline btn-sm" href="{{ route('employee.dtr.export', $query + ['format' => 'excel']) }}">Excel</a>
-        <a class="btn-outline btn-sm" href="{{ route('employee.dtr.export', $query + ['format' => 'csv']) }}">CSV</a>
+        <div class="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <a class="btn-outline btn-sm w-full sm:w-auto" href="{{ route('employee.attendance-corrections.create', ['date' => $period->end]) }}">Request correction</a>
+            <a class="btn-primary btn-sm w-full sm:w-auto" href="{{ route('employee.dtr.export', $query + ['format' => 'pdf']) }}">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download PDF
+            </a>
+            <a class="btn-secondary btn-sm w-full sm:w-auto" href="{{ route('employee.dtr.print', $query) }}" target="_blank">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Print DTR
+            </a>
+            <x-action-menu label="Export" class="w-full sm:w-auto">
+                <a class="dropdown-item" href="{{ route('employee.dtr.export', $query + ['format' => 'excel']) }}">Excel</a>
+                <a class="dropdown-item" href="{{ route('employee.dtr.export', $query + ['format' => 'csv']) }}">CSV</a>
+            </x-action-menu>
+        </div>
     </form>
 
     <div class="card card-accent-brand overflow-hidden">
@@ -82,7 +85,7 @@
             </div>
         </div>
         <div class="table-wrap">
-            <table class="data-table min-w-[56rem]">
+            <table class="data-table">
                 <thead>
                     <tr>
                         <th>Date</th>

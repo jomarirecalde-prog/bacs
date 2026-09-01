@@ -1,6 +1,7 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import { bootNavigation } from './navigation';
+import { bootResponsive } from './responsive';
 
 window.Alpine = Alpine;
 
@@ -873,6 +874,7 @@ function escapeHtml(value) {
 
 Alpine.start();
 bootNavigation();
+bootResponsive();
 
 window.dtrToast = function (message, type = 'success', duration = 3500) {
     window.dispatchEvent(new CustomEvent('dtr-toast', { detail: { message, type, duration } }));
