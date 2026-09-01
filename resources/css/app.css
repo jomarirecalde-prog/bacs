@@ -890,3 +890,14 @@
     from { background-position: 100% 0; }
     to { background-position: -100% 0; }
 }
+
+/* PWA standalone — native-app-like chrome on installed devices */
+@media (display-mode: standalone) {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        overscroll-behavior-y: none;
+    }
+}

@@ -29,6 +29,18 @@
             "dest": "/public/sw-station.js"
         },
         {
+            "src": "/sw-app.js",
+            "dest": "/public/sw-app.js"
+        },
+        {
+            "src": "/app.webmanifest",
+            "dest": "/public/app.webmanifest"
+        },
+        {
+            "src": "/offline.html",
+            "dest": "/public/offline.html"
+        },
+        {
             "src": "/station-icon.svg",
             "dest": "/public/station-icon.svg"
         },

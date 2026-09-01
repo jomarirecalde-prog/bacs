@@ -2,6 +2,7 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import { bootNavigation } from './navigation';
 import { bootResponsive } from './responsive';
+import { bootPwa } from './pwa';
 
 window.Alpine = Alpine;
 
@@ -53,6 +54,8 @@ function onPageHide(callback) {
 }
 
 document.addEventListener('alpine:init', () => {
+    bootPwa(Alpine);
+
     Alpine.data('manilaClock', () => ({
         dateLabel: '',
         timeLabel: '',

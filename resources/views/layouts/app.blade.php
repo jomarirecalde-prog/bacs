@@ -43,8 +43,10 @@
     <meta name="app-base" content="{{ url('/') }}">
     <meta name="user-id" content="{{ auth()->id() }}">
     <meta name="theme-color" content="#047857">
+    <meta name="description" content="BACS Attendance Management System — daily time record, attendance, and leave management.">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
     @include('partials.favicon')
+    @include('partials.pwa-head')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -244,6 +246,17 @@
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-1.5 sm:gap-3">
+                    <div class="hidden items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold sm:inline-flex"
+                         x-data
+                         :class="$store.pwa.online ? 'text-brand-700' : 'text-critical-600'"
+                         :title="$store.pwa.online ? 'Online' : 'Offline'"
+                         role="status">
+                        <span class="inline-block h-2 w-2 rounded-full"
+                              :class="$store.pwa.online ? 'bg-brand-500' : 'bg-critical-500'"
+                              aria-hidden="true"></span>
+                        <span x-text="$store.pwa.connectionLabel"></span>
+                    </div>
+
                     <div class="mr-0.5 hidden text-right sm:mr-1 sm:block" x-data="manilaClock()">
                         <div class="text-[11px] text-muted" x-text="dateLabel"></div>
                         <div class="text-sm font-bold text-brand-700 tabular-nums" x-text="timeLabel"></div>
@@ -359,6 +372,8 @@
             window.addEventListener('bacs:pageshow', function () { labelTables(document.getElementById('app-main')); });
         })();
     </script>
+
+    @include('partials.pwa-ui')
 
     <div x-show="sidebar" x-cloak x-transition.opacity class="fixed inset-0 z-30 bg-shell-950/55 backdrop-blur-sm lg:hidden" @click="sidebar = false" aria-hidden="true"></div>
 

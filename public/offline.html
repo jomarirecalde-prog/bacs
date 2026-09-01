@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#047857">
+    <title>Offline · BACS</title>
+    <style>
+        :root { color-scheme: light dark; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+            background: linear-gradient(160deg, #04140f 0%, #064e3b 100%);
+            color: #ecfdf5;
+        }
+        .card {
+            width: min(24rem, 100%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
+            backdrop-filter: blur(8px);
+        }
+        img { width: 4.5rem; height: 4.5rem; object-fit: contain; margin: 0 auto 1rem; }
+        h1 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem; }
+        p { font-size: 0.9375rem; line-height: 1.5; color: rgba(236, 253, 245, 0.82); }
+        button {
+            margin-top: 1.25rem;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1.25rem;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            background: #047857;
+            color: #fff;
+        }
+        button:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="/images/bacs_logo_no_bg.png" alt="BACS">
+        <h1>You are currently offline</h1>
+        <p>Some BACS features may be unavailable until your connection is restored.</p>
+        <button type="button" onclick="location.reload()">Try again</button>
+    </div>
+</body>
+</html>

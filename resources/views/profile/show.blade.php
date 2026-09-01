@@ -235,6 +235,75 @@
         </form>
     </div>
 
+    {{-- BACS App --}}
+    <div id="bacs-app" class="card overflow-hidden scroll-mt-24" x-data>
+        <div class="card-header">
+            <h2 class="card-title">BACS App</h2>
+            <p class="mt-0.5 text-sm text-muted">Install BACS on your device for faster access and an app-like experience.</p>
+        </div>
+
+        <div class="space-y-4 p-5">
+            <template x-if="$store.pwa.installed">
+                <div class="alert-success">
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span><strong class="font-bold">BACS App Installed</strong> — You are using the installed application.</span>
+                </div>
+            </template>
+
+            <template x-if="!$store.pwa.installed && ($store.pwa.canInstall || $store.pwa.showIosGuide)">
+                <div class="rounded-xl border border-brand-200 bg-brand-50/60 p-4">
+                    <div class="font-extrabold text-ink">📱 Get the BACS App</div>
+                    <p class="mt-1 text-sm text-muted">Install BACS on your device for faster access and an app-like experience.</p>
+                    <template x-if="$store.pwa.showIosGuide">
+                        <div class="mt-3 rounded-xl bg-white/80 p-3 text-sm text-muted">
+                            <p class="font-bold text-ink">Install BACS on iPhone/iPad</p>
+                            <ol class="mt-2 list-decimal space-y-1 pl-4">
+                                <li>Tap the Share button.</li>
+                                <li>Select &ldquo;Add to Home Screen&rdquo;.</li>
+                                <li>Tap &ldquo;Add&rdquo;.</li>
+                            </ol>
+                        </div>
+                    </template>
+                    <button type="button" class="btn btn-primary btn-sm mt-3" @click="$store.pwa.install()" x-show="$store.pwa.canInstall">
+                        Install BACS
+                    </button>
+                </div>
+            </template>
+
+            <dl class="divide-y divide-line text-sm">
+                <div class="flex justify-between gap-4 py-3">
+                    <dt class="text-muted">Installation status</dt>
+                    <dd class="font-semibold text-ink" x-text="$store.pwa.installStatusLabel"></dd>
+                </div>
+                <div class="flex justify-between gap-4 py-3">
+                    <dt class="text-muted">App version</dt>
+                    <dd class="font-semibold text-ink" x-text="$store.pwa.version"></dd>
+                </div>
+                <div class="flex justify-between gap-4 py-3">
+                    <dt class="text-muted">Connection</dt>
+                    <dd class="font-semibold" :class="$store.pwa.online ? 'text-brand-700' : 'text-critical-600'" x-text="$store.pwa.connectionLabel"></dd>
+                </div>
+                <div class="flex justify-between gap-4 py-3">
+                    <dt class="text-muted">Last update check</dt>
+                    <dd class="font-semibold text-ink" x-text="$store.pwa.lastCheckedLabel"></dd>
+                </div>
+            </dl>
+
+            <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" class="btn btn-primary btn-sm" @click="$store.pwa.install()" x-show="!$store.pwa.installed && $store.pwa.canInstall">
+                    Install App
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" @click="$store.pwa.checkForUpdates()" :disabled="$store.pwa.checkingUpdate">
+                    <span x-show="!$store.pwa.checkingUpdate">Check for Updates</span>
+                    <span x-show="$store.pwa.checkingUpdate" x-cloak>Checking…</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" @click="$store.pwa.applyUpdate()" x-show="$store.pwa.updateAvailable">
+                    Update App
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- Account Security --}}
     <div class="card overflow-hidden">
         <div class="card-header">
