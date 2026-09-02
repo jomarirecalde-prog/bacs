@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Models\AttendanceCorrectionRequest;
+use App\Models\Employee;
 use App\Models\LeaveApplication;
 use App\Models\LeaveBalance;
 use App\Policies\AttendanceCorrectionRequestPolicy;
+use App\Policies\EmployeePolicy;
 use App\Policies\LeaveApplicationPolicy;
 use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
@@ -48,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
 
         date_default_timezone_set(config('app.timezone', 'Asia/Manila'));
 
+        Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(LeaveApplication::class, LeaveApplicationPolicy::class);
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
         Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
@@ -92,7 +95,11 @@ class AppServiceProvider extends ServiceProvider
             $unread = 0;
 
             if ($user) {
-                $unread = app(NotificationService::class)->unreadCount($user);
+                try {
+                    $unread = app(NotificationService::class)->unreadCount($user);
+                } catch (\Throwable) {
+                    // Never fail page rendering when notification metadata is unavailable.
+                }
             }
 
             $view->with([
