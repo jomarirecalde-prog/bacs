@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AccountStatus;
 use App\Enums\EmploymentStatus;
 use App\Services\DirectoryCatalog;
+use App\Services\EmployeePhotoStorage;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -161,11 +162,7 @@ class Employee extends Model
 
     public function photoUrl(): string
     {
-        if ($this->photo) {
-            return asset('storage/'.$this->photo);
-        }
-
-        return 'https://ui-avatars.com/api/?name='.urlencode($this->fullName()).'&background=047857&color=fff';
+        return app(EmployeePhotoStorage::class)->url($this);
     }
 
     public function scopeSearch($query, ?string $term)

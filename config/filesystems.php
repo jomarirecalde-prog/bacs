@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Employee Photos Disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk used for employee profile photos. When unset, uses S3 if a bucket
+    | is configured, otherwise the local public disk.
+    |
+    */
+
+    'employee_photos_disk' => env('EMPLOYEE_PHOTOS_DISK'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

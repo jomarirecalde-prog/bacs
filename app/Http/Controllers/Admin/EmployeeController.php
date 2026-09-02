@@ -16,10 +16,10 @@ use App\Services\AttendanceService;
 use App\Services\AuditLogger;
 use App\Services\DirectoryCatalog;
 use App\Services\EmployeeQrService;
+use App\Services\EmployeePhotoStorage;
 use App\Services\LeaveBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends Controller
 {
@@ -28,6 +28,7 @@ class EmployeeController extends Controller
         private readonly AttendanceService $attendanceService,
         private readonly EmployeeQrService $qr,
         private readonly LeaveBalanceService $leaveBalances,
+        private readonly EmployeePhotoStorage $photos,
     ) {}
 
     public function index(Request $request)
@@ -192,9 +193,9 @@ class EmployeeController extends Controller
         }
 
         if ($employee?->photo) {
-            Storage::disk('public')->delete($employee->photo);
+            $this->photos->delete($employee->photo);
         }
 
-        return $request->file('photo')->store('photos', 'public');
+        return $this->photos->store($employee ?? new Employee, $request->file('photo'));
     }
 }

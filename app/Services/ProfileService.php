@@ -6,16 +6,15 @@ use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ProfileService
 {
-    private const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
-
     private const MAX_PHOTO_KB = 2048;
 
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly EmployeePhotoStorage $photos,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -56,7 +55,7 @@ class ProfileService
                 'employment_status' => $employee->employment_status?->label(),
                 'date_hired' => $employee->date_hired?->toDateString(),
                 'photo_url' => $employee->photoUrl(),
-                'has_photo' => filled($employee->photo),
+                'has_photo' => $this->photos->hasPhoto($employee),
             ] : null,
         ];
     }
@@ -120,7 +119,7 @@ class ProfileService
             $employee->update(['photo' => $path]);
 
             if ($previous && $previous !== $path) {
-                Storage::disk('public')->delete($previous);
+                $this->photos->delete($previous);
             }
 
             $this->auditLogger->log($user, 'profile_photo_updated', 'Profile', $employee->id, 'Profile picture updated.');
@@ -138,7 +137,7 @@ class ProfileService
             $employee->update(['photo' => null]);
 
             if ($previous) {
-                Storage::disk('public')->delete($previous);
+                $this->photos->delete($previous);
             }
 
             $this->auditLogger->log($user, 'profile_photo_removed', 'Profile', $employee->id, 'Profile picture removed.');
@@ -170,21 +169,11 @@ class ProfileService
         abort_unless($file->getSize() <= self::MAX_PHOTO_KB * 1024, 422, 'Profile photo must not exceed 2 MB.');
 
         $mime = $file->getMimeType();
-        abort_unless(in_array($mime, self::ALLOWED_MIMES, true), 422, 'Profile photo must be JPG, PNG, or WEBP.');
+        abort_unless(in_array($mime, EmployeePhotoStorage::allowedMimes(), true), 422, 'Profile photo must be JPG, PNG, or WEBP.');
     }
 
     private function writePhoto(Employee $employee, UploadedFile $file): string
     {
-        $extension = match ($file->getMimeType()) {
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            default => 'jpg',
-        };
-
-        $filename = Str::uuid()->toString().'.'.$extension;
-        $directory = 'photos/employees/'.$employee->id;
-
-        return $file->storeAs($directory, $filename, 'public');
+        return $this->photos->store($employee, $file);
     }
 }

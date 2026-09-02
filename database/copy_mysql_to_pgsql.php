@@ -22,6 +22,9 @@ $booleanColumns = [
     'calendar_events' => ['is_all_day', 'notify_audience'],
     'users' => ['must_change_password'],
     'work_schedules' => ['is_default'],
+    'leave_types' => ['is_special', 'counts_calendar_days', 'is_active'],
+    'leave_approval_workflows' => ['is_default', 'is_active'],
+    'leave_applications' => ['declaration_accepted', 'attendance_conflict'],
 ];
 
 $jsonColumns = [
@@ -48,6 +51,17 @@ $ordered = [
     'station_activity_logs',
     'station_device_bindings',
     'audit_logs',
+    'leave_types',
+    'leave_approval_workflows',
+    'leave_approval_workflow_approvers',
+    'leave_applications',
+    'leave_approval_assignments',
+    'leave_approval_actions',
+    'leave_balances',
+    'leave_balance_adjustments',
+    'leave_attendance_conflicts',
+    'leave_workflow_configuration_histories',
+    'attendance_correction_requests',
     'app_notifications',
     'calendar_event_department',
     'calendar_event_employee',

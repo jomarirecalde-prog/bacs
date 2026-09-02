@@ -81,6 +81,7 @@
         "SESSION_SECURE_COOKIE": "true",
         "QUEUE_CONNECTION": "sync",
         "MAIL_MAILER": "log",
+        "EMPLOYEE_PHOTOS_DISK": "s3",
         "DB_CONNECTION": "pgsql",
         "DB_HOST": "ep-winter-pond-awvmzr5v-pooler.c-12.us-east-1.aws.neon.tech",
         "DB_PORT": "5432",

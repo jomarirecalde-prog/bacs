@@ -31,6 +31,7 @@ use App\Http\Controllers\Employee\LeaveApplicationController as EmployeeLeaveApp
 use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicStorageController;
 use App\Http\Controllers\Station\DashboardController as StationDashboardController;
 use App\Http\Controllers\Station\HeartbeatController as StationHeartbeatController;
 use App\Http\Controllers\Station\LoginController as StationLoginController;
@@ -45,6 +46,10 @@ Route::get('/', function () {
 
     return redirect()->route('login');
 });
+
+Route::get('/storage/{path}', [PublicStorageController::class, 'show'])
+    ->where('path', '.*')
+    ->name('storage.public');
 
 Route::prefix('attendance-station')->name('station.')->group(function () {
     Route::middleware('guest:station')->group(function () {
