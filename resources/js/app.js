@@ -3,6 +3,7 @@ import Alpine from 'alpinejs';
 import { bootNavigation } from './navigation';
 import { bootResponsive } from './responsive';
 import { bootPwa } from './pwa';
+import { bootSession } from './session';
 
 window.Alpine = Alpine;
 
@@ -815,6 +816,13 @@ document.addEventListener('alpine:init', () => {
                 if (data.password_changed_at) {
                     this.passwordChangedLabel = new Date(data.password_changed_at).toLocaleString();
                 }
+                if (data.csrf_token) {
+                    const meta = document.head.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.content = data.csrf_token;
+                    if (window.axios?.defaults?.headers?.common) {
+                        window.axios.defaults.headers.common['X-CSRF-TOKEN'] = data.csrf_token;
+                    }
+                }
                 window.dtrToast(data.message || 'Password updated.', 'success');
             } catch (error) {
                 if (error.response?.status === 422) {
@@ -878,6 +886,7 @@ function escapeHtml(value) {
 Alpine.start();
 bootNavigation();
 bootResponsive();
+bootSession();
 
 window.dtrToast = function (message, type = 'success', duration = 3500) {
     window.dispatchEvent(new CustomEvent('dtr-toast', { detail: { message, type, duration } }));

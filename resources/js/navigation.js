@@ -6,6 +6,7 @@
  * navigations are aborted when the user clicks another link.
  */
 import { closeMobileSidebar } from './responsive';
+import { applyCsrfToken, handleSessionExpired } from './session';
 
 const PARTIAL_HEADER = { 'X-BACS-Partial': '1', Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' };
 
@@ -152,6 +153,16 @@ export async function navigate(url, { replace = false, push = true } = {}) {
             credentials: 'same-origin',
             signal: controller.signal,
         });
+
+        const csrfHeader = response.headers.get('X-CSRF-TOKEN');
+        if (csrfHeader) {
+            applyCsrfToken(csrfHeader);
+        }
+
+        if (response.status === 419) {
+            handleSessionExpired();
+            return;
+        }
 
         if (response.redirected && (response.url.includes('/login') || response.status === 401)) {
             window.location.assign(response.url);

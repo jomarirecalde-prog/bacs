@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AppendCsrfTokenHeader;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureStationDeviceBound;
@@ -9,6 +10,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
         $middleware->appendToGroup('web', LogRequestPerformance::class);
+        $middleware->appendToGroup('web', AppendCsrfTokenHeader::class);
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'account.active' => EnsureAccountActive::class,
@@ -45,5 +49,29 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (TokenMismatchException $e, Request $request) {
+            if ($request->expectsJson() || $request->ajax() || $request->headers->get('X-BACS-Partial') === '1') {
+                return response()->json([
+                    'message' => 'Your BACS session has expired. Please sign in again.',
+                    'code' => 'SESSION_EXPIRED',
+                ], 419);
+            }
+
+            return response()->view('errors.419', [], 419);
+        });
+
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 419) {
+                return null;
+            }
+
+            if ($request->expectsJson() || $request->ajax() || $request->headers->get('X-BACS-Partial') === '1') {
+                return response()->json([
+                    'message' => 'Your BACS session has expired. Please sign in again.',
+                    'code' => 'SESSION_EXPIRED',
+                ], 419);
+            }
+
+            return response()->view('errors.419', [], 419);
+        });
     })->create();

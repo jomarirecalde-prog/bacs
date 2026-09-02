@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { applyCsrfToken, installAxiosSessionHandling } from './session';
+
 window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -7,6 +9,9 @@ const token = document.head.querySelector('meta[name="csrf-token"]');
 if (token) {
     window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
 }
+
+installAxiosSessionHandling(window.axios);
+export { applyCsrfToken };
 
 const appBase = document.head.querySelector('meta[name="app-base"]');
 if (appBase?.content) {

@@ -22,6 +22,8 @@ const NO_CACHE_PATHS = new Set([
     '/login',
     '/logout',
     '/server-time',
+    '/session/heartbeat',
+    '/session/extend',
 ]);
 
 function isSensitiveRequest(url, request) {

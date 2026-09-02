@@ -32,6 +32,7 @@ use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicStorageController;
+use App\Http\Controllers\SessionController;
 use App\Http\Controllers\Station\DashboardController as StationDashboardController;
 use App\Http\Controllers\Station\HeartbeatController as StationHeartbeatController;
 use App\Http\Controllers\Station\LoginController as StationLoginController;
@@ -81,6 +82,8 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
     })->name('home');
 
     Route::get('/server-time', [ClockController::class, 'serverTime'])->name('server-time');
+    Route::get('/session/heartbeat', [SessionController::class, 'heartbeat'])->name('session.heartbeat');
+    Route::post('/session/extend', [SessionController::class, 'extend'])->name('session.extend');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');

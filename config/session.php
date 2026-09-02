@@ -34,6 +34,18 @@ return [
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Session Expiry Warning
+    |--------------------------------------------------------------------------
+    |
+    | Minutes before the session idle timeout when the client should warn the
+    | user and offer to extend their session securely.
+    |
+    */
+
+    'warn_before_expiry' => (int) env('SESSION_WARN_BEFORE', 5),
+
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
     /*

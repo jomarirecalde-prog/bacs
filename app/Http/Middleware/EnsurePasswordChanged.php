@@ -16,7 +16,9 @@ class EnsurePasswordChanged
             'profile.password',
             'profile.password.update',
             'logout',
-            'server-time'
+            'server-time',
+            'session.heartbeat',
+            'session.extend',
         )) {
             return redirect()
                 ->route('profile.password')

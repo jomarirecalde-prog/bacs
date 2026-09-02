@@ -104,6 +104,7 @@ class ProfileController extends Controller
                 'ok' => true,
                 'message' => 'Password updated successfully.',
                 'password_changed_at' => $user->fresh()->password_changed_at?->toIso8601String(),
+                'csrf_token' => csrf_token(),
             ]);
         }
 

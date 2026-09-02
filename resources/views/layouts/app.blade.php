@@ -42,6 +42,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="app-base" content="{{ url('/') }}">
     <meta name="user-id" content="{{ auth()->id() }}">
+    <meta name="session-lifetime" content="{{ config('session.lifetime') }}">
+    <meta name="session-warn-before" content="{{ config('session.warn_before_expiry') }}">
     <meta name="theme-color" content="#047857">
     <meta name="description" content="BACS Attendance Management System — daily time record, attendance, and leave management.">
     <title>@yield('title', 'Dashboard') · {{ config('app.name') }}</title>
@@ -384,6 +386,57 @@
          class="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm rounded-2xl px-4 py-3 text-sm font-semibold shadow-float safe-bottom sm:bottom-6 sm:left-auto sm:right-6"
          :class="type === 'success' ? 'bg-brand-600 text-white' : (type === 'error' ? 'bg-critical-600 text-white' : (type === 'warning' ? 'bg-warn-400 text-warn-900' : 'bg-info-600 text-white'))"
          x-text="message"></div>
+
+    <div x-data="sessionSecurity()" x-on:bacs:session-warning.window="openWarning()" x-on:bacs:session-warning-hide.window="closeWarning()" x-on:bacs:session-expired.window="openExpired($event.detail?.message)">
+        <div x-show="warningOpen" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-shell-950/50 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-float" role="dialog" aria-labelledby="session-warning-title">
+                <h2 id="session-warning-title" class="text-lg font-extrabold text-ink">Session Security</h2>
+                <p class="mt-2 text-sm text-muted">Your session is about to expire due to inactivity. Would you like to continue working in BACS?</p>
+                <div class="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" class="btn-outline" @click="logout()">Logout</button>
+                    <button type="button" class="btn-primary" @click="extend()">Continue Session</button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="expiredOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-shell-950/55 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-float" role="dialog" aria-labelledby="session-expired-title">
+                <h2 id="session-expired-title" class="text-lg font-extrabold text-ink">Session Expired</h2>
+                <p class="mt-2 text-sm text-muted" x-text="expiredMessage"></p>
+                <div class="mt-6">
+                    <a :href="loginUrl" class="btn-primary inline-flex w-full justify-center">Sign In Again</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('sessionSecurity', () => ({
+                warningOpen: false,
+                expiredOpen: false,
+                expiredMessage: 'Your BACS session has expired. Please sign in again.',
+                loginUrl: @js(route('login')),
+                openWarning() {
+                    this.warningOpen = true;
+                },
+                closeWarning() {
+                    this.warningOpen = false;
+                },
+                extend() {
+                    window.dispatchEvent(new CustomEvent('bacs:session-extend'));
+                },
+                logout() {
+                    window.dispatchEvent(new CustomEvent('bacs:session-logout'));
+                },
+                openExpired(message) {
+                    this.warningOpen = false;
+                    this.expiredMessage = message || this.expiredMessage;
+                    this.expiredOpen = true;
+                },
+            }));
+        });
+    </script>
 </body>
 </html>
 @endif
