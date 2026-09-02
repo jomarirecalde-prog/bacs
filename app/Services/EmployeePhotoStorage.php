@@ -11,15 +11,24 @@ class EmployeePhotoStorage
 {
     private const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 
+    private function s3Configured(): bool
+    {
+        return filled(config('filesystems.disks.s3.bucket'));
+    }
+
     public function disk(): string
     {
         $configured = config('filesystems.employee_photos_disk');
+
+        if ($configured === 's3') {
+            return $this->s3Configured() ? 's3' : 'public';
+        }
 
         if (filled($configured)) {
             return $configured;
         }
 
-        return filled(config('filesystems.disks.s3.bucket')) ? 's3' : 'public';
+        return $this->s3Configured() ? 's3' : 'public';
     }
 
     public function store(Employee $employee, UploadedFile $file): string
