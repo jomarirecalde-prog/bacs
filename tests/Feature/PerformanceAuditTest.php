@@ -143,6 +143,41 @@ class PerformanceAuditTest extends TestCase
         ]);
     }
 
+    public function test_admin_dashboard_live_skips_roster_payload(): void
+    {
+        $admin = User::factory()->admin()->create(['username' => 'live-admin']);
+        $schedule = $this->schedule();
+        $department = $this->department();
+        $this->employee('livestaff', $department, $schedule);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('admin.dashboard.live'))
+            ->assertOk()
+            ->assertJsonStructure(['summary', 'departments', 'server_time']);
+
+        $this->assertArrayNotHasKey('rows', $response->json());
+
+        $queries = collect(DB::getQueryLog());
+        $this->assertLessThan(
+            40,
+            $queries->count(),
+            'Live poll issued '.$queries->count().' queries; roster rebuild should be gone.'
+        );
+    }
+
+    public function test_approver_search_requires_minimum_length(): void
+    {
+        $admin = User::factory()->admin()->create(['username' => 'search-admin']);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.leave.workflow.employees.search', ['q' => 'J']))
+            ->assertOk()
+            ->assertJson(['results' => []]);
+    }
+
     private function loginStation(): AttendanceStation
     {
         $station = AttendanceStation::factory()->create([

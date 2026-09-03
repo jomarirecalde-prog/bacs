@@ -63,7 +63,7 @@
                         <tr>
                             <td>
                                 <div class="flex items-center gap-3">
-                                    <img src="{{ $employee->photoUrl() }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
+                                    <img src="{{ $employee->photoUrl() }}" alt="" loading="lazy" decoding="async" class="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
                                     <div class="min-w-0">
                                         <div class="font-semibold text-ink">{{ $employee->fullName() }}</div>
                                         <div class="truncate text-xs text-muted">{{ $employee->position }} · {{ $employee->department?->name }}</div>

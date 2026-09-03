@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\ManilaTime;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -103,9 +104,9 @@ class AttendanceService
             ->first();
     }
 
-    public function nextExpectedFor(Employee $employee): ?AttendancePunchType
+    public function nextExpectedFor(Employee $employee, ?Attendance $today = null): ?AttendancePunchType
     {
-        return $this->sequence->nextExpected($this->todayFor($employee));
+        return $this->sequence->nextExpected($today ?? $this->todayFor($employee));
     }
 
     public function createManual(User $actor, array $data): Attendance
@@ -148,6 +149,7 @@ class AttendanceService
 
             $this->auditLogger->log($actor, 'attendance_manual_added', 'Attendance', $record->id, "Manual DTR added for {$employee->fullName()} on {$date}.");
             $this->notifyEmployeeOfChange($employee, $date, 'A manual attendance record was added by an administrator.');
+            $this->forgetDashboardCache($date);
 
             return $record->fresh();
         });
@@ -206,6 +208,7 @@ class AttendanceService
                 'warning',
                 route('admin.dtr.show', $attendance)
             );
+            $this->forgetDashboardCache($date);
 
             return $attendance->fresh(['employee', 'edits.modifier']);
         });
@@ -234,7 +237,26 @@ class AttendanceService
         $records = Attendance::query()
             ->where('employee_id', $employee->id)
             ->betweenDates($start->toDateString(), $end->toDateString())
-            ->get()
+            ->get([
+                'id',
+                'employee_id',
+                'attendance_date',
+                'am_time_in',
+                'am_time_out',
+                'pm_time_in',
+                'pm_time_out',
+                'overtime_in',
+                'time_in',
+                'time_out',
+                'total_minutes',
+                'late_minutes',
+                'undertime_minutes',
+                'overtime_minutes',
+                'status',
+                'remarks',
+                'is_manual',
+                'is_edited',
+            ])
             ->keyBy(fn (Attendance $row) => $row->attendance_date->toDateString());
 
         $this->leaves->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
@@ -250,12 +272,18 @@ class AttendanceService
             if ($existing) {
                 $rows[] = $existing;
             } elseif ($cursor->lte($today)) {
-                $computed = $this->calculator->calculateFromPunches($date, $this->emptyPunches(), $schedule, $employee->id);
-                $rows[] = new Attendance(array_merge($computed, [
+                // Empty past days: resolve leave/holiday/rest/absent without the
+                // full punch calculator (same business rules, far less work).
+                $status = $this->statusForEmptyDay($employee, $date, $schedule);
+                $rows[] = new Attendance([
                     'employee_id' => $employee->id,
                     'attendance_date' => $date,
-                    'status' => $computed['status']->value,
-                ]));
+                    'status' => $status->value,
+                    'total_minutes' => 0,
+                    'late_minutes' => 0,
+                    'undertime_minutes' => 0,
+                    'overtime_minutes' => 0,
+                ]);
             } else {
                 $rows[] = new Attendance([
                     'employee_id' => $employee->id,
@@ -289,6 +317,31 @@ class AttendanceService
             return $this->snapshots[$date];
         }
 
+        $ttl = (int) config('performance.dashboard_snapshot_ttl', 15);
+        $today = ManilaTime::todayDate();
+
+        if ($ttl > 0 && $date === $today) {
+            return $this->snapshots[$date] = Cache::remember(
+                $this->dashboardCacheKey($date),
+                $ttl,
+                fn () => $this->buildDashboardSnapshot($date)
+            );
+        }
+
+        return $this->snapshots[$date] = $this->buildDashboardSnapshot($date);
+    }
+
+    public function forgetDashboardCache(?string $date = null): void
+    {
+        $date ??= ManilaTime::todayDate();
+        unset($this->snapshots[$date], $this->attendanceByDate[$date]);
+        $this->activeRoster = null;
+        Cache::forget($this->dashboardCacheKey($date));
+    }
+
+    /** @return array{summary: array, departments: array} */
+    private function buildDashboardSnapshot(string $date): array
+    {
         $now = ManilaTime::now();
         $employees = $this->activeEmployees();
         $attendance = $this->attendanceForDate($date);
@@ -336,10 +389,15 @@ class AttendanceService
             $groups[$name]['working'] += $bucket['working'] ? 1 : 0;
         }
 
-        return $this->snapshots[$date] = [
+        return [
             'summary' => $summary,
             'departments' => collect($groups)->sortBy('sort_order')->values()->all(),
         ];
+    }
+
+    private function dashboardCacheKey(string $date): string
+    {
+        return 'dashboard:snapshot:'.$date;
     }
 
     public function monthlySummary(Employee $employee, ?int $year = null, ?int $month = null): array
@@ -472,8 +530,26 @@ class AttendanceService
 
         $record->syncLegacyFields();
         $record->save();
+        $this->forgetDashboardCache($date);
 
         return $record;
+    }
+
+    private function statusForEmptyDay(Employee $employee, string $date, $schedule): AttendanceStatus
+    {
+        if ($this->leaves->approvedOn($employee->id, $date)) {
+            return AttendanceStatus::OnLeave;
+        }
+
+        if ($this->holidays->isNonWorking($date, $employee)) {
+            return AttendanceStatus::Holiday;
+        }
+
+        if (! $schedule->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
+            return AttendanceStatus::RestDay;
+        }
+
+        return AttendanceStatus::Absent;
     }
 
     private function lockTodayRecord(Employee $employee, string $date): ?Attendance
@@ -608,7 +684,23 @@ class AttendanceService
     {
         return $this->attendanceByDate[$date] ??= Attendance::query()
             ->onDate($date)
-            ->get()
+            ->get([
+                'id',
+                'employee_id',
+                'attendance_date',
+                'am_time_in',
+                'am_time_out',
+                'pm_time_in',
+                'pm_time_out',
+                'overtime_in',
+                'time_in',
+                'time_out',
+                'total_minutes',
+                'late_minutes',
+                'undertime_minutes',
+                'overtime_minutes',
+                'status',
+            ])
             ->keyBy('employee_id');
     }
 

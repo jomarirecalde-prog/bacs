@@ -27,13 +27,15 @@ class DtrController extends Controller
             ->with(['employee.department:id,name'])
             ->onDate($date)
             ->when($request->filled('department_id'), function ($q) use ($request) {
-                $q->whereHas('employee', fn ($e) => $e->where('department_id', $request->integer('department_id')));
+                $q->whereIn('employee_id', Employee::query()
+                    ->where('department_id', $request->integer('department_id'))
+                    ->select('id'));
             })
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->integer('employee_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = trim((string) $request->string('q'));
-                $q->whereHas('employee', fn ($e) => $e->search($term));
+                $q->whereIn('employee_id', Employee::query()->search($term)->select('id'));
             })
             ->orderBy('employee_id')
             ->paginate(20)

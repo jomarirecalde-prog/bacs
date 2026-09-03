@@ -221,12 +221,12 @@ class LeaveWorkflowService
     public function searchEmployees(string $term, int $limit = 20): Collection
     {
         $term = trim($term);
-        if ($term === '') {
+        if (mb_strlen($term) < 2) {
             return collect();
         }
 
         return User::query()
-            ->with('employee.department')
+            ->with('employee.department:id,name')
             ->where('status', 'active')
             ->whereHas('employee')
             ->where(function ($query) use ($term) {

@@ -738,6 +738,11 @@ class LeaveApplicationService
             }
         }
 
+        $today = ManilaTime::todayDate();
+        if (in_array($today, $dates, true)) {
+            app(AttendanceService::class)->forgetDashboardCache($today);
+        }
+
         return $conflict;
     }
 

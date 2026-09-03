@@ -47,37 +47,14 @@ class DashboardController extends Controller
     {
         $date = $request->string('date')->toString() ?: ManilaTime::todayDate();
         $snapshot = $this->attendanceService->dashboardSnapshot($date);
-        $employees = $this->rosterQuery($request)->limit(50)->get();
-        $attendance = $this->attendanceMap($date, $employees->pluck('id'));
 
+        // Summary + department meters only. The paginated roster is rendered
+        // server-side on full/partial page load; rebuilding 50 rows here was
+        // discarded by the client and wasted DB work on every poll.
         return response()->json([
             'summary' => $snapshot['summary'],
             'departments' => $snapshot['departments'],
             'server_time' => ManilaTime::now()->format('h:i:s A'),
-            'rows' => $employees->map(function (Employee $employee) use ($attendance) {
-                $row = $attendance->get($employee->id);
-
-                return [
-                    'id' => $employee->id,
-                    'employee' => $employee->fullName(),
-                    'number' => $employee->employee_number,
-                    'position' => $employee->position,
-                    'department' => $employee->department?->name,
-                    'show_url' => route('admin.employees.show', $employee),
-                    'am_time_in' => ManilaTime::formatTime($row?->am_time_in) ?? '—',
-                    'am_time_out' => ManilaTime::formatTime($row?->am_time_out) ?? '—',
-                    'pm_time_in' => ManilaTime::formatTime($row?->pm_time_in) ?? '—',
-                    'pm_time_out' => ManilaTime::formatTime($row?->pm_time_out) ?? '—',
-                    'overtime' => ManilaTime::formatTime($row?->overtime_in) ?? '—',
-                    'time_in' => ManilaTime::formatTime($row?->am_time_in ?? $row?->time_in) ?? '—',
-                    'time_out' => ManilaTime::formatTime($row?->pm_time_out ?? $row?->time_out) ?? '—',
-                    'hours' => $row?->totalHoursLabel() ?? '0:00',
-                    'status' => $row?->displayStatus() ?? 'Absent',
-                    'status_value' => $row?->status?->value ?? 'absent',
-                    'status_color' => $row?->status?->color() ?? 'red',
-                    'working' => (bool) ($row?->hasTimeIn() && ! $row?->isRegularComplete()),
-                ];
-            }),
         ]);
     }
 
@@ -114,7 +91,23 @@ class DashboardController extends Controller
         return Attendance::query()
             ->onDate($date)
             ->whereIn('employee_id', $ids)
-            ->get()
+            ->get([
+                'id',
+                'employee_id',
+                'attendance_date',
+                'am_time_in',
+                'am_time_out',
+                'pm_time_in',
+                'pm_time_out',
+                'overtime_in',
+                'time_in',
+                'time_out',
+                'total_minutes',
+                'late_minutes',
+                'undertime_minutes',
+                'overtime_minutes',
+                'status',
+            ])
             ->keyBy('employee_id');
     }
 }

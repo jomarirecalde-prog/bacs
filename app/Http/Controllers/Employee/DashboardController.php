@@ -25,9 +25,11 @@ class DashboardController extends Controller
 
         $employee->loadMissing(['department', 'workSchedule']);
         $today = $this->attendanceService->todayFor($employee);
-        $nextAction = $this->attendanceService->nextExpectedFor($employee);
+        $nextAction = $this->attendanceService->nextExpectedFor($employee, $today);
         $month = (int) ManilaTime::now()->month;
         $year = (int) ManilaTime::now()->year;
+        // One batched month query (not N punch lookups). Empty days use the
+        // lightweight status path — no full calculator pass per missing day.
         $monthly = $this->attendanceService->monthlyDtr($employee, $year, $month);
 
         return view('employee.dashboard', [

@@ -4,6 +4,7 @@ import { applyCsrfToken, installAxiosSessionHandling } from './session';
 window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+window.axios.defaults.timeout = 15000;
 
 const token = document.head.querySelector('meta[name="csrf-token"]');
 if (token) {

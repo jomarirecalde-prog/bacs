@@ -303,7 +303,7 @@
                             <div class="truncate text-[11px] font-medium text-info-700">{{ auth()->user()->role?->label() }}</div>
                         </div>
                         @if (auth()->user()->employee?->photo)
-                            <img id="header-avatar" src="{{ auth()->user()->employee->photoUrl() }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
+                            <img id="header-avatar" src="{{ auth()->user()->employee->photoUrl() }}" alt="" loading="lazy" decoding="async" class="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-brand-100">
                         @else
                             <div id="header-avatar-fallback" class="brand-mark h-9 w-9 text-sm">
                                 {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}

@@ -304,14 +304,26 @@ document.addEventListener('alpine:init', () => {
         echoOff: null,
         controller: null,
         onVisibility: null,
+        echoConnected: false,
         init() {
             this.onVisibility = () => {
                 if (!document.hidden) {
                     this.refresh();
                 }
             };
-            this.timer = setInterval(() => this.refresh(), 30000);
+            // Backup poll: 60s when Echo is connected, 30s otherwise. Echo
+            // already pushes attendance.recorded; avoid hammering the server.
+            const startPoll = () => {
+                clearInterval(this.timer);
+                const ms = this.echoConnected ? 60000 : 30000;
+                this.timer = setInterval(() => this.refresh(), ms);
+            };
+            startPoll();
             document.addEventListener('visibilitychange', this.onVisibility);
+            window.addEventListener('echo-connected', () => {
+                this.echoConnected = true;
+                startPoll();
+            });
             if (typeof window.listenToAttendanceDashboard === 'function') {
                 this.echoOff = window.listenToAttendanceDashboard('.attendance.recorded', () => {
                     clearTimeout(this.echoTimer);
@@ -340,6 +352,7 @@ document.addEventListener('alpine:init', () => {
                 const { data } = await window.axios.get(this.liveUrl, {
                     params: Object.fromEntries(params.entries()),
                     signal: this.controller.signal,
+                    timeout: 8000,
                 });
 
                 if (data.summary) {
@@ -844,20 +857,31 @@ document.addEventListener('alpine:init', () => {
         query: '',
         results: [],
         open: false,
+        controller: null,
         inputName() {
             return `${this.name}[]`;
         },
         async search() {
             if (this.query.trim().length < 2) {
                 this.results = [];
+                this.controller?.abort();
                 return;
             }
-            const res = await fetch(`${searchUrl}?q=${encodeURIComponent(this.query)}`, {
-                headers: { Accept: 'application/json' },
-            });
-            const data = await res.json();
-            this.results = (data.results || []).filter((r) => !this.selected.some((s) => s.id === r.id));
-            this.open = true;
+            this.controller?.abort();
+            this.controller = new AbortController();
+            try {
+                const res = await fetch(`${searchUrl}?q=${encodeURIComponent(this.query)}`, {
+                    headers: { Accept: 'application/json' },
+                    signal: this.controller.signal,
+                });
+                const data = await res.json();
+                this.results = (data.results || []).filter((r) => !this.selected.some((s) => s.id === r.id));
+                this.open = true;
+            } catch (error) {
+                if (error?.name === 'AbortError') {
+                    return;
+                }
+            }
         },
         add(person) {
             if (!this.multiple) {

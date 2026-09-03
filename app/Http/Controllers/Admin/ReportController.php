@@ -95,13 +95,24 @@ class ReportController extends Controller
 
     private function render(string $title, string $type, Request $request, $query)
     {
-        if ($request->input('export') === 'excel') {
-            return $this->reports->exportExcel($query->get(), $type.'-report.xlsx');
-        }
-        if ($request->input('export') === 'csv') {
-            return $this->reports->exportCsv($query->get(), $type.'-report.csv');
-        }
-        if ($request->input('export') === 'pdf') {
+        $maxRows = (int) config('performance.report_export_max_rows', 5000);
+
+        if (in_array($request->input('export'), ['excel', 'csv', 'pdf'], true)) {
+            $count = (clone $query)->count();
+            if ($count > $maxRows) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', "Export limited to {$maxRows} rows. Narrow the date range or filters (found {$count} rows).");
+            }
+
+            if ($request->input('export') === 'excel') {
+                return $this->reports->exportExcel($query->get(), $type.'-report.xlsx');
+            }
+            if ($request->input('export') === 'csv') {
+                return $this->reports->exportCsv($query->get(), $type.'-report.csv');
+            }
+
             return $this->reports->exportPdf('reports.pdf.attendance', [
                 'title' => $title,
                 'rows' => $query->get(),
