@@ -97,6 +97,14 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'require'),
+            // Fail fast on remote/serverless links. Do NOT enable PDO persistent
+            // connections — they are unsafe / ineffective across Vercel invocations.
+            // Do NOT set PDO::ATTR_EMULATE_PREPARES on pgsql: emulated prepares
+            // interpolate PHP bools as integers (1/0), and PostgreSQL rejects
+            // "boolean = integer" (SQLSTATE 42883) — e.g. where('is_default', true).
+            'options' => extension_loaded('pdo_pgsql') ? array_filter([
+                \PDO::ATTR_TIMEOUT => (int) env('DB_PDO_TIMEOUT', 10),
+            ]) : [],
         ],
 
         'sqlsrv' => [

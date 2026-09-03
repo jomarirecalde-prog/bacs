@@ -21,11 +21,13 @@ class Holiday extends Model
 
     public static function isHoliday(string $date): bool
     {
-        return static::query()->whereDate('holiday_date', $date)->exists();
+        // Compare the DATE column directly so the date index can be used
+        // (whereDate() wraps the column in DATE() and defeats indexes).
+        return static::query()->where('holiday_date', $date)->exists();
     }
 
     public static function forDate(string $date): ?self
     {
-        return static::query()->whereDate('holiday_date', $date)->first();
+        return static::query()->where('holiday_date', $date)->first();
     }
 }

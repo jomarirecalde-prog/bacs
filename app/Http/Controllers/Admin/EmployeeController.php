@@ -8,7 +8,6 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEmployeeRequest;
 use App\Http\Requests\Admin\UpdateEmployeeRequest;
-use App\Models\Department;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkSchedule;
@@ -36,7 +35,11 @@ class EmployeeController extends Controller
         $this->authorize('viewAny', Employee::class);
 
         $employees = Employee::query()
-            ->with(['user', 'department', 'workSchedule'])
+            ->with([
+                'user:id,status,role,username,name,email',
+                'department:id,name',
+                'workSchedule:id,name,start_time,end_time',
+            ])
             ->search($request->string('q')->toString())
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
             ->when($request->filled('status'), fn ($q) => $q->whereHas('user', fn ($u) => $u->where('status', $request->string('status'))))
@@ -178,8 +181,8 @@ class EmployeeController extends Controller
     private function formData(): array
     {
         return [
-            'departments' => Department::query()->active()->ordered()->get(),
-            'schedules' => WorkSchedule::query()->active()->orderBy('name')->get(),
+            'departments' => app(DirectoryCatalog::class)->departments(),
+            'schedules' => WorkSchedule::query()->active()->orderBy('name')->get(['id', 'name', 'start_time', 'end_time', 'is_default', 'status']),
             'roles' => UserRole::cases(),
             'accountStatuses' => AccountStatus::cases(),
             'employmentStatuses' => EmploymentStatus::cases(),

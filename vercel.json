@@ -73,8 +73,8 @@
         "APP_ROUTES_CACHE": "/tmp/routes.php",
         "APP_SERVICES_CACHE": "/tmp/services.php",
         "VIEW_COMPILED_PATH": "/tmp",
-        "CACHE_STORE": "array",
-        "CACHE_DRIVER": "array",
+        "CACHE_STORE": "database",
+        "CACHE_DRIVER": "database",
         "LOG_CHANNEL": "stderr",
         "LOG_LEVEL": "error",
         "SESSION_DRIVER": "database",
@@ -83,12 +83,17 @@
         "SESSION_SAME_SITE": "lax",
         "QUEUE_CONNECTION": "sync",
         "MAIL_MAILER": "log",
+        "BROADCAST_CONNECTION": "null",
         "EMPLOYEE_PHOTOS_DISK": "s3",
+        "PERF_DASHBOARD_SNAPSHOT_TTL": "45",
+        "PERF_LOG": "false",
+        "PERF_EXPOSE_HEADERS": "false",
         "DB_CONNECTION": "pgsql",
         "DB_HOST": "ep-winter-pond-awvmzr5v-pooler.c-12.us-east-1.aws.neon.tech",
         "DB_PORT": "5432",
         "DB_DATABASE": "bacs_db",
         "DB_USERNAME": "neondb_owner",
-        "DB_SSLMODE": "require"
+        "DB_SSLMODE": "require",
+        "DB_PDO_TIMEOUT": "10"
     }
 }

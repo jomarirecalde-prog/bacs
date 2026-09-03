@@ -4,8 +4,11 @@ namespace App\Services;
 
 use App\Models\Employee;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
 
 class EmployeePhotoStorage
 {
@@ -18,7 +21,12 @@ class EmployeePhotoStorage
 
     private function s3Configured(): bool
     {
-        return filled(config('filesystems.disks.s3.bucket'));
+        $disk = config('filesystems.disks.s3', []);
+
+        return filled($disk['bucket'] ?? null)
+            && filled($disk['key'] ?? null)
+            && filled($disk['secret'] ?? null)
+            && filled($disk['region'] ?? null);
     }
 
     public function disk(): string
@@ -36,8 +44,26 @@ class EmployeePhotoStorage
         return $this->s3Configured() ? 's3' : 'public';
     }
 
+    /**
+     * On Vercel, local/public disks are ephemeral (/tmp). Photos must use S3.
+     */
+    public function assertWritable(): void
+    {
+        $disk = $this->disk();
+        $onVercel = (($_ENV['VERCEL'] ?? getenv('VERCEL')) === '1')
+            || str_contains((string) config('app.url'), 'vercel.app');
+
+        if ($onVercel && $disk !== 's3') {
+            throw new RuntimeException(
+                'Profile photos require S3 on Vercel. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, and AWS_BUCKET in the Vercel project environment.'
+            );
+        }
+    }
+
     public function store(Employee $employee, UploadedFile $file): string
     {
+        $this->assertWritable();
+
         $directory = $employee->exists
             ? 'photos/employees/'.$employee->id
             : 'photos';
@@ -51,10 +77,36 @@ class EmployeePhotoStorage
         $path = trim($directory, '/').'/'.$filename;
         $binary = $this->optimizedJpeg($file) ?? file_get_contents($file->getRealPath());
 
-        Storage::disk($this->disk())->put($path, $binary, [
-            'visibility' => 'public',
-            'ContentType' => 'image/jpeg',
-        ]);
+        if ($binary === false || $binary === '') {
+            throw new RuntimeException('Could not read the uploaded photo.');
+        }
+
+        try {
+            $ok = Storage::disk($this->disk())->put($path, $binary, [
+                'visibility' => 'public',
+                'ContentType' => 'image/jpeg',
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Employee photo upload failed', [
+                'disk' => $this->disk(),
+                'message' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException(
+                $this->disk() === 's3'
+                    ? 'Could not upload the photo to storage. Check the S3 credentials and bucket permissions.'
+                    : 'Could not store the photo on the server.',
+                previous: $e
+            );
+        }
+
+        if ($ok === false) {
+            throw new RuntimeException(
+                $this->disk() === 's3'
+                    ? 'Could not upload the photo to storage. Check the S3 credentials and bucket permissions.'
+                    : 'Could not store the photo on the server.'
+            );
+        }
 
         return $path;
     }
@@ -113,14 +165,31 @@ class EmployeePhotoStorage
 
     public function delete(?string $path): void
     {
-        if ($path) {
+        if (! $path) {
+            return;
+        }
+
+        try {
             Storage::disk($this->disk())->delete($path);
+        } catch (Throwable $e) {
+            Log::warning('Employee photo delete failed', [
+                'path' => $path,
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 
     public function exists(?string $path): bool
     {
-        return filled($path) && Storage::disk($this->disk())->exists($path);
+        if (! filled($path)) {
+            return false;
+        }
+
+        try {
+            return Storage::disk($this->disk())->exists($path);
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function url(Employee $employee): string
@@ -129,15 +198,19 @@ class EmployeePhotoStorage
             return $this->placeholder($employee);
         }
 
-        if ($this->disk() === 's3') {
-            return Storage::disk('s3')->url($employee->photo);
-        }
+        try {
+            if ($this->disk() === 's3') {
+                return Storage::disk('s3')->url($employee->photo);
+            }
 
-        if (! Storage::disk('public')->exists($employee->photo)) {
+            if (! Storage::disk('public')->exists($employee->photo)) {
+                return $this->placeholder($employee);
+            }
+
+            return asset('storage/'.$employee->photo);
+        } catch (Throwable) {
             return $this->placeholder($employee);
         }
-
-        return asset('storage/'.$employee->photo);
     }
 
     public function hasPhoto(Employee $employee): bool

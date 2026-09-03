@@ -55,12 +55,15 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
         Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
 
-        try {
-            if (DB::connection()->getDriverName() === 'mysql') {
+        // Use config only — never open a PDO connection during boot just to
+        // read the driver name. On Vercel every unnecessary round-trip to a
+        // remote database (especially cross-region Neon) is expensive.
+        if (config('database.default') === 'mysql') {
+            try {
                 DB::statement("SET time_zone = '+08:00'");
+            } catch (\Throwable) {
+                // Database may be unavailable during package discovery.
             }
-        } catch (\Throwable) {
-            // Database may be unavailable during package discovery.
         }
 
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));

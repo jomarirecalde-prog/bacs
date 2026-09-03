@@ -94,7 +94,7 @@ class CalendarService
         ])
             ->overlapping($start->toDateString(), $end->toDateString())
             ->orderBy('start_date')
-            ->orderByRaw('CASE WHEN is_all_day = 1 THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN is_all_day IS TRUE THEN 0 ELSE 1 END')
             ->orderBy('start_time')
             ->orderBy('title')
             ->get();

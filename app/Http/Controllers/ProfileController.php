@@ -51,7 +51,15 @@ class ProfileController extends Controller
 
     public function updatePhoto(UpdateProfilePhotoRequest $request)
     {
-        $employee = $this->profiles->storePhoto($request->user(), $request->file('photo'));
+        try {
+            $employee = $this->profiles->storePhoto($request->user(), $request->file('photo'));
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+            ], 503);
+        }
+
         $payload = $this->profiles->profilePayload($request->user()->fresh(['employee.department']));
 
         return response()->json([
