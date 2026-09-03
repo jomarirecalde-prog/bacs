@@ -84,7 +84,7 @@
         "QUEUE_CONNECTION": "sync",
         "MAIL_MAILER": "log",
         "BROADCAST_CONNECTION": "null",
-        "EMPLOYEE_PHOTOS_DISK": "s3",
+        "EMPLOYEE_PHOTOS_DISK": "vercel_blob",
         "PERF_DASHBOARD_SNAPSHOT_TTL": "45",
         "PERF_LOG": "false",
         "PERF_EXPOSE_HEADERS": "false",

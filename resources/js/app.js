@@ -759,22 +759,36 @@ document.addEventListener('alpine:init', () => {
         async uploadPhoto(event) {
             const file = event.target.files?.[0];
             event.target.value = '';
-            if (!file) return;
+            if (!file || this.uploadingPhoto) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+                window.dtrToast('Image must be JPG, PNG, or WEBP and below 2 MB.', 'error');
+                return;
+            }
 
             this.uploadingPhoto = true;
             const body = new FormData();
             body.append('photo', file);
 
             try {
+                // Let the browser set multipart Content-Type + boundary.
                 const { data } = await window.axios.post(this.photoUploadUrl, body, {
-                    headers: { Accept: 'application/json', 'Content-Type': 'multipart/form-data' },
+                    headers: { Accept: 'application/json' },
                 });
                 this.applyProfile(data.profile);
                 window.dtrToast(data.message || 'Photo updated.', 'success');
             } catch (error) {
-                const message = error.response?.data?.message
+                const status = error.response?.status;
+                let message = error.response?.data?.message
                     || error.response?.data?.errors?.photo?.[0]
-                    || 'Could not upload photo.';
+                    || 'Unable to upload profile photo. Please try again.';
+
+                if (status === 401 || status === 419) {
+                    message = 'Your session has expired. Please sign in again.';
+                } else if (status === 422 && !error.response?.data?.message) {
+                    message = 'Image must be JPG, PNG, or WEBP and below 2 MB.';
+                }
+
                 window.dtrToast(message, 'error');
             } finally {
                 this.uploadingPhoto = false;

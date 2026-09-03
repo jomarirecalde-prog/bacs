@@ -58,12 +58,15 @@
 
         @if ($employee)
             <div class="flex flex-wrap gap-2 border-t border-line bg-surface-50 px-5 py-4">
-                <label class="btn btn-primary btn-sm cursor-pointer">
+                <label class="btn btn-primary btn-sm cursor-pointer"
+                       :class="{ 'pointer-events-none opacity-60': uploadingPhoto }">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                    Upload New Photo
-                    <input type="file" class="hidden" accept="image/jpeg,image/png,image/webp" @change="uploadPhoto($event)">
+                    <span x-text="uploadingPhoto ? 'Uploading…' : 'Upload New Photo'">Upload New Photo</span>
+                    <input type="file" class="hidden" accept="image/jpeg,image/png,image/webp"
+                           :disabled="uploadingPhoto" @change="uploadPhoto($event)">
                 </label>
-                <button type="button" class="btn btn-outline-info btn-sm" @click="removePhoto()" x-show="hasPhoto" x-cloak>
+                <button type="button" class="btn btn-outline-info btn-sm" @click="removePhoto()"
+                        x-show="hasPhoto" x-cloak :disabled="uploadingPhoto">
                     Remove Photo
                 </button>
             </div>

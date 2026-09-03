@@ -195,10 +195,13 @@ class EmployeeController extends Controller
             return $employee?->photo;
         }
 
-        if ($employee?->photo) {
-            $this->photos->delete($employee->photo);
+        $previous = $employee?->photo;
+        $path = $this->photos->store($employee ?? new Employee, $request->file('photo'));
+
+        if ($previous && $previous !== $path) {
+            $this->photos->delete($previous);
         }
 
-        return $this->photos->store($employee ?? new Employee, $request->file('photo'));
+        return $path;
     }
 }
