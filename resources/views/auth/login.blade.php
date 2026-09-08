@@ -18,7 +18,7 @@
 
         <div class="relative">
             <span class="badge-featured mb-6">Institutional Timekeeping</span>
-            <h1 class="text-4xl font-extrabold leading-tight tracking-tight">Clean attendance.<br><span class="text-gold-300">Accurate DTR.</span></h1>
+            <h1 class="text-4xl font-extrabold leading-tight tracking-tight text-white">Clean attendance.<br>Accurate DTR.</h1>
             <p class="mt-4 max-w-md text-brand-100/80">Employees clock in and out in Philippine Standard Time. Supervisors monitor attendance, correct records, and generate official DTR reports.</p>
 
             <div class="mt-8 grid max-w-md gap-3">
