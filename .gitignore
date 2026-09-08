@@ -15,6 +15,7 @@
 /.zed
 /auth.json
 /node_modules
+/dist
 # Vite assets are committed so Vercel can serve them as static files.
 /public/hot
 .vercel
