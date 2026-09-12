@@ -20,6 +20,8 @@ document.addEventListener('alpine:init', () => {
         timeLabel: '',
         offset: 0,
         cameraStatus: 'Starting camera…',
+        facingMode: 'environment',
+        switchingCamera: false,
         busy: false,
         result: null,
         stream: null,
@@ -60,10 +62,23 @@ document.addEventListener('alpine:init', () => {
                 // Keep the kiosk UI available; the next successful heartbeat will refresh status.
             }
         },
+        stopCamera() {
+            if (this.raf) {
+                cancelAnimationFrame(this.raf);
+                this.raf = null;
+            }
+            if (this.stream) {
+                this.stream.getTracks().forEach((track) => track.stop());
+                this.stream = null;
+            }
+            if (this.$refs.video) {
+                this.$refs.video.srcObject = null;
+            }
+        },
         async startCamera() {
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    video: { facingMode: { ideal: this.facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false,
                 });
                 this.$refs.video.srcObject = this.stream;
@@ -74,11 +89,22 @@ document.addEventListener('alpine:init', () => {
                         this.detector = new window.BarcodeDetector({ formats: ['qr_code'] });
                     }
                 }
-                this.cameraStatus = 'Point the camera at the employee QR code.';
+                this.cameraStatus = this.facingMode === 'user'
+                    ? 'Front camera active. Point at the employee QR code.'
+                    : 'Point the camera at the employee QR code.';
                 this.scanLoop();
             } catch {
                 this.cameraStatus = 'Camera access is required. Allow camera permission and reload.';
             }
+        },
+        async switchCamera() {
+            if (this.switchingCamera) return;
+            this.switchingCamera = true;
+            this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
+            this.cameraStatus = 'Switching camera…';
+            this.stopCamera();
+            await this.startCamera();
+            this.switchingCamera = false;
         },
         async scanLoop() {
             const video = this.$refs.video;

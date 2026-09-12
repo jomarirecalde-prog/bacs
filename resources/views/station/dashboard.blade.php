@@ -44,6 +44,15 @@
                 <div x-show="busy" x-cloak class="absolute inset-0 flex items-center justify-center gap-3 bg-shell-950/70 text-sm font-bold text-brand-200 backdrop-blur-sm">
                     <span class="spinner"></span> Processing…
                 </div>
+                <button
+                    type="button"
+                    @click="switchCamera()"
+                    :disabled="switchingCamera"
+                    class="absolute bottom-3 right-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/15 bg-shell-950/80 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-shell-900/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span x-text="facingMode === 'environment' ? 'Front Camera' : 'Back Camera'"></span>
+                </button>
             </div>
             <p class="mt-3 text-center text-xs text-brand-200/70" x-text="cameraStatus">Point the camera at the employee QR code.</p>
         </section>
