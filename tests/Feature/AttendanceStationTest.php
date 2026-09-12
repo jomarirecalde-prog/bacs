@@ -345,6 +345,32 @@ class AttendanceStationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_view_employee_qr_page(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $employee = $this->makeEmployee('qrview');
+
+        $this->actingAs($admin)
+            ->get(route('admin.employees.qr', $employee))
+            ->assertOk()
+            ->assertSee($employee->fullName());
+    }
+
+    public function test_corrupt_qr_token_is_reissued_when_viewing_admin_qr_page(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $employee = $this->makeEmployee('corrupt');
+        $token = $this->qr->issue($employee);
+        $token->update(['token_encrypted' => 'bad']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.employees.qr', $employee))
+            ->assertOk();
+
+        $this->assertSame('revoked', $token->fresh()->status->value);
+        $this->assertNotSame($token->id, $employee->fresh()->activeQrToken()?->id);
+    }
+
     public function test_admin_can_regenerate_employee_qr(): void
     {
         $admin = User::factory()->admin()->create();

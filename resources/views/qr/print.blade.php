@@ -11,7 +11,7 @@
     @vite(['resources/css/app.css', 'resources/js/qrcode-page.js'])
 </head>
 <body class="min-h-screen bg-canvas text-ink print:bg-white">
-    <div class="mx-auto max-w-md p-8" x-data="qrCard('{{ $plain }}', '{{ $employee->fullName() }}')">
+    <div class="mx-auto max-w-md p-8" x-data="qrCard(@js($plain), @js($employee->fullName()))">
         <div class="card-featured p-8 text-center print:border-0 print:shadow-none">
             <div class="text-xs font-bold uppercase tracking-[0.2em] text-gold-700">BACS Construction</div>
             <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink">{{ $employee->fullName() }}</h1>

@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Present this code at a company attendance station')
 
 @section('content')
-<div class="mx-auto max-w-xl card-featured p-8 text-center" x-data="qrCard('{{ $plain }}', '{{ $employee->fullName() }}')">
+<div class="mx-auto max-w-xl card-featured p-8 text-center" x-data="qrCard(@js($plain), @js($employee->fullName()))">
     <span class="badge-featured">Attendance Credential</span>
 
     <div class="mt-5">

@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="grid gap-6 lg:grid-cols-2">
-    <div class="card-featured p-8 text-center" x-data="qrCard('{{ $plain }}', '{{ $employee->fullName() }}')">
+    <div class="card-featured p-8 text-center" x-data="qrCard(@js($plain), @js($employee->fullName()))">
         <span class="badge-featured">Attendance Credential</span>
         <canvas x-ref="canvas" class="mx-auto mt-5 h-64 w-64 rounded-2xl border border-gold-200 bg-white p-3 shadow-soft"></canvas>
         <p class="mt-4 text-sm text-muted">Opaque attendance token. No password or personal data is encoded.</p>

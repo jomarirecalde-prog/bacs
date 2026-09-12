@@ -35,7 +35,15 @@ class EmployeeQrService
     {
         $current = $employee->activeQrToken();
 
-        return $current ?: $this->issue($employee);
+        if ($current && $this->isReadable($current)) {
+            return $current;
+        }
+
+        if ($current) {
+            $this->revokeActive($employee);
+        }
+
+        return $this->issue($employee);
     }
 
     public function regenerate(Employee $employee): EmployeeQrToken
@@ -58,11 +66,20 @@ class EmployeeQrService
             ->latest('generated_at')
             ->first();
 
-        if ($token) {
+        if ($token && $this->isReadable($token)) {
             $token->update(['status' => QrTokenStatus::Active, 'revoked_at' => null]);
-        } else {
-            $this->ensure($employee);
+
+            return;
         }
+
+        if ($token) {
+            $token->update([
+                'status' => QrTokenStatus::Revoked,
+                'revoked_at' => ManilaTime::now(),
+            ]);
+        }
+
+        $this->issue($employee);
     }
 
     public function resolve(string $plain): EmployeeQrToken
@@ -108,5 +125,20 @@ class EmployeeQrService
                 'status' => QrTokenStatus::Revoked,
                 'revoked_at' => ManilaTime::now(),
             ]);
+    }
+
+    private function isReadable(EmployeeQrToken $token): bool
+    {
+        if (blank($token->token_encrypted)) {
+            return false;
+        }
+
+        try {
+            Crypt::decryptString($token->token_encrypted);
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }
