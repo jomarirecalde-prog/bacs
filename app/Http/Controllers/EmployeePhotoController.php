@@ -6,11 +6,11 @@ use App\Services\EmployeePhotoStorage;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class PublicStorageController extends Controller
+class EmployeePhotoController extends Controller
 {
     public function show(string $path, EmployeePhotoStorage $photos): StreamedResponse
     {
-        abort_if(str_starts_with($path, 'photos/employees/'), 404);
+        abort_unless(str_starts_with($path, 'photos/employees/'), 404);
         abort_unless($photos->disk() === 'public', 404);
         abort_unless(Storage::disk('public')->exists($path), 404);
 

@@ -3,9 +3,11 @@
 use App\Http\Middleware\AppendCsrfTokenHeader;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsurePhotoAccess;
 use App\Http\Middleware\EnsureStationDeviceBound;
 use App\Http\Middleware\EnsureUserRole;
 use App\Http\Middleware\LogRequestPerformance;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -24,7 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ['middleware' => ['web', 'auth', 'account.active']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        if (filter_var(env('TRUST_PROXIES', false), FILTER_VALIDATE_BOOL)) {
+            $middleware->trustProxies(at: '*');
+        }
+
+        $middleware->appendToGroup('web', SecurityHeaders::class);
         $middleware->appendToGroup('web', LogRequestPerformance::class);
         $middleware->appendToGroup('web', AppendCsrfTokenHeader::class);
         $middleware->alias([
@@ -32,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => EnsureAccountActive::class,
             'password.changed' => EnsurePasswordChanged::class,
             'station.device' => EnsureStationDeviceBound::class,
+            'photo.access' => EnsurePhotoAccess::class,
         ]);
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->is('attendance-station') || $request->is('attendance-station/*')) {

@@ -27,10 +27,6 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        if (($_ENV['VERCEL'] ?? getenv('VERCEL')) === '1') {
-            $this->app->useStoragePath('/tmp/storage');
-        }
-
         // Shared per request so a monthly DTR resolves holidays once, not per day.
         $this->app->singleton(HolidayResolver::class);
         $this->app->singleton(LeaveResolver::class);
@@ -55,9 +51,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
         Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
 
-        // Use config only — never open a PDO connection during boot just to
-        // read the driver name. On Vercel every unnecessary round-trip to a
-        // remote database (especially cross-region Neon) is expensive.
         if (config('database.default') === 'mysql') {
             try {
                 DB::statement("SET time_zone = '+08:00'");

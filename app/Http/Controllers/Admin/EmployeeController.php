@@ -56,6 +56,8 @@ class EmployeeController extends Controller
 
     public function create()
     {
+        $this->authorize('create', Employee::class);
+
         return view('admin.employees.form', $this->formData());
     }
 
@@ -114,6 +116,7 @@ class EmployeeController extends Controller
 
     public function edit(Employee $employee)
     {
+        $this->authorize('update', $employee);
         $employee->load('user');
 
         return view('admin.employees.form', array_merge($this->formData(), compact('employee')));
@@ -164,6 +167,7 @@ class EmployeeController extends Controller
 
     public function deactivate(Request $request, Employee $employee)
     {
+        $this->authorize('update', $employee);
         $employee->user->update(['status' => AccountStatus::Inactive]);
         $this->auditLogger->log($request->user(), 'employee_deactivated', 'Employees', $employee->id, "Employee {$employee->fullName()} deactivated.");
 
@@ -172,6 +176,7 @@ class EmployeeController extends Controller
 
     public function activate(Request $request, Employee $employee)
     {
+        $this->authorize('update', $employee);
         $employee->user->update(['status' => AccountStatus::Active]);
         $this->auditLogger->log($request->user(), 'employee_updated', 'Employees', $employee->id, "Employee {$employee->fullName()} reactivated.");
 

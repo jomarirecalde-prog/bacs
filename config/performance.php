@@ -16,7 +16,7 @@ return [
 
     /*
     | When true (or APP_DEBUG), responses include X-Request-Time-Ms / Server-Timing.
-    | Never includes SQL text or bindings. Safe to enable briefly on Vercel for audits.
+    | Never includes SQL text or bindings.
     */
     'expose_headers' => filter_var(
         env('PERF_EXPOSE_HEADERS', env('APP_DEBUG', false)),

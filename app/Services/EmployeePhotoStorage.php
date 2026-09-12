@@ -19,10 +19,6 @@ class EmployeePhotoStorage
 
     private const JPEG_QUALITY = 82;
 
-    public function __construct(
-        private readonly VercelBlobClient $blob,
-    ) {}
-
     private function s3Configured(): bool
     {
         $disk = config('filesystems.disks.s3', []);
@@ -33,11 +29,6 @@ class EmployeePhotoStorage
             && filled($disk['region'] ?? null);
     }
 
-    private function blobConfigured(): bool
-    {
-        return $this->blob->configured();
-    }
-
     public function disk(): string
     {
         $configured = config('filesystems.employee_photos_disk');
@@ -46,40 +37,20 @@ class EmployeePhotoStorage
             return 's3';
         }
 
-        if ($configured === 'vercel_blob' && $this->blobConfigured()) {
-            return 'vercel_blob';
-        }
-
         if (in_array($configured, ['public', 'local'], true)) {
             return 'public';
         }
 
-        // Explicit s3/vercel_blob without credentials: fall through to next durable option.
         if ($this->s3Configured()) {
             return 's3';
-        }
-
-        if ($this->blobConfigured()) {
-            return 'vercel_blob';
         }
 
         return 'public';
     }
 
-    /**
-     * On Vercel, local/public disks are ephemeral (/tmp). Photos need S3 or Vercel Blob.
-     */
     public function assertWritable(): void
     {
-        $disk = $this->disk();
-        $onVercel = (($_ENV['VERCEL'] ?? getenv('VERCEL')) === '1')
-            || str_contains((string) config('app.url'), 'vercel.app');
-
-        if ($onVercel && ! in_array($disk, ['s3', 'vercel_blob'], true)) {
-            throw new RuntimeException(
-                'Profile photos require persistent storage on Vercel. Configure AWS_* for S3, or create a Vercel Blob store (BLOB_READ_WRITE_TOKEN).'
-            );
-        }
+        // Hostinger / XAMPP use the public disk; S3 is optional for cloud storage.
     }
 
     public function store(Employee $employee, UploadedFile $file): string
@@ -101,25 +72,6 @@ class EmployeePhotoStorage
 
         if ($binary === false || $binary === '') {
             throw new RuntimeException('Could not read the uploaded photo.');
-        }
-
-        if ($this->disk() === 'vercel_blob') {
-            try {
-                $result = $this->blob->put($path, $binary, 'image/jpeg');
-            } catch (Throwable $e) {
-                Log::error('Employee photo upload failed', [
-                    'disk' => 'vercel_blob',
-                    'message' => $e->getMessage(),
-                ]);
-
-                throw new RuntimeException(
-                    'Could not upload the photo to Vercel Blob storage.',
-                    previous: $e
-                );
-            }
-
-            // Persist the public URL — Blob may append a random suffix to the pathname.
-            return $result['url'];
         }
 
         try {
@@ -206,22 +158,12 @@ class EmployeePhotoStorage
 
     public function delete(?string $path): void
     {
-        if (! $path) {
+        if (! $path || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             return;
         }
 
         try {
-            if (VercelBlobClient::isBlobUrl($path) || ($this->disk() === 'vercel_blob' && str_starts_with($path, 'http'))) {
-                $this->blob->delete($path);
-
-                return;
-            }
-
-            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-                return;
-            }
-
-            Storage::disk($this->disk() === 'vercel_blob' ? 'public' : $this->disk())->delete($path);
+            Storage::disk($this->disk())->delete($path);
         } catch (Throwable $e) {
             Log::warning('Employee photo delete failed', [
                 'path' => $path,
@@ -236,14 +178,12 @@ class EmployeePhotoStorage
             return false;
         }
 
-        if (VercelBlobClient::isBlobUrl($path) || str_starts_with($path, 'https://') || str_starts_with($path, 'http://')) {
+        if (str_starts_with($path, 'https://') || str_starts_with($path, 'http://')) {
             return true;
         }
 
         try {
-            $disk = $this->disk() === 'vercel_blob' ? 'public' : $this->disk();
-
-            return Storage::disk($disk)->exists($path);
+            return Storage::disk($this->disk())->exists($path);
         } catch (Throwable) {
             return false;
         }
@@ -266,16 +206,11 @@ class EmployeePhotoStorage
                 return Storage::disk('s3')->url($photo);
             }
 
-            if ($this->disk() === 'vercel_blob') {
-                // Legacy relative paths while Blob is active — fall back to placeholder.
-                return $this->placeholder($employee);
-            }
-
             if (! Storage::disk('public')->exists($photo)) {
                 return $this->placeholder($employee);
             }
 
-            return asset('storage/'.$photo);
+            return route('employee-photos.show', ['path' => $photo]);
         } catch (Throwable) {
             return $this->placeholder($employee);
         }

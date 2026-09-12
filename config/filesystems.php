@@ -21,16 +21,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | Disk used for employee profile photos. When unset, auto-picks:
-    | S3 (if AWS_* is complete) → Vercel Blob (if BLOB_READ_WRITE_TOKEN) → public.
-    | On Vercel, public/local disks are ephemeral and cannot store photos.
+    | S3 (if AWS_* is complete) → public (Hostinger / XAMPP).
     |
-    | Supported values: s3, vercel_blob, public
+    | Supported values: s3, public
     |
     */
 
     'employee_photos_disk' => env('EMPLOYEE_PHOTOS_DISK'),
-
-    'vercel_blob_token' => env('BLOB_READ_WRITE_TOKEN'),
 
     /*
     |--------------------------------------------------------------------------

@@ -10,7 +10,7 @@ const userId = document.head.querySelector('meta[name="user-id"]')?.content;
 
 /**
  * Reverb is a local/dev (or dedicated) websocket server. Never open sockets to
- * loopback from a hosted origin (Vercel) — that produces endless
+ * loopback from a public production origin — that produces endless
  * ERR_CONNECTION_REFUSED noise and cannot work in production.
  */
 function reverbHostIsUsable(candidate) {

@@ -53,10 +53,10 @@ class ProfileController extends Controller
     {
         try {
             $employee = $this->profiles->storePhoto($request->user(), $request->file('photo'));
-        } catch (\RuntimeException $e) {
+        } catch (\RuntimeException) {
             return response()->json([
                 'ok' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Could not upload the photo. Please try again or contact your administrator.',
             ], 503);
         }
 

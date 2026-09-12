@@ -4,7 +4,6 @@
 .env.backup
 .env.production
 .env.local
-.env.vercel
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -15,13 +14,19 @@
 /.zed
 /auth.json
 /node_modules
-/dist
-# Vite assets are committed so Vercel can serve them as static files.
 /public/hot
-.vercel
 /public/storage
+/dist
 /storage/*.key
 /storage/pail
+/storage/test-*.php
+/storage/cj*.txt
+/storage/*-cookies.txt
+/storage/cookies.txt
+/storage/*-headers.txt
+/storage/*-response.html
+/storage/*-body.html
+/storage/diag-result*.json
 /storage/app/seed-credentials.csv
 /storage/app/private/seed-credentials.csv
 /vendor

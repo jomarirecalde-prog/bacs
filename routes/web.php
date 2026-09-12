@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\LeavePolicyController;
 use App\Http\Controllers\Admin\LeaveReportController;
 use App\Http\Controllers\Admin\LeaveWorkflowController;
 use App\Http\Controllers\Employee\LeaveApplicationController as EmployeeLeaveApplicationController;
+use App\Http\Controllers\EmployeePhotoController;
 use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -51,6 +52,11 @@ Route::get('/', function () {
 Route::get('/storage/{path}', [PublicStorageController::class, 'show'])
     ->where('path', '.*')
     ->name('storage.public');
+
+Route::get('/employee-photos/{path}', [EmployeePhotoController::class, 'show'])
+    ->where('path', '.*')
+    ->middleware(['web', 'photo.access'])
+    ->name('employee-photos.show');
 
 Route::prefix('attendance-station')->name('station.')->group(function () {
     Route::middleware('guest:station')->group(function () {
