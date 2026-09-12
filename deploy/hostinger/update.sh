@@ -19,7 +19,8 @@ fi
 sed -i 's#RewriteBase /BACS/public/#RewriteBase /#' public/.htaccess
 
 echo "==> Installing PHP dependencies"
-$COMPOSER install --no-dev --optimize-autoloader --no-interaction
+# --no-scripts avoids artisan hooks that require proc_open on shared hosting.
+$COMPOSER install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 echo "==> Running migrations"
 $PHP artisan migrate --force
