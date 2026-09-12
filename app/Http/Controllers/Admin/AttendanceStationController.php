@@ -129,6 +129,20 @@ class AttendanceStationController extends Controller
         return redirect()->route('admin.stations.show', $station)->with('success', 'Station updated.');
     }
 
+    public function destroy(Request $request, AttendanceStation $station)
+    {
+        $this->authorize('delete', $station);
+        $request->validate(['confirm' => ['accepted']]);
+
+        $code = $station->station_code;
+        $id = $station->id;
+        $station->delete();
+
+        $this->auditLogger->log($request->user(), 'station_deleted', 'Attendance Stations', $id, "Station {$code} deleted.");
+
+        return redirect()->route('admin.stations.index')->with('success', 'Attendance station deleted.');
+    }
+
     public function activate(Request $request, AttendanceStation $station)
     {
         $this->authorize('update', $station);

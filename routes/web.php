@@ -174,6 +174,7 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
             Route::get('/attendance-stations/{station}', [AttendanceStationController::class, 'show'])->name('stations.show');
             Route::get('/attendance-stations/{station}/edit', [AttendanceStationController::class, 'edit'])->name('stations.edit');
             Route::put('/attendance-stations/{station}', [AttendanceStationController::class, 'update'])->name('stations.update');
+            Route::delete('/attendance-stations/{station}', [AttendanceStationController::class, 'destroy'])->name('stations.destroy');
             Route::post('/attendance-stations/{station}/activate', [AttendanceStationController::class, 'activate'])->name('stations.activate');
             Route::post('/attendance-stations/{station}/deactivate', [AttendanceStationController::class, 'deactivate'])->name('stations.deactivate');
             Route::post('/attendance-stations/{station}/lock', [AttendanceStationController::class, 'lock'])->name('stations.lock');

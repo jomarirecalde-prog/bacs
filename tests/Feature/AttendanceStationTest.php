@@ -116,6 +116,26 @@ class AttendanceStationTest extends TestCase
         $this->actingAs($employee->user)
             ->post(route('admin.stations.unbind', $station), ['confirm' => 1])
             ->assertForbidden();
+
+        $this->actingAs($employee->user)
+            ->delete(route('admin.stations.destroy', $station), ['confirm' => 1])
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_delete_station(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $station = AttendanceStation::factory()->create([
+            'station_code' => 'BACS-STATION-DEL',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.stations.destroy', $station), ['confirm' => 1])
+            ->assertRedirect(route('admin.stations.index'));
+
+        $this->assertDatabaseMissing('attendance_stations', [
+            'id' => $station->id,
+        ]);
     }
 
     public function test_first_login_binds_device_and_second_device_is_rejected(): void

@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="grid gap-6 lg:grid-cols-3">
-    <div class="card h-fit overflow-hidden {{ $station->isLocked() ? 'card-accent-warn' : 'card-accent-brand' }}">
+    <div class="card h-fit overflow-hidden {{ $station->isLocked() ? 'card-accent-warn' : 'card-accent-brand' }}" x-data="{ confirmingDelete: false }">
         <div class="card-header">
             <h2 class="card-title">Station Overview</h2>
             @php $stationStatus = $station->status->value; @endphp
@@ -55,6 +55,29 @@
                 @else
                     <form method="POST" action="{{ route('admin.stations.lock', $station) }}" onsubmit="return confirm('Lock this station? The scanner will stop recording attendance.')">@csrf<button type="submit" class="btn-warning btn-sm">Lock Station</button></form>
                 @endif
+                <button type="button" class="btn-outline-danger btn-sm" @click="confirmingDelete = true">Delete Station</button>
+            </div>
+        </div>
+
+        <div x-show="confirmingDelete" x-cloak class="modal-backdrop" @click.self="confirmingDelete = false">
+            <div class="modal-panel">
+                <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-critical-100 text-critical-700">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+                </div>
+                <h3 class="modal-title">Delete this station?</h3>
+                <dl class="mt-3 space-y-1 text-sm">
+                    <div class="flex justify-between gap-4"><dt class="text-muted">Station</dt><dd class="font-bold text-ink">{{ $station->station_code }}</dd></div>
+                    <div class="flex justify-between gap-4"><dt class="text-muted">Name</dt><dd class="text-right font-semibold text-ink">{{ $station->station_name }}</dd></div>
+                    <div class="flex justify-between gap-4"><dt class="text-muted">Location</dt><dd class="text-right font-semibold text-ink">{{ $station->location }}</dd></div>
+                </dl>
+                <p class="mt-3 text-sm text-muted">This permanently removes the station and its device bindings. Existing attendance records are kept, but will no longer reference this station.</p>
+                <form method="POST" action="{{ route('admin.stations.destroy', $station) }}" class="modal-actions">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" name="confirm" value="1">
+                    <button type="button" class="btn-outline flex-1" @click="confirmingDelete = false">Cancel</button>
+                    <button type="submit" class="btn-danger flex-1">Delete Station</button>
+                </form>
             </div>
         </div>
     </div>
