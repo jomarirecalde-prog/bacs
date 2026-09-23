@@ -35,15 +35,47 @@
         <div class="rounded-3xl border border-white/10 bg-surface p-8 text-ink shadow-float">
             <form method="POST" action="{{ route('station.login.store') }}" class="space-y-4">
                 @csrf
-                <div>
-                    <label class="label" for="station_id">Station ID</label>
-                    <input id="station_id" class="input @error('station_id') input-error @enderror" name="station_id" value="{{ old('station_id') }}" required autofocus autocomplete="username" placeholder="BACS-STATION-001">
+                <div
+                    class="relative"
+                    x-data="stationNamePicker({
+                        names: @js($stationNames),
+                        value: @js(old('station_name', '')),
+                    })"
+                    @click.outside="open = false"
+                >
+                    <label class="label" for="station_name">Station Name</label>
+                    <input
+                        id="station_name"
+                        class="input @error('station_name') input-error @enderror"
+                        name="station_name"
+                        x-model="value"
+                        required
+                        autofocus
+                        autocomplete="off"
+                        placeholder="Main Office Attendance Station"
+                        @focus="showList()"
+                        @input="showList()"
+                    >
+                    <div
+                        x-show="open && filtered.length"
+                        x-cloak
+                        class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-line bg-white shadow-soft"
+                    >
+                        <template x-for="name in filtered" :key="name">
+                            <button
+                                type="button"
+                                class="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-canvas"
+                                @mousedown.prevent="pick(name)"
+                                x-text="name"
+                            ></button>
+                        </template>
+                    </div>
                 </div>
                 <div>
                     <label class="label" for="station_password">Station Password</label>
                     <input id="station_password" class="input" type="password" name="password" required autocomplete="current-password">
                 </div>
-                @error('station_id')
+                @error('station_name')
                     <p class="error-text">{{ $message }}</p>
                 @enderror
                 <button type="submit" class="btn-primary btn-block btn-lg">Login to Station</button>

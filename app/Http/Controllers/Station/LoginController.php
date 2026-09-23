@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Station;
 
+use App\Enums\StationStatus;
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceStation;
 use App\Services\StationAuthService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -13,13 +15,21 @@ class LoginController extends Controller
 
     public function show()
     {
-        return view('station.login');
+        $stationNames = AttendanceStation::query()
+            ->where('status', '!=', StationStatus::Inactive)
+            ->orderBy('station_name')
+            ->pluck('station_name')
+            ->all();
+
+        return view('station.login', [
+            'stationNames' => $stationNames,
+        ]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'station_id' => ['required', 'string', 'max:64'],
+            'station_name' => ['required', 'string', 'max:120'],
             'password' => ['required', 'string'],
         ]);
 
@@ -28,7 +38,7 @@ class LoginController extends Controller
         } catch (ValidationException $e) {
             if (isset($e->errors()['device'])) {
                 return back()
-                    ->withInput($request->only('station_id'))
+                    ->withInput($request->only('station_name'))
                     ->with('device_conflict', true)
                     ->withErrors($e->errors());
             }

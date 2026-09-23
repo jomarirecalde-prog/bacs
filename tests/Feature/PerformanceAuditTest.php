@@ -185,7 +185,7 @@ class PerformanceAuditTest extends TestCase
         ]);
 
         $response = $this->post(route('station.login.store'), [
-            'station_id' => $station->station_code,
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ]);
 

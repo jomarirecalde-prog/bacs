@@ -127,7 +127,7 @@ class AttendanceCorrectionTest extends TestCase
 
         $station = AttendanceStation::factory()->create(['password' => 'station-pass']);
         $response = $this->post(route('station.login.store'), [
-            'station_id' => $station->station_code,
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ]);
         $response->assertRedirect(route('station.dashboard'));

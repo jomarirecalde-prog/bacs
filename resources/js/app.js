@@ -864,6 +864,29 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    Alpine.data('stationNamePicker', (payload = {}) => ({
+        names: payload.names || [],
+        value: payload.value || '',
+        open: false,
+        get filtered() {
+            const query = this.value.trim().toLowerCase();
+            if (!query) {
+                return this.names;
+            }
+
+            return this.names.filter((name) => name.toLowerCase().includes(query));
+        },
+        showList() {
+            if (this.names.length) {
+                this.open = true;
+            }
+        },
+        pick(name) {
+            this.value = name;
+            this.open = false;
+        },
+    }));
+
     Alpine.data('approverPicker', ({ name, multiple, selected, searchUrl }) => ({
         name,
         multiple,

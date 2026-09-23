@@ -24,24 +24,26 @@ class StationAuthService
 
     public function login(Request $request): array
     {
-        $stationCode = strtoupper(trim((string) $request->input('station_id')));
+        $stationName = trim((string) $request->input('station_name'));
         $password = (string) $request->input('password');
-        $rateKey = $this->rateKey($stationCode, $request);
+        $rateKey = $this->rateKey($stationName, $request);
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
             throw ValidationException::withMessages([
-                'station_id' => 'Too many login attempts. Please try again shortly.',
+                'station_name' => 'Too many login attempts. Please try again shortly.',
             ]);
         }
 
-        $station = AttendanceStation::query()->where('station_code', $stationCode)->first();
+        $station = AttendanceStation::query()
+            ->whereRaw('LOWER(station_name) = ?', [strtolower($stationName)])
+            ->first();
 
         if (! $station || ! Hash::check($password, $station->password)) {
             RateLimiter::hit($rateKey, 60);
             $this->recordFailedAttempt($station, $request, 'invalid_credentials');
 
             throw ValidationException::withMessages([
-                'station_id' => 'These station credentials do not match our records.',
+                'station_name' => 'These station credentials do not match our records.',
             ]);
         }
 
@@ -50,7 +52,7 @@ class StationAuthService
             $this->activity->log($station, 'login', StationActivityResult::Failure, $request, failureReason: 'temporarily_locked');
 
             throw ValidationException::withMessages([
-                'station_id' => 'Station login is temporarily locked because of too many failed attempts. Please try again later.',
+                'station_name' => 'Station login is temporarily locked because of too many failed attempts. Please try again later.',
             ]);
         }
 
@@ -59,7 +61,7 @@ class StationAuthService
             $this->activity->log($station, 'login', StationActivityResult::Failure, $request, failureReason: 'inactive');
 
             throw ValidationException::withMessages([
-                'station_id' => 'This attendance station is inactive. Please contact the Super Admin.',
+                'station_name' => 'This attendance station is inactive. Please contact the Super Admin.',
             ]);
         }
 
@@ -176,9 +178,9 @@ class StationAuthService
         $this->auditLogger->log(null, 'station_login_failed', 'Attendance Stations', $station?->id, 'Failed attendance station login.');
     }
 
-    private function rateKey(string $stationCode, Request $request): string
+    private function rateKey(string $stationName, Request $request): string
     {
-        return 'station-login:'.strtolower($stationCode).'|'.$request->ip();
+        return 'station-login:'.strtolower($stationName).'|'.$request->ip();
     }
 
     private function deviceHashFromSecrets(?array $secrets): ?string

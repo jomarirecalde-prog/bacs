@@ -61,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
         RateLimiter::for('clock', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
-        RateLimiter::for('station-login', fn (Request $request) => Limit::perMinute(5)->by(strtolower((string) $request->input('station_id')).'|'.$request->ip()));
+        RateLimiter::for('station-login', fn (Request $request) => Limit::perMinute(5)->by(strtolower((string) $request->input('station_name')).'|'.$request->ip()));
         RateLimiter::for('station-scan', fn (Request $request) => Limit::perMinute(40)->by($request->user('station')?->id ?: $request->ip()));
 
         View::composer('layouts.app', function ($view) {

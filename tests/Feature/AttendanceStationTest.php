@@ -58,10 +58,16 @@ class AttendanceStationTest extends TestCase
 
     public function test_station_login_page_is_dedicated(): void
     {
+        AttendanceStation::factory()->create([
+            'station_name' => 'Lobby Attendance Station',
+            'status' => StationStatus::Active,
+        ]);
+
         $this->get(route('station.login'))
             ->assertOk()
             ->assertSee('ATTENDANCE STATION')
             ->assertSee('Login to Station')
+            ->assertSee('Lobby Attendance Station')
             ->assertDontSee('Welcome back');
     }
 
@@ -142,11 +148,12 @@ class AttendanceStationTest extends TestCase
     {
         $station = AttendanceStation::factory()->create([
             'station_code' => 'BACS-STATION-001',
+            'station_name' => 'Main Office Attendance Station',
             'password' => 'station-pass',
         ]);
 
         $response = $this->post(route('station.login.store'), [
-            'station_id' => 'BACS-STATION-001',
+            'station_name' => 'Main Office Attendance Station',
             'password' => 'station-pass',
         ]);
         $response->assertRedirect(route('station.dashboard'));
@@ -167,7 +174,7 @@ class AttendanceStationTest extends TestCase
         $station = $this->makeBoundStation();
 
         $this->post(route('station.login.store'), [
-            'station_id' => $station->station_code,
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ])->assertRedirect()
             ->assertSessionHas('device_conflict')
@@ -184,7 +191,7 @@ class AttendanceStationTest extends TestCase
         ]);
 
         $response = $this->post(route('station.login.store'), [
-            'station_id' => 'BACS-STATION-010',
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ]);
         $response->assertRedirect(route('station.dashboard'));
@@ -199,7 +206,7 @@ class AttendanceStationTest extends TestCase
         ]);
 
         $this->post(route('station.login.store'), [
-            'station_id' => 'BACS-STATION-010',
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ])->assertRedirect(route('station.dashboard'));
     }
@@ -216,7 +223,7 @@ class AttendanceStationTest extends TestCase
         $this->assertSame(StationDeviceStatus::Unbound, $station->fresh()->device_status);
 
         $this->post(route('station.login.store'), [
-            'station_id' => $station->station_code,
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ])->assertRedirect(route('station.dashboard'));
 
@@ -405,9 +412,9 @@ class AttendanceStationTest extends TestCase
         ]);
 
         $this->post(route('station.login.store'), [
-            'station_id' => 'BACS-STATION-077',
+            'station_name' => $station->station_name,
             'password' => 'wrong',
-        ])->assertSessionHasErrors('station_id');
+        ])->assertSessionHasErrors('station_name');
 
         $this->assertSame(1, $station->fresh()->failed_login_attempts);
         $this->assertDatabaseHas('station_activity_logs', [
@@ -424,7 +431,7 @@ class AttendanceStationTest extends TestCase
         ], $attrs));
 
         $response = $this->post(route('station.login.store'), [
-            'station_id' => $station->station_code,
+            'station_name' => $station->station_name,
             'password' => 'station-pass',
         ]);
 
