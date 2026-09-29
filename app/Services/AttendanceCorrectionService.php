@@ -17,6 +17,7 @@ class AttendanceCorrectionService
     public function __construct(
         private readonly AttendanceService $attendance,
         private readonly NotificationService $notifications,
+        private readonly EmailNotificationService $emailNotifications,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -141,6 +142,8 @@ class AttendanceCorrectionService
                 );
             }
 
+            $this->emailNotifications->correctionApproved($request->fresh(['employee.user']), $reviewer);
+
             return $request->fresh(['employee', 'reviewer']);
         });
     }
@@ -171,6 +174,8 @@ class AttendanceCorrectionService
                 route('employee.attendance-corrections.show', $request)
             );
         }
+
+        $this->emailNotifications->correctionRejected($request->fresh(['employee.user']), $reviewer, $notes);
 
         return $request->fresh(['employee', 'reviewer']);
     }

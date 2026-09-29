@@ -16,6 +16,7 @@ use App\Services\AuditLogger;
 use App\Services\DirectoryCatalog;
 use App\Services\EmployeeQrService;
 use App\Services\EmployeePhotoStorage;
+use App\Services\EmailNotificationService;
 use App\Services\LeaveBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ class EmployeeController extends Controller
         private readonly EmployeeQrService $qr,
         private readonly LeaveBalanceService $leaveBalances,
         private readonly EmployeePhotoStorage $photos,
+        private readonly EmailNotificationService $emailNotifications,
     ) {}
 
     public function index(Request $request)
@@ -99,8 +101,12 @@ class EmployeeController extends Controller
             $this->qr->issue($employee);
             $this->leaveBalances->initializeForEmployee($employee, null, $request->user());
 
-            return $employee;
+            return $employee->load('user');
         });
+
+        if ($employee->user) {
+            $this->emailNotifications->accountCreated($employee->user, $employee);
+        }
 
         return redirect()->route('admin.employees.show', $employee)->with('success', 'Employee account created.');
     }

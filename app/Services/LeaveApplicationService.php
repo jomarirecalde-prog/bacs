@@ -30,6 +30,7 @@ class LeaveApplicationService
         private readonly LeaveDayCalculator $days,
         private readonly LeaveBalanceService $balances,
         private readonly LeaveNotificationService $notifier,
+        private readonly EmailNotificationService $emailNotifications,
         private readonly AuditLogger $audit,
         private readonly LeaveResolver $leaveResolver,
         private readonly CeoResolver $ceo,
@@ -226,6 +227,15 @@ class LeaveApplicationService
                     $decision === LeaveDecision::Denied ? 'warning' : 'info'
                 );
 
+                if ($decision === LeaveDecision::Approved) {
+                    $this->emailNotifications->leaveApproved(
+                        $application,
+                        $actor,
+                        'Pending Approval',
+                        'leave:'.$application->id.':assignment:'.$assignment->id.':approved'
+                    );
+                }
+
                 return $application->fresh(['employee.user', 'assignments.user', 'actions.user']);
             }
 
@@ -243,6 +253,12 @@ class LeaveApplicationService
                     ? "CEO final denial for {$application->application_number}."
                     : "Your leave application {$application->application_number} was denied.";
                 $this->notifier->decisionToEmployee($application, $title, $message, 'error');
+                $this->emailNotifications->leaveRejected(
+                    $application,
+                    $actor,
+                    $reason !== '' ? $reason : 'No reason was provided.',
+                    'leave:'.$application->id.':denied:'.$stage->value
+                );
 
                 return $application->fresh(['employee.user', 'assignments.user', 'actions.user']);
             }
@@ -264,6 +280,12 @@ class LeaveApplicationService
                     $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), $next);
+                $this->emailNotifications->leaveApproved(
+                    $application->fresh(['employee.user']),
+                    $actor,
+                    $status->label(),
+                    'leave:'.$application->id.':stage:'.$stage->value.':advanced'
+                );
             } else {
                 $application->update([
                     'status' => LeaveStatus::PendingHr,
@@ -280,6 +302,12 @@ class LeaveApplicationService
 
                 $this->notifier->decisionToEmployee($application, $title, $message, 'success');
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), LeaveApprovalStage::HrOfficer);
+                $this->emailNotifications->leaveApproved(
+                    $application->fresh(['employee.user']),
+                    $actor,
+                    LeaveStatus::PendingHr->label(),
+                    'leave:'.$application->id.':stage:'.$stage->value.':pending_hr'
+                );
             }
 
             $this->audit->log($actor, 'leave_'.$decision->value, 'Leave', $application->id, "{$actor->name} {$decision->value} {$application->application_number}.");
@@ -422,12 +450,25 @@ class LeaveApplicationService
                     "Your leave application {$application->application_number} has been fully approved.",
                     'success'
                 );
+                $this->emailNotifications->leaveApproved(
+                    $application->fresh(['employee.user']),
+                    $actor,
+                    LeaveStatus::Approved->label(),
+                    'leave:'.$application->id.':hr:approved'
+                );
             } else {
                 $this->notifier->decisionToEmployee(
                     $application,
                     'Leave application denied',
                     "HR denied leave application {$application->application_number}.",
                     'error'
+                );
+                $rejectionReason = trim((string) ($data['reason'] ?? $data['hr_remarks'] ?? ''));
+                $this->emailNotifications->leaveRejected(
+                    $application->fresh(['employee.user']),
+                    $actor,
+                    $rejectionReason !== '' ? $rejectionReason : 'No reason was provided.',
+                    'leave:'.$application->id.':hr:denied'
                 );
             }
 

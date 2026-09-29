@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CalendarEventController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DtrController as AdminDtrController;
+use App\Http\Controllers\Admin\EmailNotificationController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\EmployeeQrController;
 use App\Http\Controllers\Admin\ReportController;
@@ -227,6 +228,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::put('/schedules/{schedule}', [ScheduleController::class, 'update'])->middleware('role:admin')->name('schedules.update');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('role:admin')->name('audit.index');
+
+        Route::get('/email-notifications/preview', [EmailNotificationController::class, 'preview'])->middleware('role:admin')->name('email-notifications.preview');
+        Route::post('/email-notifications/test', [EmailNotificationController::class, 'sendTest'])->middleware('role:admin')->name('email-notifications.test');
 
         Route::get('/settings', [SettingController::class, 'index'])->middleware('role:admin')->name('settings.index');
         Route::put('/settings', [SettingController::class, 'update'])->middleware('role:admin')->name('settings.update');
