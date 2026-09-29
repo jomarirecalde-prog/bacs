@@ -20,7 +20,6 @@ class UpdateEmployeeRequest extends FormRequest
         $employee = $this->route('employee');
 
         return [
-            'employee_number' => ['required', 'string', 'max:50', Rule::unique('employees', 'employee_number')->ignore($employee?->id)],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],

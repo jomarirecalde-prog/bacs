@@ -9,7 +9,7 @@
         Hello {{ $payload['greeting_name'] }},
     </p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#374151;">
-        Your employee account has been successfully created in the BACS Management System. You may sign in using the credentials provided by your administrator.
+        Your employee account has been successfully created in the BACS Management System. Sign in with your employee number, username, or registered email address, together with the password below.
     </p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">
@@ -23,11 +23,18 @@
     @include('mail.partials.detail-table', [
         'rows' => [
             ['label' => 'Employee Name', 'value' => $payload['employee_name']],
+            ['label' => 'Employee Number', 'value' => $payload['employee_number']],
+            ['label' => 'Username', 'value' => $payload['username']],
+            ['label' => 'Password', 'value' => $payload['password']],
             ['label' => 'Registered Email', 'value' => $payload['email']],
             ['label' => 'Registration Date', 'value' => $payload['registered_at']],
             ['label' => 'Account Status', 'value' => $payload['account_status']],
         ],
     ])
+
+    <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">
+        Keep these credentials private. If you did not expect this account, contact your administrator immediately.
+    </p>
 @endsection
 
 @section('cta')

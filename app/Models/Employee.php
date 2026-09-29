@@ -47,6 +47,29 @@ class Employee extends Model
         ];
     }
 
+    public static function nextEmployeeNumber(?int $year = null): string
+    {
+        $year ??= (int) now()->format('Y');
+        $prefix = "BACS-{$year}-";
+
+        $maxSequence = static::query()
+            ->withTrashed()
+            ->where('employee_number', 'like', $prefix.'%')
+            ->pluck('employee_number')
+            ->map(function (string $number) use ($prefix): int {
+                if (! str_starts_with($number, $prefix)) {
+                    return 0;
+                }
+
+                $suffix = substr($number, strlen($prefix));
+
+                return ctype_digit($suffix) ? (int) $suffix : 0;
+            })
+            ->max() ?? 0;
+
+        return sprintf('%s%04d', $prefix, $maxSequence + 1);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

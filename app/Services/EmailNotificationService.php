@@ -30,9 +30,9 @@ class EmailNotificationService
         $callback();
     }
 
-    public function accountCreated(User $user, Employee $employee): void
+    public function accountCreated(User $user, Employee $employee, string $plainPassword): void
     {
-        $this->afterCommit(function () use ($user, $employee) {
+        $this->afterCommit(function () use ($user, $employee, $plainPassword) {
             $status = $user->status instanceof AccountStatus
                 ? $user->status->label()
                 : (string) $user->status;
@@ -40,6 +40,9 @@ class EmailNotificationService
             $payload = [
                 'greeting_name' => $employee->first_name ?: $user->name,
                 'employee_name' => $employee->fullName(),
+                'employee_number' => $employee->employee_number,
+                'username' => $user->username,
+                'password' => $plainPassword,
                 'email' => $user->email,
                 'registered_at' => $employee->created_at?->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A') ?? now()->format('F j, Y g:i A'),
                 'account_status' => $status,
@@ -201,6 +204,9 @@ class EmailNotificationService
         return [
             'greeting_name' => 'Juan',
             'employee_name' => 'Dela Cruz, Juan M.',
+            'employee_number' => 'BACS-2026-0099',
+            'username' => 'juan.delacruz',
+            'password' => 'SamplePass123!',
             'email' => 'employee@example.com',
             'registered_at' => now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
             'account_status' => 'Active',

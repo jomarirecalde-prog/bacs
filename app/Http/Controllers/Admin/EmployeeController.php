@@ -60,7 +60,9 @@ class EmployeeController extends Controller
     {
         $this->authorize('create', Employee::class);
 
-        return view('admin.employees.form', $this->formData());
+        return view('admin.employees.form', array_merge($this->formData(), [
+            'suggestedEmployeeNumber' => Employee::nextEmployeeNumber(),
+        ]));
     }
 
     public function store(StoreEmployeeRequest $request)
@@ -82,7 +84,7 @@ class EmployeeController extends Controller
             $middle = filled($data['middle_name'] ?? null) ? ' '.$data['middle_name'] : '';
             $employee = Employee::query()->create([
                 'user_id' => $user->id,
-                'employee_number' => $data['employee_number'],
+                'employee_number' => Employee::nextEmployeeNumber(),
                 'first_name' => $data['first_name'],
                 'middle_name' => $data['middle_name'] ?? null,
                 'last_name' => $data['last_name'],
@@ -105,7 +107,11 @@ class EmployeeController extends Controller
         });
 
         if ($employee->user) {
-            $this->emailNotifications->accountCreated($employee->user, $employee);
+            $this->emailNotifications->accountCreated(
+                $employee->user,
+                $employee,
+                $request->validated('password'),
+            );
         }
 
         return redirect()->route('admin.employees.show', $employee)->with('success', 'Employee account created.');
@@ -150,7 +156,6 @@ class EmployeeController extends Controller
 
             $middle = filled($data['middle_name'] ?? null) ? ' '.$data['middle_name'] : '';
             $employee->update([
-                'employee_number' => $data['employee_number'],
                 'first_name' => $data['first_name'],
                 'middle_name' => $data['middle_name'] ?? null,
                 'last_name' => $data['last_name'],

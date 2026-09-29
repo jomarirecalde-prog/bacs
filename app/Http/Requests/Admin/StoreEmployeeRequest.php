@@ -18,7 +18,6 @@ class StoreEmployeeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_number' => ['required', 'string', 'max:50', 'unique:employees,employee_number'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],

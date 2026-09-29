@@ -19,8 +19,12 @@
         <div class="grid gap-4 p-5 md:grid-cols-2">
             <div>
                 <label class="label" for="employee_number">Employee Number</label>
-                <input id="employee_number" class="input @error('employee_number') input-error @enderror" name="employee_number" value="{{ old('employee_number', $employee->employee_number ?? '') }}" required>
-                @error('employee_number')<p class="error-text">{{ $message }}</p>@enderror
+                @if (isset($employee))
+                    <input id="employee_number" class="input bg-canvas tabular-nums" value="{{ $employee->employee_number }}" readonly aria-readonly="true">
+                @else
+                    <input id="employee_number" class="input bg-canvas tabular-nums" value="{{ $suggestedEmployeeNumber ?? '' }}" readonly aria-readonly="true" tabindex="-1">
+                    <p class="hint">Assigned automatically when you save.</p>
+                @endif
             </div>
             <div>
                 <label class="label" for="position">Position</label>

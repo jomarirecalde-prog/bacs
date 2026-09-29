@@ -41,6 +41,7 @@ class EmailNotificationTest extends TestCase
 
         $user = User::factory()->create([
             'email' => 'newhire@bacs.test',
+            'username' => 'ana.reyes',
             'role' => UserRole::Employee,
             'status' => AccountStatus::Active,
         ]);
@@ -56,10 +57,15 @@ class EmailNotificationTest extends TestCase
         ]);
 
         $service = app(EmailNotificationService::class);
-        $service->accountCreated($user, $employee);
-        $service->accountCreated($user, $employee);
+        $service->accountCreated($user, $employee, 'WelcomePass123!');
+        $service->accountCreated($user, $employee, 'WelcomePass123!');
 
         Mail::assertSent(AccountCreatedMail::class, 1);
+        Mail::assertSent(AccountCreatedMail::class, function (AccountCreatedMail $mail) use ($user, $employee): bool {
+            return $mail->payload['username'] === $user->username
+                && $mail->payload['employee_number'] === $employee->employee_number
+                && $mail->payload['password'] === 'WelcomePass123!';
+        });
 
         $this->assertDatabaseHas('email_notification_logs', [
             'notification_type' => EmailNotificationType::AccountCreated->value,
@@ -75,9 +81,15 @@ class EmailNotificationTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
         $this->actingAs($admin)
-            ->get(route('admin.email-notifications.preview', ['template' => 'transaction_approved', 'raw' => 1]))
+            ->get(route('admin.email-notifications.preview', ['template' => 'account_created', 'raw' => 1]))
             ->assertOk()
             ->assertSee('BACS Construction and Development Corporation', false)
+            ->assertSee('SamplePass123!', false)
+            ->assertSee('juan.delacruz', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.email-notifications.preview', ['template' => 'transaction_approved', 'raw' => 1]))
+            ->assertOk()
             ->assertSee('VIEW TRANSACTION', false);
     }
 
