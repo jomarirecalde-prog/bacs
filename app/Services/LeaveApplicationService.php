@@ -136,7 +136,8 @@ class LeaveApplicationService
                 ]);
                 $first = LeaveApprovalStage::HrOfficer;
             } else {
-                $first = $this->advanceToNextPendingStage($application, null);
+                $application->load('assignments');
+                $first = $application->firstActiveApprovalStage();
                 $application->update([
                     'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
                     'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
@@ -278,7 +279,7 @@ class LeaveApplicationService
             }
 
             $mixed = $outcome === 'approved_mixed';
-            $next = $this->advanceToNextPendingStage($application, $stage);
+            $next = $application->nextApprovalStageAfter($stage);
 
             if ($next) {
                 $status = $next->pendingStatus();
@@ -665,28 +666,6 @@ class LeaveApplicationService
             'status' => 'pending',
             'sort_order' => $sort,
         ]);
-    }
-
-    private function advanceToNextPendingStage(LeaveApplication $application, ?LeaveApprovalStage $from): ?LeaveApprovalStage
-    {
-        $stages = LeaveApprovalStage::sequence();
-        $started = $from === null;
-
-        foreach ($stages as $stage) {
-            if (! $started) {
-                if ($stage === $from) {
-                    $started = true;
-                }
-                continue;
-            }
-
-            $count = $application->assignments()->where('stage', $stage->value)->count();
-            if ($count > 0) {
-                return $stage;
-            }
-        }
-
-        return null;
     }
 
     /**

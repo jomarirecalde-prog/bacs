@@ -14,7 +14,11 @@ trait HasCentralApprovalTimeline
     /** @return list<LeaveApprovalStage> */
     public function approvalTimelineStages(): array
     {
-        if ($this->usesCentralApprovalWorkflow() || ! $this->usesLegacyDepartmentApprovalStages()) {
+        if ($this->usesCentralApprovalWorkflow()) {
+            return $this->centralApprovalTimelineStages();
+        }
+
+        if (! $this->usesLegacyDepartmentApprovalStages()) {
             return $this->centralApprovalTimelineStages();
         }
 
@@ -23,7 +27,52 @@ trait HasCentralApprovalTimeline
 
     public function approvalTimelineUsesCentralLabels(): bool
     {
-        return $this->usesCentralApprovalWorkflow() || ! $this->usesLegacyDepartmentApprovalStages();
+        if ($this->usesCentralApprovalWorkflow()) {
+            return true;
+        }
+
+        return ! $this->usesLegacyDepartmentApprovalStages();
+    }
+
+    /** @return list<LeaveApprovalStage> */
+    public function activeApprovalStageSequence(): array
+    {
+        if ($this->usesCentralApprovalWorkflow()) {
+            return $this->centralApprovalTimelineStages();
+        }
+
+        return LeaveApprovalStage::sequence();
+    }
+
+    public function firstActiveApprovalStage(): ?LeaveApprovalStage
+    {
+        return $this->nextApprovalStageAfter(null);
+    }
+
+    public function nextApprovalStageAfter(?LeaveApprovalStage $from): ?LeaveApprovalStage
+    {
+        $stages = $this->activeApprovalStageSequence();
+        if ($from === null) {
+            foreach ($stages as $stage) {
+                if ($this->assignmentsFor($stage)->isNotEmpty()) {
+                    return $stage;
+                }
+            }
+
+            return null;
+        }
+
+        $passed = false;
+        foreach ($stages as $stage) {
+            if ($passed && $this->assignmentsFor($stage)->isNotEmpty()) {
+                return $stage;
+            }
+            if ($stage === $from) {
+                $passed = true;
+            }
+        }
+
+        return null;
     }
 
     /** @return list<LeaveApprovalStage> */

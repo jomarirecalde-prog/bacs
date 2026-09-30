@@ -163,7 +163,8 @@ class TravelOrderService
                 ]);
                 $first = null;
             } else {
-                $first = $this->advanceToNextPendingStage($order, null);
+                $order->load('assignments');
+                $first = $order->firstActiveApprovalStage();
                 $order->update([
                     'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
                     'current_stage' => $first,
@@ -294,7 +295,7 @@ class TravelOrderService
             }
 
             $mixed = $outcome === 'approved_mixed';
-            $next = $this->advanceToNextPendingStage($order, $stage);
+            $next = $order->nextApprovalStageAfter($stage);
 
             if ($next) {
                 $status = $mixed && $stage->isParallel()
@@ -581,27 +582,6 @@ class TravelOrderService
             'status' => 'pending',
             'sort_order' => $sort,
         ]);
-    }
-
-    private function advanceToNextPendingStage(TravelOrder $order, ?LeaveApprovalStage $from): ?LeaveApprovalStage
-    {
-        $stages = LeaveApprovalStage::sequence();
-        $started = $from === null;
-
-        foreach ($stages as $stage) {
-            if (! $started) {
-                if ($stage === $from) {
-                    $started = true;
-                }
-                continue;
-            }
-
-            if ($order->assignments()->where('stage', $stage->value)->count() > 0) {
-                return $stage;
-            }
-        }
-
-        return null;
     }
 
     /** @return 'pending'|'approved'|'approved_mixed'|'denied' */

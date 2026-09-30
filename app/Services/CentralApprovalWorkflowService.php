@@ -9,6 +9,7 @@ use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveParallelRule;
 use App\Enums\LeaveStatus;
 use App\Enums\TravelOrderStatus;
+use App\Enums\UserRole;
 use App\Models\ApprovalWorkflowAssignee;
 use App\Models\ApprovalWorkflowConfiguration;
 use App\Models\ApprovalWorkflowConfigurationHistory;
@@ -356,6 +357,21 @@ class CentralApprovalWorkflowService
         }
     }
 
+    private function snapshotLeaveHrOfficers(LeaveApplication $application, Employee $employee): void
+    {
+        User::query()
+            ->where('role', UserRole::Admin)
+            ->where('status', 'active')
+            ->get()
+            ->each(function (User $user, int $index) use ($application, $employee) {
+                if ($user->employee?->id === $employee->id) {
+                    return;
+                }
+
+                $this->createLeaveAssignment($application, LeaveApprovalStage::HrOfficer, $user, $index);
+            });
+    }
+
     private function createLeaveAssignment(LeaveApplication $application, LeaveApprovalStage $stage, User $user, int $sort): void
     {
         LeaveApprovalAssignment::query()->create([
@@ -416,6 +432,89 @@ class CentralApprovalWorkflowService
                 'endorser_ids' => 'One or more selected employees are not active.',
             ]);
         }
+    }
+
+    public function resyncLeaveApplicationToCentralSettings(LeaveApplication $application): bool
+    {
+        if (! $application->status?->isOpen()) {
+            return false;
+        }
+
+        if ($application->assignments()->whereNotNull('acted_at')->exists()) {
+            return false;
+        }
+
+        $application->loadMissing('employee');
+        $employee = $application->employee;
+        if (! $employee) {
+            return false;
+        }
+
+        $application->assignments()->delete();
+        $this->bootstrapLeaveApplication($application, $employee);
+        $application->load('assignments');
+
+        $config = $this->configurationFor(ApprovalTransactionType::LeaveApplication);
+        $meta = $this->initialStageMeta($config);
+
+        if ($meta['stage'] === null) {
+            $this->snapshotLeaveHrOfficers($application, $employee);
+            $application->update([
+                'status' => LeaveStatus::PendingHr,
+                'current_stage' => LeaveApprovalStage::HrOfficer,
+            ]);
+
+            return true;
+        }
+
+        $first = $application->firstActiveApprovalStage();
+        $application->update([
+            'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
+            'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
+        ]);
+
+        return true;
+    }
+
+    public function resyncTravelOrderToCentralSettings(TravelOrder $order): bool
+    {
+        if (! $order->status?->isOpen()) {
+            return false;
+        }
+
+        if ($order->assignments()->whereNotNull('acted_at')->exists()) {
+            return false;
+        }
+
+        $order->loadMissing('requester');
+        $requester = $order->requester;
+        if (! $requester) {
+            return false;
+        }
+
+        $order->assignments()->delete();
+        $this->bootstrapTravelOrder($order, $requester);
+        $order->load('assignments');
+
+        $config = $this->configurationFor(ApprovalTransactionType::TravelOrder);
+        $meta = $this->initialStageMeta($config);
+
+        if ($meta['stage'] === null) {
+            $order->update([
+                'status' => TravelOrderStatus::Approved,
+                'current_stage' => null,
+            ]);
+
+            return true;
+        }
+
+        $first = $order->firstActiveApprovalStage();
+        $order->update([
+            'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
+            'current_stage' => $first,
+        ]);
+
+        return true;
     }
 
     public function searchEmployees(string $term): Collection
