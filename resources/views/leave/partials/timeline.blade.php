@@ -5,7 +5,8 @@
         'deny' => 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
     ];
     $app = $application;
-    $stages = \App\Enums\LeaveApprovalStage::sequence();
+    $centralLabels = $app->approvalTimelineUsesCentralLabels();
+    $stages = $app->approvalTimelineStages();
 @endphp
 <ol class="space-y-4">
     <li class="flex gap-3">
@@ -17,6 +18,18 @@
             <div class="text-xs text-muted">{{ $app->filedLabel() }} · {{ $app->employee_print_name }}</div>
         </div>
     </li>
+
+    @if ($stages === [])
+        <li class="flex gap-3">
+            <span class="stat-icon-warn h-8 w-8 shrink-0">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $stageIcons['wait'] }}"/></svg>
+            </span>
+            <div>
+                <div class="text-sm font-bold text-ink">Approvers</div>
+                <div class="text-xs text-muted">No endorsers or final approver were assigned from Settings → Approval Workflow when this was submitted.</div>
+            </div>
+        </li>
+    @endif
 
     @foreach ($stages as $stage)
         @php
@@ -33,12 +46,12 @@
             </span>
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
-                    <div class="text-sm font-bold text-ink">{{ $stage->shortLabel() }}</div>
+                    <div class="text-sm font-bold text-ink">{{ $stage->timelineLabel($centralLabels) }}</div>
                     @if ($stage->isParallel())
-                        <span class="badge-gold">Parallel</span>
+                        <span class="badge-gold">{{ $centralLabels ? 'Parallel endorsement' : 'Parallel' }}</span>
                     @endif
                     @if ($stage->isFinalApproval())
-                        <span class="badge-gold">Final Approval</span>
+                        <span class="badge-gold">Final approval</span>
                     @endif
                     @if ($isCurrent)
                         <span class="badge-warn">Current</span>

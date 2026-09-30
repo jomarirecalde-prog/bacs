@@ -32,6 +32,20 @@ enum LeaveApprovalStage: string
         };
     }
 
+    public function timelineLabel(bool $centralWorkflow = false): string
+    {
+        if (! $centralWorkflow) {
+            return $this->shortLabel();
+        }
+
+        return match ($this) {
+            self::ImmediateSupervisor => 'Endorsement',
+            self::CeoFinalApproval => 'Final approval',
+            self::HrOfficer => 'HR processing',
+            default => $this->shortLabel(),
+        };
+    }
+
     public function isParallel(): bool
     {
         return $this === self::ImmediateSupervisor;

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasCentralApprovalTimeline;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LeaveApplication extends Model
 {
+    use HasCentralApprovalTimeline;
+
     protected $fillable = [
         'application_number',
         'employee_id',

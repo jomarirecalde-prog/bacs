@@ -91,6 +91,14 @@
                                 </template>
                             </div>
                             <input type="search" class="input mt-2" placeholder="Search employee…" x-model="query" @input.debounce.300ms="search">
+                            <div x-show="open && results.length" x-cloak class="mt-2 rounded-xl border border-line bg-surface shadow-lg">
+                                <template x-for="person in results" :key="person.id">
+                                    <button type="button" class="block w-full px-3 py-2 text-left text-sm hover:bg-brand-50" @click="add(person)">
+                                        <span class="font-semibold" x-text="person.name"></span>
+                                        <span class="text-xs text-muted" x-text="(person.position || '') + (person.department ? ' · ' + person.department : '')"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
