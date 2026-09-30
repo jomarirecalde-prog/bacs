@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Holiday;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -14,10 +16,16 @@ class SettingController extends Controller
     {
         $holidays = Holiday::query()->orderBy('holiday_date')->get();
 
+        $adminAccounts = User::query()
+            ->where('role', UserRole::Admin)
+            ->orderBy('name')
+            ->get();
+
         return view('admin.settings.index', [
             'company' => Setting::get('company_name', 'BACS'),
             'address' => Setting::get('company_address', ''),
             'holidays' => $holidays,
+            'adminAccounts' => $adminAccounts,
         ]);
     }
 

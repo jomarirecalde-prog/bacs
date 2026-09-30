@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\EmployeeQrController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ScheduleController;
+use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\LoginController;
@@ -236,6 +237,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::put('/settings', [SettingController::class, 'update'])->middleware('role:admin')->name('settings.update');
         Route::post('/settings/holidays', [SettingController::class, 'storeHoliday'])->middleware('role:admin')->name('settings.holidays.store');
         Route::delete('/settings/holidays/{holiday}', [SettingController::class, 'destroyHoliday'])->middleware('role:admin')->name('settings.holidays.destroy');
+        Route::get('/settings/admins/{admin}/edit', [AdminAccountController::class, 'edit'])->middleware('role:admin')->name('settings.admins.edit');
+        Route::put('/settings/admins/{admin}', [AdminAccountController::class, 'update'])->middleware('role:admin')->name('settings.admins.update');
+        Route::delete('/settings/admins/{admin}', [AdminAccountController::class, 'destroy'])->middleware('role:admin')->name('settings.admins.destroy');
 
         Route::get('/leave', [AdminLeaveApplicationController::class, 'index'])->name('leave.index');
         Route::get('/leave/configuration', [LeaveWorkflowController::class, 'index'])->middleware('role:admin')->name('leave.workflow');

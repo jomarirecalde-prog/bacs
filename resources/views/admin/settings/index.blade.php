@@ -2,7 +2,7 @@
 
 @section('title', 'Settings')
 @section('page-title', 'Settings')
-@section('page-subtitle', 'Organization profile and holiday calendar')
+@section('page-subtitle', 'Organization profile, super admin accounts, and holiday calendar')
 
 @section('content')
 <div class="grid gap-6 lg:grid-cols-2">
@@ -88,6 +88,70 @@
                 <x-empty-state title="No holidays configured" message="Add regular and special non-working days so attendance is computed correctly." icon="calendar" />
             @endforelse
         </div>
+    </div>
+</div>
+
+<div class="mt-6 card overflow-hidden">
+    <div class="card-header">
+        <h2 class="card-title">Super Admin Accounts</h2>
+        <span class="chip">{{ $adminAccounts->count() }} account{{ $adminAccounts->count() === 1 ? '' : 's' }}</span>
+    </div>
+    <div class="border-b border-line px-5 pt-5">
+        <div class="alert-info">
+            <svg class="mt-0.5 h-4 w-4 shrink-0 text-info-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-xs">These accounts have full system access. Boss / management (supervisor) logins are managed through the Employees module.</span>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($adminAccounts as $account)
+                    <tr>
+                        <td>
+                            <div class="font-semibold text-ink">{{ $account->name }}</div>
+                            @if ($account->id === auth()->id())
+                                <div class="text-xs text-muted">Signed in as you</div>
+                            @endif
+                        </td>
+                        <td class="font-mono text-sm text-ink">{{ $account->username }}</td>
+                        <td class="text-sm text-muted">{{ $account->email }}</td>
+                        <td>
+                            <span class="{{ $account->status?->value === 'active' ? 'badge-brand' : 'badge-neutral' }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-80"></span>
+                                {{ $account->status?->label() }}
+                            </span>
+                        </td>
+                        <td class="text-right">
+                            <div class="inline-flex flex-wrap justify-end gap-2">
+                                <a class="btn-outline-info btn-sm" href="{{ route('admin.settings.admins.edit', $account) }}">Edit</a>
+                                @if ($account->id !== auth()->id())
+                                    <form method="POST" action="{{ route('admin.settings.admins.destroy', $account) }}" onsubmit="return confirm('Delete super admin account «{{ $account->username }}»? This cannot be undone.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn-outline-danger btn-sm">Delete</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="p-0">
+                            <x-empty-state title="No super admin accounts" message="Run the database seeder or create a super admin user to access this panel." icon="users" />
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 @endsection
