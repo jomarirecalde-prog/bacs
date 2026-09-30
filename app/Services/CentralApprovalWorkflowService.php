@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ApprovalAssigneeType;
 use App\Enums\ApprovalTransactionType;
 use App\Enums\AttendanceCorrectionStatus;
+use App\Enums\LeaveDecision;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveParallelRule;
 use App\Enums\LeaveStatus;
@@ -434,46 +435,179 @@ class CentralApprovalWorkflowService
         }
     }
 
-    public function resyncLeaveApplicationToCentralSettings(LeaveApplication $application): bool
+    public function leaveApplicationNeedsCentralResync(LeaveApplication $application): bool
     {
         if (! $application->status?->isOpen()) {
             return false;
         }
 
-        if ($application->assignments()->whereNotNull('acted_at')->exists()) {
+        if ($application->central_approval_config_id === null) {
+            return true;
+        }
+
+        return $application->assignments()
+            ->whereIn('stage', [
+                LeaveApprovalStage::DepartmentHead->value,
+                LeaveApprovalStage::AdministrativeHead->value,
+            ])
+            ->exists();
+    }
+
+    public function resyncLeaveApplicationToCentralSettings(LeaveApplication $application): bool
+    {
+        if (! $this->leaveApplicationNeedsCentralResync($application)) {
             return false;
         }
 
-        $application->loadMissing('employee');
+        $application->loadMissing(['employee', 'assignments']);
         $employee = $application->employee;
         if (! $employee) {
             return false;
         }
 
-        $application->assignments()->delete();
-        $this->bootstrapLeaveApplication($application, $employee);
-        $application->load('assignments');
+        $this->removeLegacyDepartmentLeaveAssignments($application);
 
-        $config = $this->configurationFor(ApprovalTransactionType::LeaveApplication);
-        $meta = $this->initialStageMeta($config);
-
-        if ($meta['stage'] === null) {
-            $this->snapshotLeaveHrOfficers($application, $employee);
+        if (in_array($application->status, [LeaveStatus::PendingHr, LeaveStatus::PartiallyApproved], true)) {
+            $config = $this->configurationFor(ApprovalTransactionType::LeaveApplication);
             $application->update([
-                'status' => LeaveStatus::PendingHr,
-                'current_stage' => LeaveApprovalStage::HrOfficer,
+                'central_approval_config_id' => $config->id,
+                'central_approval_config_version' => $config->version,
+                'parallel_rule' => $this->parallelRuleFor($config),
             ]);
 
             return true;
         }
 
-        $first = $application->firstActiveApprovalStage();
-        $application->update([
-            'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
-            'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
-        ]);
+        $config = $this->configurationFor(ApprovalTransactionType::LeaveApplication);
+        $hadActions = $application->assignments()->whereNotNull('acted_at')->exists();
+
+        if (! $hadActions) {
+            $application->assignments()->delete();
+            $this->bootstrapLeaveApplication($application, $employee);
+        } else {
+            $application->update([
+                'central_approval_config_id' => $config->id,
+                'central_approval_config_version' => $config->version,
+                'parallel_rule' => $this->parallelRuleFor($config),
+            ]);
+            $this->reconcileLeaveCentralAssignments($application, $config, $employee);
+        }
+
+        $this->refreshLeaveApplicationStageAfterResync($application);
 
         return true;
+    }
+
+    private function removeLegacyDepartmentLeaveAssignments(LeaveApplication $application): void
+    {
+        $application->assignments()
+            ->whereIn('stage', [
+                LeaveApprovalStage::DepartmentHead->value,
+                LeaveApprovalStage::AdministrativeHead->value,
+            ])
+            ->delete();
+    }
+
+    private function reconcileLeaveCentralAssignments(
+        LeaveApplication $application,
+        ApprovalWorkflowConfiguration $config,
+        Employee $requester,
+    ): void {
+        $endorserUserIds = [];
+        if ($config->endorsement_enabled) {
+            foreach ($config->activeEndorsers()->get() as $row) {
+                $userId = $row->employee?->user?->id;
+                if ($userId && $row->employee?->id !== $requester->id) {
+                    $endorserUserIds[] = $userId;
+                }
+            }
+        }
+
+        $this->reconcileLeaveStageAssignees($application, LeaveApprovalStage::ImmediateSupervisor, $endorserUserIds, $requester);
+
+        $finalUserIds = [];
+        if ($config->final_approval_enabled) {
+            $final = $config->activeFinalApprover();
+            $userId = $final?->employee?->user?->id;
+            if ($userId && $final?->employee?->id !== $requester->id) {
+                $finalUserIds[] = $userId;
+            }
+        }
+
+        $this->reconcileLeaveStageAssignees($application, LeaveApprovalStage::CeoFinalApproval, $finalUserIds, $requester);
+    }
+
+    /** @param  list<int>  $allowedUserIds */
+    private function reconcileLeaveStageAssignees(
+        LeaveApplication $application,
+        LeaveApprovalStage $stage,
+        array $allowedUserIds,
+        Employee $requester,
+    ): void {
+        $allowed = collect($allowedUserIds)->unique()->values();
+
+        if ($allowed->isEmpty()) {
+            $application->assignments()->where('stage', $stage->value)->delete();
+
+            return;
+        }
+
+        $application->assignments()
+            ->where('stage', $stage->value)
+            ->whereNotIn('user_id', $allowed->all())
+            ->delete();
+
+        foreach ($allowed as $index => $userId) {
+            $exists = $application->assignments()
+                ->where('stage', $stage->value)
+                ->where('user_id', $userId)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $user = User::query()->find($userId);
+            if ($user && $user->employee?->id !== $requester->id) {
+                $this->createLeaveAssignment($application, $stage, $user, $index);
+            }
+        }
+    }
+
+    private function refreshLeaveApplicationStageAfterResync(LeaveApplication $application): void
+    {
+        $application->refresh()->load('assignments');
+        $employee = $application->employee;
+        if (! $employee) {
+            return;
+        }
+
+        foreach ($application->activeApprovalStageSequence() as $stage) {
+            if ($stage === LeaveApprovalStage::HrOfficer) {
+                continue;
+            }
+
+            $outcome = $application->stageDecision($stage);
+
+            if ($outcome === null || $outcome === 'mixed') {
+                $application->update([
+                    'status' => $stage->pendingStatus(),
+                    'current_stage' => $stage,
+                ]);
+
+                return;
+            }
+
+            if ($outcome === LeaveDecision::Denied->value) {
+                return;
+            }
+        }
+
+        $this->snapshotLeaveHrOfficers($application, $employee);
+        $application->update([
+            'status' => LeaveStatus::PendingHr,
+            'current_stage' => LeaveApprovalStage::HrOfficer,
+        ]);
     }
 
     public function resyncTravelOrderToCentralSettings(TravelOrder $order): bool

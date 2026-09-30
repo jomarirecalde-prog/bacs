@@ -13,18 +13,7 @@ return new class extends Migration
         $workflows = app(CentralApprovalWorkflowService::class);
 
         LeaveApplication::query()
-            ->whereNull('central_approval_config_id')
             ->whereIn('status', collect(\App\Enums\LeaveStatus::cases())->filter->isOpen()->map->value->all())
-            ->orderBy('id')
-            ->each(fn (LeaveApplication $application) => $workflows->resyncLeaveApplicationToCentralSettings($application));
-
-        LeaveApplication::query()
-            ->whereNotNull('central_approval_config_id')
-            ->whereIn('status', collect(\App\Enums\LeaveStatus::cases())->filter->isOpen()->map->value->all())
-            ->whereHas('assignments', fn ($q) => $q->whereIn('stage', [
-                \App\Enums\LeaveApprovalStage::DepartmentHead->value,
-                \App\Enums\LeaveApprovalStage::AdministrativeHead->value,
-            ]))
             ->orderBy('id')
             ->each(fn (LeaveApplication $application) => $workflows->resyncLeaveApplicationToCentralSettings($application));
 

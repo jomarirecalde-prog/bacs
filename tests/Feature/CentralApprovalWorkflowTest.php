@@ -5,14 +5,20 @@ namespace Tests\Feature;
 use App\Enums\AccountStatus;
 use App\Enums\ApprovalTransactionType;
 use App\Enums\EmploymentStatus;
+use App\Enums\LeaveApprovalStage;
+use App\Enums\LeaveStatus;
+use App\Enums\LeaveType;
 use App\Enums\UserRole;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\LeaveApprovalAssignment;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Services\CentralApprovalDutyService;
+use App\Services\CentralApprovalWorkflowService;
 use App\Services\LeaveApplicationService;
+use App\Support\ManilaTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
@@ -50,6 +56,76 @@ class CentralApprovalWorkflowTest extends TestCase
         $this->assertSame(1, $endorsement['count']);
     }
 
+    public function test_open_legacy_leave_application_resyncs_to_central_endorsers(): void
+    {
+        [$staff, $legacySupervisor, $centralEndorser, $final] = $this->employeesWithLegacySupervisor();
+
+        $this->resetCentralApproval(
+            ApprovalTransactionType::LeaveApplication,
+            [$centralEndorser->id],
+            $final->id,
+        );
+
+        $application = LeaveApplication::query()->create([
+            'application_number' => 'LV-LEGACY-001',
+            'employee_id' => $staff->id,
+            'department_id' => $staff->department_id,
+            'workflow_id' => 1,
+            'leave_type' => LeaveType::Vacation,
+            'start_date' => '2026-10-10',
+            'end_date' => '2026-10-10',
+            'requested_days' => 1,
+            'reason' => 'Legacy snapshot',
+            'employee_print_name' => $staff->fullName(),
+            'declaration_accepted' => true,
+            'date_filed' => ManilaTime::now(),
+            'status' => LeaveStatus::PendingDepartmentHead,
+            'current_stage' => LeaveApprovalStage::DepartmentHead,
+            'submitted_by' => $staff->user_id,
+        ]);
+
+        LeaveApprovalAssignment::query()->create([
+            'leave_application_id' => $application->id,
+            'stage' => LeaveApprovalStage::ImmediateSupervisor,
+            'user_id' => $legacySupervisor->user_id,
+            'employee_id' => $legacySupervisor->id,
+            'approver_name' => $legacySupervisor->fullName(),
+            'status' => 'approved',
+            'acted_at' => ManilaTime::now(),
+        ]);
+
+        LeaveApprovalAssignment::query()->create([
+            'leave_application_id' => $application->id,
+            'stage' => LeaveApprovalStage::DepartmentHead,
+            'user_id' => $legacySupervisor->user_id,
+            'employee_id' => $legacySupervisor->id,
+            'approver_name' => $legacySupervisor->fullName(),
+            'status' => 'pending',
+        ]);
+
+        $resynced = app(CentralApprovalWorkflowService::class)->resyncLeaveApplicationToCentralSettings($application->fresh());
+
+        $this->assertTrue($resynced);
+        $application->refresh()->load('assignments');
+
+        $this->assertNotNull($application->central_approval_config_id);
+        $this->assertSame(LeaveStatus::PendingSupervisor, $application->status);
+        $this->assertSame(LeaveApprovalStage::ImmediateSupervisor, $application->current_stage);
+        $this->assertFalse(
+            $application->assignments()->whereIn('stage', [
+                LeaveApprovalStage::DepartmentHead->value,
+                LeaveApprovalStage::AdministrativeHead->value,
+            ])->exists()
+        );
+        $this->assertTrue(
+            $application->assignments()
+                ->where('stage', LeaveApprovalStage::ImmediateSupervisor->value)
+                ->where('user_id', $centralEndorser->user_id)
+                ->where('status', 'pending')
+                ->exists()
+        );
+    }
+
     public function test_unassigned_user_cannot_decide_leave_via_service(): void
     {
         [$staff, $endorser, $final] = $this->employees();
@@ -84,6 +160,25 @@ class CentralApprovalWorkflowTest extends TestCase
 
         $this->expectException(\Illuminate\Validation\ValidationException::class);
         $service->decide($application, $intruder, \App\Enums\LeaveDecision::Approved);
+    }
+
+    /** @return array{0: Employee, 1: Employee, 2: Employee, 3: Employee} */
+    private function employeesWithLegacySupervisor(): array
+    {
+        [$staff, $legacySupervisor, $final] = $this->employees();
+
+        $centralEndorserUser = User::factory()->create(['role' => UserRole::Supervisor]);
+        $centralEndorser = Employee::query()->create([
+            'user_id' => $centralEndorserUser->id,
+            'employee_number' => 'CEN-001',
+            'first_name' => 'Central',
+            'last_name' => 'Endorser',
+            'email' => $centralEndorserUser->email,
+            'department_id' => 1,
+            'employment_status' => EmploymentStatus::Regular,
+        ]);
+
+        return [$staff, $legacySupervisor, $centralEndorser, $final];
     }
 
     /** @return array{0: Employee, 1: Employee, 2: Employee} */
