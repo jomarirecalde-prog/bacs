@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AccountStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreAdminAccountRequest;
 use App\Http\Requests\Admin\UpdateAdminAccountRequest;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -13,6 +15,32 @@ use Illuminate\Http\Request;
 class AdminAccountController extends Controller
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
+
+    public function store(StoreAdminAccountRequest $request)
+    {
+        $data = $request->validated();
+
+        $admin = User::query()->create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'username' => $data['username'],
+            'password' => $data['password'],
+            'role' => UserRole::Admin,
+            'status' => $data['status'] ?? AccountStatus::Active,
+            'must_change_password' => false,
+            'password_changed_at' => now(),
+        ]);
+
+        $this->auditLogger->log(
+            $request->user(),
+            'admin_account_created',
+            'Settings',
+            $admin->id,
+            "Super admin account {$admin->username} created.",
+        );
+
+        return back()->with('success', 'Super admin account created.');
+    }
 
     public function edit(User $admin)
     {

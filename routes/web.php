@@ -237,6 +237,7 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::put('/settings', [SettingController::class, 'update'])->middleware('role:admin')->name('settings.update');
         Route::post('/settings/holidays', [SettingController::class, 'storeHoliday'])->middleware('role:admin')->name('settings.holidays.store');
         Route::delete('/settings/holidays/{holiday}', [SettingController::class, 'destroyHoliday'])->middleware('role:admin')->name('settings.holidays.destroy');
+        Route::post('/settings/admins', [AdminAccountController::class, 'store'])->middleware('role:admin')->name('settings.admins.store');
         Route::get('/settings/admins/{admin}/edit', [AdminAccountController::class, 'edit'])->middleware('role:admin')->name('settings.admins.edit');
         Route::put('/settings/admins/{admin}', [AdminAccountController::class, 'update'])->middleware('role:admin')->name('settings.admins.update');
         Route::delete('/settings/admins/{admin}', [AdminAccountController::class, 'destroy'])->middleware('role:admin')->name('settings.admins.destroy');

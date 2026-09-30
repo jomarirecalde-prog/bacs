@@ -102,6 +102,53 @@
             <span class="text-xs">These accounts have full system access. Boss / management (supervisor) logins are managed through the Employees module.</span>
         </div>
     </div>
+
+    <form method="POST" action="{{ route('admin.settings.admins.store') }}" class="border-b border-line p-5">
+        @csrf
+        <p class="mb-4 text-sm font-semibold text-ink">Add super admin account</p>
+        <div class="grid gap-3 lg:grid-cols-6">
+            <div class="lg:col-span-2">
+                <label class="label" for="new-admin-name">Display name</label>
+                <input id="new-admin-name" class="input @error('name') input-error @enderror" name="name" value="{{ old('name') }}" placeholder="Jane Admin" required>
+                @error('name')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="label" for="new-admin-email">Email</label>
+                <input id="new-admin-email" class="input @error('email') input-error @enderror" type="email" name="email" value="{{ old('email') }}" required>
+                @error('email')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="label" for="new-admin-username">Username</label>
+                <input id="new-admin-username" class="input @error('username') input-error @enderror" name="username" value="{{ old('username') }}" autocomplete="off" required>
+                @error('username')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="label" for="new-admin-password">Password</label>
+                <input id="new-admin-password" class="input @error('password') input-error @enderror" type="password" name="password" minlength="8" autocomplete="new-password" required>
+                @error('password')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="label" for="new-admin-password-confirm">Confirm</label>
+                <input id="new-admin-password-confirm" class="input" type="password" name="password_confirmation" minlength="8" autocomplete="new-password" required>
+            </div>
+        </div>
+        <div class="mt-4 flex flex-wrap items-end gap-4">
+            <div class="w-full sm:w-48">
+                <label class="label" for="new-admin-status">Status</label>
+                <select id="new-admin-status" class="select @error('status') input-error @enderror" name="status">
+                    @foreach (\App\Enums\AccountStatus::cases() as $status)
+                        <option value="{{ $status->value }}" @selected(old('status', 'active') === $status->value)>{{ $status->label() }}</option>
+                    @endforeach
+                </select>
+                @error('status')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+            <button type="submit" class="btn-primary">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add super admin
+            </button>
+        </div>
+    </form>
+
     <div class="table-wrap">
         <table class="data-table">
             <thead>
@@ -146,7 +193,7 @@
                 @empty
                     <tr>
                         <td colspan="5" class="p-0">
-                            <x-empty-state title="No super admin accounts" message="Run the database seeder or create a super admin user to access this panel." icon="users" />
+                            <x-empty-state title="No super admin accounts" message="Use the form above to add the first super admin login." icon="users" />
                         </td>
                     </tr>
                 @endforelse
