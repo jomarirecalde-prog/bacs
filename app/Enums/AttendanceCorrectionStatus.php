@@ -26,7 +26,9 @@ enum AttendanceCorrectionStatus: string
     public function color(): string
     {
         return match ($this) {
-            self::Pending => 'yellow',
+            self::Pending,
+            self::PendingEndorsement,
+            self::PendingFinalApproval => 'yellow',
             self::Approved => 'green',
             self::Rejected => 'red',
             self::Cancelled => 'gray',
