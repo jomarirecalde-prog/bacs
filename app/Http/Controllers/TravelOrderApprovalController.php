@@ -20,13 +20,21 @@ class TravelOrderApprovalController extends Controller
     {
         $this->authorize('viewAny', TravelOrder::class);
 
-        $orders = $this->travelOrders->pendingFor($request->user())
-            ->paginate(15)
-            ->withQueryString();
+        $scope = $request->string('scope')->toString() ?: null;
+        $query = $this->travelOrders->pendingFor($request->user());
+
+        if ($scope === 'endorsement') {
+            $query->where('status', \App\Enums\TravelOrderStatus::PendingSupervisor);
+        } elseif ($scope === 'final') {
+            $query->where('status', \App\Enums\TravelOrderStatus::PendingCeoFinalApproval);
+        }
+
+        $orders = $query->paginate(15)->withQueryString();
 
         return view('travel-order.approvals.index', [
             'orders' => $orders,
             'mode' => 'pending',
+            'scope' => $scope ?? 'all',
         ]);
     }
 

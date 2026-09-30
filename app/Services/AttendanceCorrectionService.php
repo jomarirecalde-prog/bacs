@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\ApprovalTransactionType;
 use App\Enums\AttendanceCorrectionStatus;
+use App\Enums\LeaveApprovalStage;
 use App\Enums\AttendancePunchType;
 use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
@@ -19,6 +21,7 @@ class AttendanceCorrectionService
         private readonly NotificationService $notifications,
         private readonly EmailNotificationService $emailNotifications,
         private readonly AuditLogger $auditLogger,
+        private readonly CentralApprovalWorkflowService $centralApproval,
     ) {}
 
     public function submit(Employee $employee, array $data): AttendanceCorrectionRequest
@@ -48,6 +51,11 @@ class AttendanceCorrectionService
         }
 
         return DB::transaction(function () use ($employee, $date, $type, $requested, $original, $record, $data) {
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::Pardon);
+            $config = $this->centralApproval->configurationFor(ApprovalTransactionType::Pardon);
+            $meta = $this->centralApproval->initialStageMeta($config);
+            $status = $this->centralApproval->pardonStatusAfterBootstrap($config);
+
             $request = AttendanceCorrectionRequest::query()->create([
                 'employee_id' => $employee->id,
                 'attendance_id' => $record?->id,
@@ -56,8 +64,15 @@ class AttendanceCorrectionService
                 'original_value' => $original,
                 'requested_value' => $requested,
                 'reason' => $data['reason'],
-                'status' => AttendanceCorrectionStatus::Pending->value,
+                'status' => $status->value,
+                'current_approval_stage' => $meta['stage']?->value,
             ]);
+
+            $this->centralApproval->bootstrapPardon($request, $employee);
+
+            if ($meta['stage'] === null) {
+                return $this->approve($employee->user ?? User::query()->where('role', 'admin')->first(), $request, 'Auto-approved (no endorsement/final approval configured).');
+            }
 
             $this->auditLogger->log(
                 $employee->user,
@@ -67,12 +82,17 @@ class AttendanceCorrectionService
                 "{$employee->fullName()} requested a correction for {$type->label()} on {$date}."
             );
 
-            $this->notifications->notifyAdmins(
-                'DTR correction requested',
-                "{$employee->fullName()} requested a correction for {$type->label()} on {$date}.",
-                'info',
-                route('admin.attendance-corrections.show', $request)
-            );
+            foreach ($request->approvalAssignments()->where('status', 'pending')->with('user')->get() as $assignment) {
+                if ($assignment->user) {
+                    $this->notifications->notify(
+                        $assignment->user,
+                        'Pardon / time correction for endorsement',
+                        "{$employee->fullName()} requested a correction for {$type->label()} on {$date}.",
+                        'warning',
+                        route('pardon.approvals.show', $request)
+                    );
+                }
+            }
 
             if ($employee->user) {
                 $this->notifications->notify(

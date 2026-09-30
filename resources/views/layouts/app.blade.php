@@ -125,10 +125,6 @@
                                 ['admin.calendar.index', 'Calendar', $icons['calendar-events'], 'admin.calendar.index'],
                                 ['admin.calendar.events.index', 'Manage Events', $icons['list'], 'admin.calendar.events*'],
                             ]],
-                            ['label' => 'Leave Approvals', 'items' => [
-                                ['leave.approvals.index', 'Pending Leave Requests', $icons['approve'], 'leave.approvals.index'],
-                                ['leave.approvals.history', 'Approval History', $icons['document'], 'leave.approvals.history'],
-                            ]],
                         ];
 
                         $leaveAdminItems = [
@@ -137,7 +133,6 @@
                         ];
                         if ($isFullAdmin) {
                             array_splice($leaveAdminItems, 1, 0, [
-                                ['admin.leave.workflow', 'Leave Approval Configuration', $icons['list']],
                                 ['admin.leave.entitlements', 'Employee Leave Balances', $icons['calendar']],
                             ]);
                         }
@@ -170,6 +165,20 @@
                                 ['admin.settings.index', 'Settings', $icons['cog']],
                             ]];
                         }
+
+                        $approvalNavItems = [];
+                        foreach (auth()->user()->approvalSidebarModules() as $module) {
+                            $approvalNavItems[] = [
+                                $module['route_name'],
+                                $module['label'].($module['count'] > 0 ? ' ('.$module['count'].')' : ''),
+                                $icons['approve'],
+                                $module['route_name'].'*',
+                                $module['params'],
+                            ];
+                        }
+                        if ($approvalNavItems !== []) {
+                            $navGroups[] = ['label' => 'Approvals & Endorsements', 'items' => $approvalNavItems];
+                        }
                     } else {
                         $navGroups = [
                             ['label' => null, 'items' => [
@@ -196,17 +205,18 @@
                             ]],
                         ];
 
-                        if (auth()->user()->hasLeaveApprovalDuty()) {
-                            $navGroups[] = ['label' => 'Leave Approvals', 'items' => [
-                                ['leave.approvals.index', 'Pending Leave Requests', $icons['approve'], 'leave.approvals.index'],
-                                ['leave.approvals.history', 'Approval History', $icons['document'], 'leave.approvals.history'],
-                            ]];
+                        $approvalNavItems = [];
+                        foreach (auth()->user()->approvalSidebarModules() as $module) {
+                            $approvalNavItems[] = [
+                                $module['route_name'],
+                                $module['label'].($module['count'] > 0 ? ' ('.$module['count'].')' : ''),
+                                $icons['approve'],
+                                $module['route_name'].'*',
+                                $module['params'],
+                            ];
                         }
-
-                        if (auth()->user()->hasLeaveApprovalDuty()) {
-                            $navGroups[] = ['label' => 'Travel Order Endorsements', 'items' => [
-                                ['travel-order.approvals.index', 'Pending Travel Orders', $icons['approve'], 'travel-order.approvals.*'],
-                            ]];
+                        if ($approvalNavItems !== []) {
+                            $navGroups[] = ['label' => 'Approvals & Endorsements', 'items' => $approvalNavItems];
                         }
                     }
                 @endphp
@@ -222,7 +232,7 @@
                             $pattern = $item[3] ?? str_replace('.index', '*', $route).'*';
                             $active = request()->routeIs($pattern) || request()->routeIs($route);
                         @endphp
-                        <a href="{{ route($route) }}" @click="sidebar = false" class="nav-link {{ $active ? 'nav-link-active' : 'nav-link-idle' }}">
+                        <a href="{{ route($route, $item[4] ?? []) }}" @click="sidebar = false" class="nav-link {{ $active ? 'nav-link-active' : 'nav-link-idle' }}">
                             <svg class="h-5 w-5 shrink-0 {{ $active ? 'text-gold-300' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $icon }}"/></svg>
                             <span class="truncate">{{ $label }}</span>
                         </a>

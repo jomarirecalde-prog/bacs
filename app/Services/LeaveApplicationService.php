@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AttendanceStatus;
+use App\Enums\ApprovalTransactionType;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -35,6 +36,7 @@ class LeaveApplicationService
         private readonly LeaveResolver $leaveResolver,
         private readonly CeoResolver $ceo,
         private readonly LeaveWorkflowService $workflows,
+        private readonly CentralApprovalWorkflowService $centralApproval,
     ) {}
 
     public function submit(Employee $employee, User $actor, array $data): LeaveApplication
@@ -97,19 +99,9 @@ class LeaveApplicationService
         $signature = $this->storeSignature($data['employee_signature'] ?? null, $employee);
 
         return DB::transaction(function () use ($employee, $actor, $data, $type, $special, $requested, $signature) {
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::LeaveApplication);
+            $centralConfig = $this->centralApproval->configurationFor(ApprovalTransactionType::LeaveApplication);
             $workflow = LeaveApprovalWorkflow::forDepartment($employee->department_id);
-
-            if ($workflow->isDepartmentSpecific() && ! $this->workflows->isComplete($workflow)) {
-                throw ValidationException::withMessages([
-                    'leave_type' => 'Leave applications cannot be submitted because your department approval workflow is incomplete. Contact the administrator.',
-                ]);
-            }
-
-            if (! $this->ceo->user()) {
-                throw ValidationException::withMessages([
-                    'leave_type' => 'Leave applications cannot be submitted because the CEO final approver has not been designated.',
-                ]);
-            }
 
             $application = LeaveApplication::query()->create([
                 'application_number' => $this->nextNumber(),
@@ -129,18 +121,32 @@ class LeaveApplicationService
                 'date_filed' => ManilaTime::now(),
                 'status' => LeaveStatus::PendingSupervisor,
                 'current_stage' => LeaveApprovalStage::ImmediateSupervisor,
-                'parallel_rule' => $workflow->parallel_rule,
+                'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
                 'submitted_by' => $actor->id,
             ]);
 
-            $this->snapshotApprovers($application, $workflow, $employee);
-            $first = $this->advanceToNextPendingStage($application, null);
-            $application->update([
-                'status' => $first?->pendingStatus() ?? LeaveStatus::PendingCeoFinalApproval,
-                'current_stage' => $first ?? LeaveApprovalStage::CeoFinalApproval,
-            ]);
+            $this->centralApproval->bootstrapLeaveApplication($application, $employee);
+            $meta = $this->centralApproval->initialStageMeta($centralConfig);
 
-            $this->recordAction($application, $actor, $first ?? LeaveApprovalStage::CeoFinalApproval, 'submitted', null, null, $application->status, 'Leave application submitted.');
+            if ($meta['stage'] === null) {
+                $this->snapshotHrApproversOnly($application, $employee);
+                $application->update([
+                    'status' => LeaveStatus::PendingHr,
+                    'current_stage' => LeaveApprovalStage::HrOfficer,
+                ]);
+                $first = LeaveApprovalStage::HrOfficer;
+            } else {
+                $first = $this->advanceToNextPendingStage($application, null);
+                $application->update([
+                    'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
+                    'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
+                ]);
+                if ($first === null) {
+                    $this->snapshotHrApproversOnly($application, $employee);
+                }
+            }
+
+            $this->recordAction($application, $actor, $first ?? LeaveApprovalStage::ImmediateSupervisor, 'submitted', null, null, $application->status, 'Leave application submitted.');
             $this->audit->log($actor, 'leave_submitted', 'Leave', $application->id, "{$employee->fullName()} submitted {$application->application_number}.");
 
             return $application->fresh(['employee.department', 'employee.user', 'assignments.user', 'actions.user']);
@@ -181,10 +187,18 @@ class LeaveApplicationService
             ]);
         }
 
-        if ($stage === LeaveApprovalStage::CeoFinalApproval && ! $this->ceo->isAuthorized($actor)) {
-            throw ValidationException::withMessages([
-                'decision' => 'Only the designated CEO can perform final approval.',
-            ]);
+        if ($stage === LeaveApprovalStage::CeoFinalApproval) {
+            $assignedFinal = $application->assignments()
+                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                ->where('user_id', $actor->id)
+                ->where('status', 'pending')
+                ->exists();
+
+            if (! $assignedFinal) {
+                throw ValidationException::withMessages([
+                    'decision' => 'You are not authorized to perform final approval on this application.',
+                ]);
+            }
         }
 
         if ($decision === LeaveDecision::Denied && trim($reason) === '') {
@@ -552,12 +566,11 @@ class LeaveApplicationService
         }
 
         if ($application->current_stage === LeaveApprovalStage::CeoFinalApproval) {
-            return $this->ceo->isAuthorized($user)
-                && $application->assignments()
-                    ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
-                    ->where('user_id', $user->id)
-                    ->where('status', 'pending')
-                    ->exists();
+            return $application->assignments()
+                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                ->where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->exists();
         }
 
         return $application->assignments()
@@ -588,6 +601,20 @@ class LeaveApplicationService
     {
         return LeaveApprovalAssignment::query()->where('user_id', $user->id)->exists()
             || \App\Models\LeaveApprovalWorkflowApprover::query()->where('user_id', $user->id)->exists();
+    }
+
+    private function snapshotHrApproversOnly(LeaveApplication $application, Employee $employee): void
+    {
+        User::query()
+            ->where('role', UserRole::Admin)
+            ->where('status', 'active')
+            ->get()
+            ->each(function (User $user, int $index) use ($application, $employee) {
+                if ($user->employee?->id === $employee->id) {
+                    return;
+                }
+                $this->createAssignment($application, LeaveApprovalStage::HrOfficer, $user, $index);
+            });
     }
 
     private function snapshotApprovers(LeaveApplication $application, LeaveApprovalWorkflow $workflow, Employee $employee): void

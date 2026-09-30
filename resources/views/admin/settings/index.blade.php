@@ -201,4 +201,6 @@
         </table>
     </div>
 </div>
+
+@include('admin.settings.partials.approval-workflow')
 @endsection

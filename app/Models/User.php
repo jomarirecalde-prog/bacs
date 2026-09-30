@@ -117,6 +117,13 @@ class User extends Authenticatable
             return true;
         }
 
-        return once(fn () => app(\App\Services\LeaveApplicationService::class)->userIsAssignedApprover($this));
+        return once(fn () => app(\App\Services\CentralApprovalDutyService::class)->hasAnyConfiguredDuty($this)
+            || app(\App\Services\LeaveApplicationService::class)->userIsAssignedApprover($this));
+    }
+
+    /** @return list<array{route_name: string, params: array<string, string>, label: string, count: int}> */
+    public function approvalSidebarModules(): array
+    {
+        return app(\App\Services\CentralApprovalDutyService::class)->sidebarModules($this);
     }
 }

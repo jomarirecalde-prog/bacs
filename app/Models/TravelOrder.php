@@ -21,6 +21,8 @@ class TravelOrder extends Model
         'department_id',
         'workflow_id',
         'workflow_version',
+        'central_approval_config_id',
+        'central_approval_config_version',
         'official_station',
         'number_of_bh',
         'destination',

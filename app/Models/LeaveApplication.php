@@ -23,6 +23,8 @@ class LeaveApplication extends Model
         'department_id',
         'workflow_id',
         'workflow_version',
+        'central_approval_config_id',
+        'central_approval_config_version',
         'leave_type',
         'special_leave_type',
         'start_date',

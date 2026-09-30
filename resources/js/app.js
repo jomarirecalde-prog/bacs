@@ -887,12 +887,17 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
-    Alpine.data('travelEmployeePicker', ({ selected, searchUrl }) => ({
+    Alpine.data('travelEmployeePicker', ({ selected, searchUrl, single = false, inputName = 'traveler_ids' }) => ({
         selected: [...(selected || [])],
+        single,
+        inputName,
         query: '',
         results: [],
         open: false,
         controller: null,
+        inputFieldName() {
+            return this.single ? this.inputName : `${this.inputName}[]`;
+        },
         async search() {
             if (this.query.trim().length < 2) {
                 this.results = [];
@@ -916,7 +921,9 @@ document.addEventListener('alpine:init', () => {
             }
         },
         add(person) {
-            if (!this.selected.some((s) => s.id === person.id)) {
+            if (this.single) {
+                this.selected = [person];
+            } else if (!this.selected.some((s) => s.id === person.id)) {
                 this.selected.push(person);
             }
             this.query = '';

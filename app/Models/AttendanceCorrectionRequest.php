@@ -22,6 +22,9 @@ class AttendanceCorrectionRequest extends Model
         'reviewed_by',
         'reviewed_at',
         'review_notes',
+        'central_approval_config_id',
+        'central_approval_config_version',
+        'current_approval_stage',
     ];
 
     protected function casts(): array
@@ -48,6 +51,11 @@ class AttendanceCorrectionRequest extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function approvalAssignments()
+    {
+        return $this->hasMany(AttendanceCorrectionApprovalAssignment::class);
     }
 
     public function punchType(): ?AttendancePunchType

@@ -14,7 +14,9 @@ use App\Http\Controllers\Admin\EmployeeQrController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\AdminAccountController;
+use App\Http\Controllers\Admin\ApprovalWorkflowController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClockController;
@@ -154,6 +156,12 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/travel-orders/{travelOrder}/print', [EmployeeTravelOrderController::class, 'print'])->name('travel-orders.print');
     });
 
+    Route::prefix('pardon/approvals')->name('pardon.approvals.')->group(function () {
+        Route::get('/', [PardonApprovalController::class, 'index'])->name('index');
+        Route::get('/{correction}', [PardonApprovalController::class, 'show'])->name('show');
+        Route::post('/{correction}/decide', [PardonApprovalController::class, 'decide'])->name('decide');
+    });
+
     Route::prefix('travel-order/approvals')->name('travel-order.approvals.')->group(function () {
         Route::get('/', [TravelOrderApprovalController::class, 'index'])->name('index');
         Route::get('/history', [TravelOrderApprovalController::class, 'history'])->name('history');
@@ -264,9 +272,12 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/settings/admins/{admin}/edit', [AdminAccountController::class, 'edit'])->middleware('role:admin')->name('settings.admins.edit');
         Route::put('/settings/admins/{admin}', [AdminAccountController::class, 'update'])->middleware('role:admin')->name('settings.admins.update');
         Route::delete('/settings/admins/{admin}', [AdminAccountController::class, 'destroy'])->middleware('role:admin')->name('settings.admins.destroy');
+        Route::get('/settings/approval-workflow/employees/search', [ApprovalWorkflowController::class, 'searchEmployees'])->middleware('role:admin')->name('settings.approval-workflow.employees.search');
+        Route::put('/settings/approval-workflow/{transactionType}', [ApprovalWorkflowController::class, 'update'])->middleware('role:admin')->name('settings.approval-workflow.update');
+        Route::get('/settings/approval-workflow/{transactionType}/history', [ApprovalWorkflowController::class, 'history'])->middleware('role:admin')->name('settings.approval-workflow.history');
 
         Route::get('/leave', [AdminLeaveApplicationController::class, 'index'])->name('leave.index');
-        Route::get('/leave/configuration', [LeaveWorkflowController::class, 'index'])->middleware('role:admin')->name('leave.workflow');
+        Route::get('/leave/configuration', fn () => redirect()->route('admin.settings.index')->withFragment('approval-workflow'))->middleware('role:admin')->name('leave.workflow');
         Route::get('/leave/configuration/employees/search', [LeaveWorkflowController::class, 'searchEmployees'])->middleware('role:admin')->name('leave.workflow.employees.search');
         Route::get('/leave/configuration/{department}', [LeaveWorkflowController::class, 'show'])->middleware('role:admin')->name('leave.workflow.show');
         Route::put('/leave/configuration/{department}', [LeaveWorkflowController::class, 'update'])->middleware('role:admin')->name('leave.workflow.update');

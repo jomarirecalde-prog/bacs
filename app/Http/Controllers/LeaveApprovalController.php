@@ -20,13 +20,23 @@ class LeaveApprovalController extends Controller
     {
         $this->authorize('viewAny', LeaveApplication::class);
 
-        $applications = $this->leaves->pendingFor($request->user())
-            ->paginate(15)
-            ->withQueryString();
+        $scope = $request->string('scope')->toString() ?: null;
+        $query = $this->leaves->pendingFor($request->user());
+
+        if ($scope === 'endorsement') {
+            $query->where('status', \App\Enums\LeaveStatus::PendingSupervisor)
+                ->where('current_stage', \App\Enums\LeaveApprovalStage::ImmediateSupervisor);
+        } elseif ($scope === 'final') {
+            $query->where('status', \App\Enums\LeaveStatus::PendingCeoFinalApproval)
+                ->where('current_stage', \App\Enums\LeaveApprovalStage::CeoFinalApproval);
+        }
+
+        $applications = $query->paginate(15)->withQueryString();
 
         return view('leave.approvals.index', [
             'applications' => $applications,
             'mode' => 'pending',
+            'scope' => $scope ?? 'all',
         ]);
     }
 

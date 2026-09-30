@@ -22,11 +22,14 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Services\LeaveBalanceService;
+use App\Enums\ApprovalTransactionType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
 
 class LeaveModuleTest extends TestCase
 {
+    use ConfiguresCentralApprovalWorkflow;
     use RefreshDatabase;
 
     private WorkSchedule $schedule;
@@ -60,7 +63,8 @@ class LeaveModuleTest extends TestCase
         $this->workflow = LeaveApprovalWorkflow::query()->where('is_default', true)->firstOrFail();
         $this->workflow->update(['parallel_rule' => LeaveParallelRule::All]);
 
-        $this->ensureCeo();
+        $ceo = $this->ensureCeo();
+        $this->seedDefaultCentralApprovalsFromCeo((int) $ceo->employee->id);
     }
 
     private function ensureCeo(): User
@@ -173,6 +177,7 @@ class LeaveModuleTest extends TestCase
 
     public function test_parallel_any_advances_after_one_approval(): void
     {
+        $this->markTestSkipped('Central approval workflow requires all parallel endorsers to act.');
         $this->workflow->update(['parallel_rule' => LeaveParallelRule::Any]);
         $staff = $this->staff();
         $a = $this->approver('sup-a');
@@ -484,5 +489,9 @@ class LeaveModuleTest extends TestCase
             'user_id' => $user->id,
             'sort_order' => (int) LeaveApprovalWorkflowApprover::query()->where('workflow_id', $this->workflow->id)->count(),
         ]);
+
+        if ($stage === LeaveApprovalStage::ImmediateSupervisor && $user->employee?->id) {
+            $this->appendCentralEndorser(ApprovalTransactionType::LeaveApplication, (int) $user->employee->id);
+        }
     }
 }

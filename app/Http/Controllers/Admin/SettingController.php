@@ -7,12 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Holiday;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\CentralApprovalWorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class SettingController extends Controller
 {
-    public function index()
+    public function index(CentralApprovalWorkflowService $approvalWorkflows)
     {
         $holidays = Holiday::query()->orderBy('holiday_date')->get();
 
@@ -26,6 +27,8 @@ class SettingController extends Controller
             'address' => Setting::get('company_address', ''),
             'holidays' => $holidays,
             'adminAccounts' => $adminAccounts,
+            'approvalConfigurations' => $approvalWorkflows->allConfigurations(),
+            'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
         ]);
     }
 

@@ -19,7 +19,7 @@
 
 <div class="card card-accent-gold">
     <div class="card-header"><h2 class="card-title">Involved personnel / travelers</h2></div>
-    <div class="card-body space-y-4" x-data="travelEmployeePicker({ selected: @js($selectedTravelers ?? []), searchUrl: @js($searchUrl) })">
+    <div class="card-body space-y-4" x-data="travelEmployeePicker({ selected: @js($selectedTravelers ?? []), searchUrl: @js($searchUrl), inputName: 'traveler_ids' })">
         <div>
             <label class="label">Search employee</label>
             <input type="text" class="input" placeholder="Type employee name, ID, department, or position…" x-model="query" @input.debounce.300ms="search">
@@ -37,7 +37,7 @@
                 <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm">
                     <span x-text="person.name + (person.position ? ' – ' + person.position : '')"></span>
                     <button type="button" class="text-critical-600" @click="remove(person.id)" aria-label="Remove">&times;</button>
-                    <input type="hidden" name="traveler_ids[]" :value="person.id">
+                    <input type="hidden" :name="inputFieldName()" :value="person.id">
                 </span>
             </template>
         </div>

@@ -13,10 +13,12 @@ use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Services\TravelOrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
 
 class TravelOrderModuleTest extends TestCase
 {
+    use ConfiguresCentralApprovalWorkflow;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -49,6 +51,7 @@ class TravelOrderModuleTest extends TestCase
             'employment_status' => EmploymentStatus::Regular,
         ]);
         Setting::query()->updateOrCreate(['key' => 'ceo_user_id'], ['value' => (string) $ceo->id]);
+        $this->seedDefaultCentralApprovalsFromCeo((int) $ceo->fresh('employee')->employee->id);
     }
 
     public function test_requester_is_not_auto_included_as_traveler(): void

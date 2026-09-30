@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ApprovalTransactionType;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -31,6 +32,7 @@ class TravelOrderService
         private readonly AuditLogger $audit,
         private readonly CeoResolver $ceo,
         private readonly LeaveWorkflowService $workflows,
+        private readonly CentralApprovalWorkflowService $centralApproval,
     ) {}
 
     /** @return Collection<int, array{id:int,name:string,position:?string,department:?string,employee_number:?string}> */
@@ -111,26 +113,16 @@ class TravelOrderService
         }
 
         return DB::transaction(function () use ($requester, $actor, $payload, $travelerIds, $existing, $data) {
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::TravelOrder);
+            $centralConfig = $this->centralApproval->configurationFor(ApprovalTransactionType::TravelOrder);
             $workflow = LeaveApprovalWorkflow::forDepartment($requester->department_id);
-
-            if ($workflow->isDepartmentSpecific() && ! $this->workflows->isComplete($workflow)) {
-                throw ValidationException::withMessages([
-                    'purpose' => 'Travel orders cannot be submitted because your department approval workflow is incomplete. Contact the administrator.',
-                ]);
-            }
-
-            if (! $this->ceo->user()) {
-                throw ValidationException::withMessages([
-                    'purpose' => 'Travel orders cannot be submitted because the CEO final approver has not been designated.',
-                ]);
-            }
 
             if ($existing) {
                 $this->assertRequesterOwnsDraft($existing, $requester);
                 $existing->update(array_merge($payload, [
                     'workflow_id' => $workflow->id,
                     'workflow_version' => $workflow->version,
-                    'parallel_rule' => $workflow->parallel_rule,
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
                     'status' => TravelOrderStatus::PendingSupervisor,
@@ -145,7 +137,7 @@ class TravelOrderService
                     'department_id' => $requester->department_id,
                     'workflow_id' => $workflow->id,
                     'workflow_version' => $workflow->version,
-                    'parallel_rule' => $workflow->parallel_rule,
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
                     'date_requested' => ManilaTime::now(),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
@@ -158,12 +150,27 @@ class TravelOrderService
             $this->syncDestinations($order, $data['destinations'] ?? []);
             $this->storeAttachments($order, $actor, $data['attachments'] ?? []);
 
-            $this->snapshotApprovers($order, $workflow, $requester);
-            $first = $this->advanceToNextPendingStage($order, null);
-            $order->update([
-                'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::PendingCeoFinalApproval,
-                'current_stage' => $first ?? LeaveApprovalStage::CeoFinalApproval,
-            ]);
+            $this->centralApproval->bootstrapTravelOrder($order, $requester);
+            $meta = $this->centralApproval->initialStageMeta($centralConfig);
+
+            if ($meta['stage'] === null) {
+                $now = ManilaTime::now();
+                $order->update([
+                    'status' => TravelOrderStatus::Approved,
+                    'current_stage' => null,
+                    'approved_at' => $now,
+                    'finalized_by' => $actor->id,
+                ]);
+                $first = null;
+            } else {
+                $first = $this->advanceToNextPendingStage($order, null);
+                $order->update([
+                    'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
+                    'current_stage' => $first,
+                    'approved_at' => $first ? null : ManilaTime::now(),
+                    'finalized_by' => $first ? null : $actor->id,
+                ]);
+            }
 
             $this->recordAction(
                 $order,
@@ -216,10 +223,18 @@ class TravelOrderService
             throw ValidationException::withMessages(['decision' => 'This travel order has no active approval stage.']);
         }
 
-        if ($stage === LeaveApprovalStage::CeoFinalApproval && ! $this->ceo->isAuthorized($actor)) {
-            throw ValidationException::withMessages([
-                'decision' => 'Only the designated CEO can perform final approval.',
-            ]);
+        if ($stage === LeaveApprovalStage::CeoFinalApproval) {
+            $assignedFinal = $order->assignments()
+                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                ->where('user_id', $actor->id)
+                ->where('status', 'pending')
+                ->exists();
+
+            if (! $assignedFinal) {
+                throw ValidationException::withMessages([
+                    'decision' => 'You are not authorized to perform final approval on this travel order.',
+                ]);
+            }
         }
 
         if ($decision === LeaveDecision::Denied && trim($reason) === '') {
@@ -486,12 +501,11 @@ class TravelOrderService
         }
 
         if ($order->current_stage === LeaveApprovalStage::CeoFinalApproval) {
-            return $this->ceo->isAuthorized($user)
-                && $order->assignments()
-                    ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
-                    ->where('user_id', $user->id)
-                    ->where('status', 'pending')
-                    ->exists();
+            return $order->assignments()
+                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                ->where('user_id', $user->id)
+                ->where('status', 'pending')
+                ->exists();
         }
 
         return $order->assignments()

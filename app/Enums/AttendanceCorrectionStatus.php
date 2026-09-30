@@ -5,6 +5,8 @@ namespace App\Enums;
 enum AttendanceCorrectionStatus: string
 {
     case Pending = 'pending';
+    case PendingEndorsement = 'pending_endorsement';
+    case PendingFinalApproval = 'pending_final_approval';
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Cancelled = 'cancelled';
@@ -13,6 +15,8 @@ enum AttendanceCorrectionStatus: string
     {
         return match ($this) {
             self::Pending => 'Pending Review',
+            self::PendingEndorsement => 'Pending Endorsement',
+            self::PendingFinalApproval => 'Pending Final Approval',
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
             self::Cancelled => 'Cancelled',
@@ -31,6 +35,6 @@ enum AttendanceCorrectionStatus: string
 
     public function isOpen(): bool
     {
-        return $this === self::Pending;
+        return in_array($this, [self::Pending, self::PendingEndorsement, self::PendingFinalApproval], true);
     }
 }
