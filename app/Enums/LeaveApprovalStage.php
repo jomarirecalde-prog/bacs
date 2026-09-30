@@ -53,6 +53,17 @@ enum LeaveApprovalStage: string
         };
     }
 
+    public function pendingStatusForTravel(): TravelOrderStatus
+    {
+        return match ($this) {
+            self::ImmediateSupervisor => TravelOrderStatus::PendingSupervisor,
+            self::DepartmentHead => TravelOrderStatus::PendingDepartmentHead,
+            self::AdministrativeHead => TravelOrderStatus::PendingAdministrativeHead,
+            self::CeoFinalApproval => TravelOrderStatus::PendingCeoFinalApproval,
+            self::HrOfficer => TravelOrderStatus::Approved,
+        };
+    }
+
     public function next(): ?self
     {
         return match ($this) {

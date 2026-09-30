@@ -887,6 +887,47 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    Alpine.data('travelEmployeePicker', ({ selected, searchUrl }) => ({
+        selected: [...(selected || [])],
+        query: '',
+        results: [],
+        open: false,
+        controller: null,
+        async search() {
+            if (this.query.trim().length < 2) {
+                this.results = [];
+                this.controller?.abort();
+                return;
+            }
+            this.controller?.abort();
+            this.controller = new AbortController();
+            try {
+                const res = await fetch(`${searchUrl}?q=${encodeURIComponent(this.query)}`, {
+                    headers: { Accept: 'application/json' },
+                    signal: this.controller.signal,
+                });
+                const data = await res.json();
+                this.results = (data.results || []).filter((r) => !this.selected.some((s) => s.id === r.id));
+                this.open = true;
+            } catch (error) {
+                if (error?.name === 'AbortError') {
+                    return;
+                }
+            }
+        },
+        add(person) {
+            if (!this.selected.some((s) => s.id === person.id)) {
+                this.selected.push(person);
+            }
+            this.query = '';
+            this.results = [];
+            this.open = false;
+        },
+        remove(id) {
+            this.selected = this.selected.filter((s) => s.id !== id);
+        },
+    }));
+
     Alpine.data('approverPicker', ({ name, multiple, selected, searchUrl }) => ({
         name,
         multiple,

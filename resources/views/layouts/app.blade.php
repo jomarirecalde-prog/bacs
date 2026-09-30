@@ -143,6 +143,12 @@
                         }
                         $navGroups[] = ['label' => 'Leave Management', 'items' => $leaveAdminItems];
 
+                        if ($isFullAdmin) {
+                            $navGroups[] = ['label' => 'Travel Orders', 'items' => [
+                                ['admin.travel-orders.index', 'Travel Order Management', $icons['document'], 'admin.travel-orders.*'],
+                            ]];
+                        }
+
                         if (auth()->user()->employee) {
                             $navGroups[] = ['label' => 'Personal', 'items' => [
                                 ['employee.dashboard', 'My Time In / Out', $icons['clock']],
@@ -152,6 +158,7 @@
                                 ['employee.leave.index', 'My Leave Applications', $icons['list'], 'employee.leave.index'],
                                 ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
                                 ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
+                                ['employee.travel-orders.index', 'Travel Orders', $icons['document'], 'employee.travel-orders.*'],
                                 ['employee.calendar', 'My Calendar', $icons['calendar']],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]];
@@ -183,12 +190,22 @@
                                 ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
                                 ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
                             ]],
+                            ['label' => 'Travel Orders', 'items' => [
+                                ['employee.travel-orders.create', 'New Travel Order', $icons['document'], 'employee.travel-orders.create'],
+                                ['employee.travel-orders.index', 'Travel Order Dashboard', $icons['list'], 'employee.travel-orders.*'],
+                            ]],
                         ];
 
                         if (auth()->user()->hasLeaveApprovalDuty()) {
                             $navGroups[] = ['label' => 'Leave Approvals', 'items' => [
                                 ['leave.approvals.index', 'Pending Leave Requests', $icons['approve'], 'leave.approvals.index'],
                                 ['leave.approvals.history', 'Approval History', $icons['document'], 'leave.approvals.history'],
+                            ]];
+                        }
+
+                        if (auth()->user()->hasLeaveApprovalDuty()) {
+                            $navGroups[] = ['label' => 'Travel Order Endorsements', 'items' => [
+                                ['travel-order.approvals.index', 'Pending Travel Orders', $icons['approve'], 'travel-order.approvals.*'],
                             ]];
                         }
                     }

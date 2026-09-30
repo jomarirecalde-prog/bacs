@@ -31,7 +31,10 @@ use App\Http\Controllers\Admin\LeaveReportController;
 use App\Http\Controllers\Admin\LeaveWorkflowController;
 use App\Http\Controllers\Employee\LeaveApplicationController as EmployeeLeaveApplicationController;
 use App\Http\Controllers\EmployeePhotoController;
+use App\Http\Controllers\Admin\TravelOrderController as AdminTravelOrderController;
+use App\Http\Controllers\Employee\TravelOrderController as EmployeeTravelOrderController;
 use App\Http\Controllers\LeaveApprovalController;
+use App\Http\Controllers\TravelOrderApprovalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicStorageController;
@@ -138,6 +141,26 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/leave/{application}/pdf', [EmployeeLeaveApplicationController::class, 'pdf'])->name('leave.pdf');
         Route::get('/leave/{application}/print', [EmployeeLeaveApplicationController::class, 'print'])->name('leave.print');
         Route::post('/leave/{application}/cancel', [EmployeeLeaveApplicationController::class, 'cancel'])->name('leave.cancel');
+
+        Route::get('/travel-orders', [EmployeeTravelOrderController::class, 'index'])->name('travel-orders.index');
+        Route::get('/travel-orders/create', [EmployeeTravelOrderController::class, 'create'])->name('travel-orders.create');
+        Route::get('/travel-orders/employees/search', [EmployeeTravelOrderController::class, 'searchEmployees'])->name('travel-orders.employees.search');
+        Route::post('/travel-orders', [EmployeeTravelOrderController::class, 'store'])->name('travel-orders.store');
+        Route::get('/travel-orders/{travelOrder}', [EmployeeTravelOrderController::class, 'show'])->name('travel-orders.show');
+        Route::get('/travel-orders/{travelOrder}/edit', [EmployeeTravelOrderController::class, 'edit'])->name('travel-orders.edit');
+        Route::put('/travel-orders/{travelOrder}', [EmployeeTravelOrderController::class, 'update'])->name('travel-orders.update');
+        Route::post('/travel-orders/{travelOrder}/cancel', [EmployeeTravelOrderController::class, 'cancel'])->name('travel-orders.cancel');
+        Route::get('/travel-orders/{travelOrder}/pdf', [EmployeeTravelOrderController::class, 'pdf'])->name('travel-orders.pdf');
+        Route::get('/travel-orders/{travelOrder}/print', [EmployeeTravelOrderController::class, 'print'])->name('travel-orders.print');
+    });
+
+    Route::prefix('travel-order/approvals')->name('travel-order.approvals.')->group(function () {
+        Route::get('/', [TravelOrderApprovalController::class, 'index'])->name('index');
+        Route::get('/history', [TravelOrderApprovalController::class, 'history'])->name('history');
+        Route::get('/{travelOrder}', [TravelOrderApprovalController::class, 'show'])->name('show');
+        Route::post('/{travelOrder}/decide', [TravelOrderApprovalController::class, 'decide'])->name('decide');
+        Route::get('/{travelOrder}/pdf', [TravelOrderApprovalController::class, 'pdf'])->name('pdf');
+        Route::get('/{travelOrder}/print', [TravelOrderApprovalController::class, 'print'])->name('print');
     });
 
     Route::prefix('leave/approvals')->name('leave.approvals.')->group(function () {
@@ -264,5 +287,13 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::post('/leave/{application}/hr', [AdminLeaveApplicationController::class, 'processHr'])->name('leave.hr');
         Route::get('/leave/{application}/pdf', [AdminLeaveApplicationController::class, 'pdf'])->name('leave.pdf');
         Route::get('/leave/{application}/print', [AdminLeaveApplicationController::class, 'print'])->name('leave.print');
+
+        Route::get('/travel-orders', [AdminTravelOrderController::class, 'index'])->middleware('role:admin')->name('travel-orders.index');
+        Route::get('/travel-orders/{travelOrder}', [AdminTravelOrderController::class, 'show'])->middleware('role:admin')->name('travel-orders.show');
+        Route::get('/travel-orders/{travelOrder}/edit', [AdminTravelOrderController::class, 'edit'])->middleware('role:admin')->name('travel-orders.edit');
+        Route::put('/travel-orders/{travelOrder}/approved', [AdminTravelOrderController::class, 'updateApproved'])->middleware('role:admin')->name('travel-orders.update-approved');
+        Route::post('/travel-orders/{travelOrder}/cancel', [AdminTravelOrderController::class, 'cancelApproved'])->middleware('role:admin')->name('travel-orders.cancel');
+        Route::get('/travel-orders/{travelOrder}/pdf', [AdminTravelOrderController::class, 'pdf'])->middleware('role:admin')->name('travel-orders.pdf');
+        Route::get('/travel-orders/{travelOrder}/print', [AdminTravelOrderController::class, 'print'])->middleware('role:admin')->name('travel-orders.print');
     });
 });

@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\TravelOrder;
 use App\Models\LeaveBalance;
 use App\Policies\AttendanceCorrectionRequestPolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\LeaveApplicationPolicy;
+use App\Policies\TravelOrderPolicy;
 use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
 use App\Services\HolidayResolver;
@@ -48,6 +50,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(LeaveApplication::class, LeaveApplicationPolicy::class);
+        Gate::policy(TravelOrder::class, TravelOrderPolicy::class);
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
         Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
 

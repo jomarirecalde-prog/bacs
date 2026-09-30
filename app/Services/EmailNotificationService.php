@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AccountStatus;
 use App\Enums\EmailNotificationType;
+use App\Enums\TravelOrderStatus;
 use App\Mail\AccountCreatedMail;
 use App\Mail\TransactionApprovedMail;
 use App\Mail\TransactionRejectedMail;
@@ -11,6 +12,7 @@ use App\Models\AttendanceCorrectionRequest;
 use App\Models\EmailNotificationLog;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\TravelOrder;
 use App\Models\User;
 use App\Support\ManilaTime;
 use Illuminate\Support\Facades\DB;
@@ -126,6 +128,67 @@ class EmailNotificationService
                 userId: $user->id,
                 notifiable: $application,
                 meta: ['leave_application_id' => $application->id],
+            );
+        });
+    }
+
+    public function travelOrderApproved(TravelOrder $order, User $approver): void
+    {
+        $order->loadMissing(['requester.user']);
+        $user = $order->requester?->user;
+        if (! $user?->email) {
+            return;
+        }
+
+        $this->afterCommit(function () use ($order, $approver, $user) {
+            $payload = $this->travelTransactionPayload(
+                $order,
+                $user,
+                $approver,
+                TravelOrderStatus::Approved->label(),
+                'approved',
+            );
+
+            $this->deliver(
+                type: EmailNotificationType::TransactionApproved,
+                recipient: $user->email,
+                subject: 'BACS | Travel Order Approved - '.$order->travel_order_number,
+                mailable: new TransactionApprovedMail($payload),
+                dedupeKey: 'travel:'.$order->id.':approved',
+                userId: $user->id,
+                notifiable: $order,
+                meta: ['travel_order_id' => $order->id],
+            );
+        });
+    }
+
+    public function travelOrderRejected(TravelOrder $order, User $approver, string $reason): void
+    {
+        $order->loadMissing(['requester.user']);
+        $user = $order->requester?->user;
+        if (! $user?->email) {
+            return;
+        }
+
+        $this->afterCommit(function () use ($order, $approver, $reason, $user) {
+            $payload = $this->travelTransactionPayload(
+                $order,
+                $user,
+                $approver,
+                TravelOrderStatus::Denied->label(),
+                'rejected',
+                $reason,
+            );
+
+            $this->deliver(
+                type: EmailNotificationType::TransactionRejected,
+                recipient: $user->email,
+                subject: 'BACS | Travel Order Rejected - '.$order->travel_order_number,
+                mailable: new TransactionRejectedMail($payload),
+                dedupeKey: 'travel:'.$order->id.':rejected',
+                userId: $user->id,
+                notifiable: $order,
+                meta: ['travel_order_id' => $order->id],
             );
         });
     }
@@ -328,6 +391,43 @@ class EmailNotificationService
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @return array<string, mixed>
+     */
+    private function travelTransactionPayload(
+        TravelOrder $order,
+        User $recipient,
+        User $approver,
+        string $statusLabel,
+        string $badge,
+        ?string $rejectionReason = null,
+    ): array {
+        $description = $order->dateRangeLabel().' · '.$order->destination;
+
+        $payload = [
+            'greeting_name' => $recipient->employee?->first_name ?: $recipient->name,
+            'title' => $badge === 'approved' ? 'Travel Order Approved' : 'Travel Order Rejected',
+            'intro' => $badge === 'approved'
+                ? 'Your travel order has been fully approved.'
+                : 'Your travel order was rejected during the approval process.',
+            'reference_number' => $order->travel_order_number,
+            'transaction_type' => 'Travel Order',
+            'description' => $description,
+            'action_at' => ManilaTime::now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
+            'actor_name' => $approver->name,
+            'status_label' => strtoupper($statusLabel),
+            'status_badge' => $badge === 'approved' ? 'approved' : 'rejected',
+            'cta_label' => 'VIEW TRAVEL ORDER',
+            'cta_url' => route('employee.travel-orders.show', $order),
+        ];
+
+        if ($rejectionReason !== null) {
+            $payload['rejection_reason'] = $rejectionReason;
+        }
+
+        return $payload;
+    }
+
     private function leaveTransactionPayload(
         LeaveApplication $application,
         User $recipient,
