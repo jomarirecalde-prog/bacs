@@ -33,6 +33,7 @@ class TravelOrderService
         private readonly CeoResolver $ceo,
         private readonly LeaveWorkflowService $workflows,
         private readonly CentralApprovalWorkflowService $centralApproval,
+        private readonly TravelOrderAttendanceService $attendanceSync,
     ) {}
 
     /** @return Collection<int, array{id:int,name:string,position:?string,department:?string,employee_number:?string}> */
@@ -184,6 +185,7 @@ class TravelOrderService
                 'Travel order submitted.'
             );
             $this->audit->log($actor, 'travel_order_submitted', 'TravelOrder', $order->id, "{$requester->fullName()} submitted {$order->travel_order_number}.");
+            $this->syncAttendanceIfApproved($order);
 
             return $order->fresh([
                 'requester.department',
@@ -324,6 +326,7 @@ class TravelOrderService
                 $this->recordAction($order, $actor, $stage, 'decision', $decision, $previous, TravelOrderStatus::Approved, $reason);
                 $this->notifier->approved($order->fresh(['requester.user', 'personnel.employee.user']));
                 $this->emailNotifications->travelOrderApproved($order->fresh(['requester.user']), $actor);
+                $this->syncAttendanceIfApproved($order);
             }
 
             $this->audit->log($actor, 'travel_order_'.$decision->value, 'TravelOrder', $order->id, "{$actor->name} {$decision->value} {$order->travel_order_number}.");
@@ -410,6 +413,7 @@ class TravelOrderService
             );
             $this->audit->log($actor, 'travel_order_admin_cancelled', 'TravelOrder', $order->id, "Super Admin cancelled {$order->travel_order_number}.");
             $this->notifier->adminCancelled($order->fresh(['requester.user', 'personnel.employee.user']), $reason);
+            $this->attendanceSync->clearCancelledOrder($order->fresh(['personnel']));
 
             return $order->fresh(['requester.user', 'assignments.user', 'personnel.employee', 'modificationLogs.modifier']);
         });
@@ -898,5 +902,13 @@ class TravelOrderService
         }
 
         return $changes;
+    }
+
+    private function syncAttendanceIfApproved(TravelOrder $order): void
+    {
+        $order->refresh();
+        if ($order->status === TravelOrderStatus::Approved) {
+            $this->attendanceSync->applyApprovedOrder($order->fresh(['personnel']));
+        }
     }
 }

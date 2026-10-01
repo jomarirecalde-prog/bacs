@@ -9,6 +9,7 @@ enum AttendanceStatus: string
     case Absent = 'absent';
     case HalfDay = 'half_day';
     case OnLeave = 'on_leave';
+    case TravelOrder = 'travel_order';
     case RestDay = 'rest_day';
     case Holiday = 'holiday';
     case Incomplete = 'incomplete';
@@ -23,6 +24,7 @@ enum AttendanceStatus: string
             self::Absent => 'Absent',
             self::HalfDay => 'Half Day',
             self::OnLeave => 'On Leave',
+            self::TravelOrder => 'Travel Order',
             self::RestDay => 'Rest Day',
             self::Holiday => 'Holiday',
             self::Incomplete => 'Incomplete',
@@ -39,6 +41,7 @@ enum AttendanceStatus: string
             self::Absent => 'x-circle',
             self::HalfDay => 'adjustments',
             self::OnLeave => 'calendar',
+            self::TravelOrder => 'document',
             self::RestDay => 'moon',
             self::Holiday => 'star',
             self::Incomplete => 'exclamation',
@@ -55,6 +58,7 @@ enum AttendanceStatus: string
             self::Absent => 'red',
             self::HalfDay => 'purple',
             self::OnLeave => 'blue',
+            self::TravelOrder => 'blue',
             self::RestDay => 'slate',
             self::Holiday => 'indigo',
             self::Incomplete => 'yellow',

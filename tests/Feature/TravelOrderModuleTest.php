@@ -3,15 +3,22 @@
 namespace Tests\Feature;
 
 use App\Enums\AccountStatus;
+use App\Enums\AttendanceStatus;
 use App\Enums\EmploymentStatus;
+use App\Enums\TravelOrderStatus;
 use App\Enums\UserRole;
+use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Setting;
 use App\Models\TravelOrder;
+use App\Models\TravelOrderPersonnel;
 use App\Models\User;
 use App\Models\WorkSchedule;
+use App\Services\AttendanceService;
+use App\Services\TravelOrderAttendanceService;
 use App\Services\TravelOrderService;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
@@ -80,6 +87,42 @@ class TravelOrderModuleTest extends TestCase
 
         $ids = $order->personnel()->pluck('employee_id')->sort()->values()->all();
         $this->assertSame([$requester->id, $traveler->id], $ids);
+    }
+
+    public function test_approved_travel_order_marks_dtr_with_travel_status_and_blocks_punch(): void
+    {
+        [$requester, $traveler] = $this->twoEmployees();
+        $travelDate = now()->addDays(3)->toDateString();
+
+        $order = TravelOrder::query()->create([
+            'travel_order_number' => 'TO-TEST-001',
+            'requester_id' => $requester->id,
+            'department_id' => 1,
+            'official_station' => 'Main Office',
+            'date_start' => $travelDate,
+            'date_end' => $travelDate,
+            'purpose' => 'Field work',
+            'transportation' => 'land',
+            'status' => TravelOrderStatus::Approved,
+            'approved_at' => now(),
+        ]);
+
+        TravelOrderPersonnel::query()->create([
+            'travel_order_id' => $order->id,
+            'employee_id' => $traveler->id,
+        ]);
+
+        app(TravelOrderAttendanceService::class)->applyApprovedOrder($order);
+
+        $this->assertDatabaseHas('attendance', [
+            'employee_id' => $traveler->id,
+            'status' => AttendanceStatus::TravelOrder->value,
+        ]);
+
+        $this->travelTo($travelDate.' 08:30:00');
+
+        $this->expectException(ValidationException::class);
+        app(AttendanceService::class)->recordNextPunch($traveler->user);
     }
 
     public function test_unauthorized_user_cannot_endorse(): void

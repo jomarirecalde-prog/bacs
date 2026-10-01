@@ -15,6 +15,7 @@ use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
 use App\Services\HolidayResolver;
 use App\Services\LeaveResolver;
+use App\Services\TravelOrderResolver;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -32,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         // Shared per request so a monthly DTR resolves holidays once, not per day.
         $this->app->singleton(HolidayResolver::class);
         $this->app->singleton(LeaveResolver::class);
+        $this->app->singleton(TravelOrderResolver::class);
         $this->app->singleton(DirectoryCatalog::class);
     }
 

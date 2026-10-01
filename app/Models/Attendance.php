@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\AttendancePunchType;
 use App\Enums\AttendanceStatus;
+use App\Services\DtrDayPresenter;
 use App\Support\ManilaTime;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -212,5 +214,29 @@ class Attendance extends Model
         }
 
         return $this->status?->label() ?? '—';
+    }
+
+    public function formatPunch(?Carbon $value): string
+    {
+        if ($this->status === AttendanceStatus::TravelOrder && ! $this->hasLeaveOrTravelPunchConflict()) {
+            return DtrDayPresenter::TRAVEL_ORDER_PUNCH_LABEL;
+        }
+
+        if ($this->status === AttendanceStatus::OnLeave && ! $this->hasLeaveOrTravelPunchConflict()) {
+            return DtrDayPresenter::ON_LEAVE_PUNCH_LABEL;
+        }
+
+        return $value?->timezone(ManilaTime::TIMEZONE)->format('h:i A') ?? '—';
+    }
+
+    public function hasLeaveOrTravelPunchConflict(): bool
+    {
+        return $this->am_time_in
+            || $this->am_time_out
+            || $this->pm_time_in
+            || $this->pm_time_out
+            || $this->overtime_in
+            || $this->time_in
+            || $this->time_out;
     }
 }

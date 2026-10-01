@@ -8,6 +8,7 @@ use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
 use App\Enums\TravelOrderStatus;
 use App\Enums\TravelTransportation;
+use App\Services\TravelOrderResolver;
 use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -210,6 +211,11 @@ class TravelOrder extends Model
         }
 
         return null;
+    }
+
+    public static function approvedOn(int $employeeId, string $date): ?self
+    {
+        return app(TravelOrderResolver::class)->approvedOn($employeeId, $date);
     }
 
     public function scopeOwnedByRequester($query, Employee $employee): Builder

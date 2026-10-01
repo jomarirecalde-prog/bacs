@@ -11,6 +11,10 @@ use Carbon\Carbon;
 
 class DtrDayPresenter
 {
+    public const TRAVEL_ORDER_PUNCH_LABEL = 'TRAVEL';
+
+    public const ON_LEAVE_PUNCH_LABEL = 'LEAVE';
+
     public function present(Attendance $row, WorkSchedule $schedule): DtrDayRow
     {
         $date = optional($row->attendance_date)->toDateString() ?: ManilaTime::todayDate();
@@ -35,6 +39,50 @@ class DtrDayPresenter
 
         $incomplete = $this->isIncomplete($row, $isFuture);
         $overtimeMinutes = max(0, (int) $row->overtime_minutes);
+
+        if ($status === AttendanceStatus::TravelOrder && ! $this->hasLeaveOrTravelPunchConflict($row)) {
+            $to = self::TRAVEL_ORDER_PUNCH_LABEL;
+
+            return new DtrDayRow(
+                date: $date,
+                dateLabel: $day->format('m/d/Y'),
+                dayName: $day->format('l'),
+                amIn: $to,
+                amOut: $to,
+                pmIn: $to,
+                pmOut: $to,
+                overtime: null,
+                totalHours: null,
+                overtimeMinutes: 0,
+                totalMinutes: 0,
+                status: $status,
+                incomplete: false,
+                isFuture: $isFuture,
+                source: $row->exists ? $row : null,
+            );
+        }
+
+        if ($status === AttendanceStatus::OnLeave && ! $this->hasLeaveOrTravelPunchConflict($row)) {
+            $leave = self::ON_LEAVE_PUNCH_LABEL;
+
+            return new DtrDayRow(
+                date: $date,
+                dateLabel: $day->format('m/d/Y'),
+                dayName: $day->format('l'),
+                amIn: $leave,
+                amOut: $leave,
+                pmIn: $leave,
+                pmOut: $leave,
+                overtime: null,
+                totalHours: null,
+                overtimeMinutes: 0,
+                totalMinutes: 0,
+                status: $status,
+                incomplete: false,
+                isFuture: $isFuture,
+                source: $row->exists ? $row : null,
+            );
+        }
 
         return new DtrDayRow(
             date: $date,
@@ -126,6 +174,12 @@ class DtrDayPresenter
     private function hasStoredPunches(Attendance $row): bool
     {
         return $row->am_time_in || $row->am_time_out || $row->pm_time_in || $row->pm_time_out || $row->overtime_in;
+    }
+
+    /** Leave/travel with existing time entries (conflict) keeps actual punch times on the DTR. */
+    private function hasLeaveOrTravelPunchConflict(Attendance $row): bool
+    {
+        return $this->hasStoredPunches($row) || $row->time_in || $row->time_out;
     }
 
     private function isIncomplete(Attendance $row, bool $isFuture): bool

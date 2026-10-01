@@ -83,7 +83,7 @@ class DtrDayPresenterTest extends TestCase
         $this->assertTrue($day->incomplete);
     }
 
-    public function test_leave_and_rest_days_do_not_fabricate_times(): void
+    public function test_on_leave_shows_leave_in_all_punch_columns(): void
     {
         $leave = new Attendance([
             'attendance_date' => '2026-08-18',
@@ -92,9 +92,28 @@ class DtrDayPresenterTest extends TestCase
 
         $day = $this->presenter->present($leave, $this->schedule);
 
-        $this->assertNull($day->amIn);
+        $this->assertSame('LEAVE', $day->amIn);
+        $this->assertSame('LEAVE', $day->amOut);
+        $this->assertSame('LEAVE', $day->pmIn);
+        $this->assertSame('LEAVE', $day->pmOut);
         $this->assertNull($day->totalHours);
         $this->assertSame(AttendanceStatus::OnLeave, $day->status);
+    }
+
+    public function test_travel_order_shows_to_in_all_punch_columns(): void
+    {
+        $travel = new Attendance([
+            'attendance_date' => '2026-08-19',
+            'status' => AttendanceStatus::TravelOrder,
+        ]);
+
+        $day = $this->presenter->present($travel, $this->schedule);
+
+        $this->assertSame('TRAVEL', $day->amIn);
+        $this->assertSame('TRAVEL', $day->amOut);
+        $this->assertSame('TRAVEL', $day->pmIn);
+        $this->assertSame('TRAVEL', $day->pmOut);
+        $this->assertSame(AttendanceStatus::TravelOrder, $day->status);
     }
 
     public function test_cutoff_containing_mid_month_is_the_11_to_25_period(): void

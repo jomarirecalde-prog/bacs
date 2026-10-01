@@ -70,6 +70,7 @@
                 <select id="forced_status" class="select" name="forced_status">
                     <option value="">Calculate automatically</option>
                     <option value="on_leave">On Leave</option>
+                    <option value="travel_order">Travel Order</option>
                     <option value="rest_day">Rest Day</option>
                     <option value="holiday">Holiday</option>
                     <option value="absent">Absent</option>

@@ -50,6 +50,10 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->deactivateLegacySampleData();
+
+        if (filter_var(env('SEED_SAMPLE_DATA', false), FILTER_VALIDATE_BOOL)) {
+            $this->call(SampleDataSeeder::class);
+        }
     }
 
     private function deactivateLegacySampleData(): void

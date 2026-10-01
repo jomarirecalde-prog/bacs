@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AttendanceStatus;
 use App\Models\Leave;
+use App\Models\TravelOrder;
 use App\Models\WorkSchedule;
 use App\Support\ManilaTime;
 use Carbon\Carbon;
@@ -33,6 +34,10 @@ class AttendanceCalculator
 
         if ($employeeId && Leave::approvedOn($employeeId, $date)) {
             return $this->emptyResult(AttendanceStatus::OnLeave);
+        }
+
+        if ($employeeId && TravelOrder::approvedOn($employeeId, $date)) {
+            return $this->emptyResult(AttendanceStatus::TravelOrder);
         }
 
         $holiday = $this->holidays()->forDate($date, $employeeId);

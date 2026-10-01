@@ -85,10 +85,10 @@
                             </td>
                             <td class="whitespace-nowrap tabular-nums">{{ $row->attendance_date?->format('m/d/Y') }}</td>
                             <td>{{ $row->attendance_date?->format('l') }}</td>
-                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->am_time_in?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->am_time_out?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-medium text-info-700 tabular-nums">{{ $row->pm_time_in?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-medium text-info-700 tabular-nums">{{ $row->pm_time_out?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->formatPunch($row->am_time_in) }}</td>
+                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->formatPunch($row->am_time_out) }}</td>
+                            <td class="font-medium text-info-700 tabular-nums">{{ $row->formatPunch($row->pm_time_in) }}</td>
+                            <td class="font-medium text-info-700 tabular-nums">{{ $row->formatPunch($row->pm_time_out) }}</td>
                             <td class="font-medium text-gold-700 tabular-nums">{{ $row->overtime_in?->format('h:i A') ?? '—' }}</td>
                             <td class="text-right font-semibold text-ink tabular-nums">{{ $row->totalHoursLabel() }}</td>
                             <td><x-status-badge :status="$row->status" /></td>

@@ -134,6 +134,7 @@ class DtrController extends Controller
             'time_out' => ['nullable', 'date_format:H:i'],
             'forced_status' => ['nullable', Rule::in([
                 AttendanceStatus::OnLeave->value,
+                AttendanceStatus::TravelOrder->value,
                 AttendanceStatus::RestDay->value,
                 AttendanceStatus::Holiday->value,
                 AttendanceStatus::Absent->value,

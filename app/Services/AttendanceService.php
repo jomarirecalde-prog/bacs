@@ -34,8 +34,20 @@ class AttendanceService
         private readonly AuditLogger $auditLogger,
         private readonly NotificationService $notifications,
         private readonly LeaveResolver $leaves,
+        private readonly TravelOrderResolver $travelOrders,
         private readonly HolidayResolver $holidays,
     ) {}
+
+    public function travelOrderBlockMessage(Employee $employee, string $date): ?string
+    {
+        $order = $this->travelOrders->approvedOn($employee->id, $date);
+
+        if (! $order) {
+            return null;
+        }
+
+        return 'You are on official travel ('.$order->travel_order_number.'). Time in/out is not required.';
+    }
 
     public function clockIn(User $user): Attendance
     {
@@ -60,6 +72,19 @@ class AttendanceService
         $date = $now->toDateString();
 
         return DB::transaction(function () use ($station, $employee, $now, $date) {
+            if ($message = $this->travelOrderBlockMessage($employee, $date)) {
+                return $this->stationResult(
+                    'TRAVEL_ORDER',
+                    false,
+                    $record ?? new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
+                    $employee,
+                    $now,
+                    $schedule,
+                    null,
+                    $message
+                );
+            }
+
             if ($message = $this->pendingCorrectionMessage($employee, $date)) {
                 return $this->stationResult(
                     'PENDING_CORRECTION',
@@ -260,6 +285,7 @@ class AttendanceService
             ->keyBy(fn (Attendance $row) => $row->attendance_date->toDateString());
 
         $this->leaves->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
+        $this->travelOrders->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
         $this->holidays->rememberEmployees([$employee]);
 
         $rows = [];
@@ -346,6 +372,7 @@ class AttendanceService
         $employees = $this->activeEmployees();
         $attendance = $this->attendanceForDate($date);
         $this->leaves->loadForDate($employees->pluck('id'), $date);
+        $this->travelOrders->loadForDate($employees->pluck('id'), $date);
         $this->holidays->rememberEmployees($employees);
 
         $summary = [
@@ -458,6 +485,12 @@ class AttendanceService
                 ]);
             }
 
+            if ($message = $this->travelOrderBlockMessage($employee, $date)) {
+                throw ValidationException::withMessages([
+                    'attendance' => $message,
+                ]);
+            }
+
             $record = $this->lockTodayRecord($employee, $date);
             $schedule = $employee->schedule();
             $resolution = $this->sequence->resolveScan($record, $now, $schedule);
@@ -539,6 +572,10 @@ class AttendanceService
     {
         if ($this->leaves->approvedOn($employee->id, $date)) {
             return AttendanceStatus::OnLeave;
+        }
+
+        if ($this->travelOrders->approvedOn($employee->id, $date)) {
+            return AttendanceStatus::TravelOrder;
         }
 
         if ($this->holidays->isNonWorking($date, $employee)) {
@@ -723,6 +760,10 @@ class AttendanceService
                 return $flags;
             }
 
+            if ($this->travelOrders->approvedOn($employee->id, $date)) {
+                return $flags;
+            }
+
             if ($this->holidays->isNonWorking($date, $employee) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
                 return $flags;
             }
@@ -735,6 +776,10 @@ class AttendanceService
         if ($row->status === AttendanceStatus::OnLeave) {
             $flags['on_leave'] = true;
 
+            return $flags;
+        }
+
+        if ($row->status === AttendanceStatus::TravelOrder) {
             return $flags;
         }
 

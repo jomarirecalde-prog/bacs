@@ -107,6 +107,8 @@
                                     <x-holiday-tag :date="$day->date" :employee="$employee" compact />
                                     @if ($day->status === \App\Enums\AttendanceStatus::OnLeave)
                                         <span class="badge-info">On Leave</span>
+                                    @elseif ($day->status === \App\Enums\AttendanceStatus::TravelOrder)
+                                        <span class="badge-info">Travel Order</span>
                                     @elseif ($day->status === \App\Enums\AttendanceStatus::RestDay)
                                         <span class="badge-neutral">Rest Day</span>
                                     @elseif ($day->incomplete)

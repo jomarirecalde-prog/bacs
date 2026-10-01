@@ -6,7 +6,7 @@ window.Alpine = Alpine;
 
 function toneFor(code) {
     if (['AM_TIME_IN', 'AM_TIME_OUT', 'PM_TIME_IN', 'PM_TIME_OUT', 'OVERTIME'].includes(code)) return 'text-brand-300';
-    if (['DUPLICATE_SCAN', 'ATTENDANCE_COMPLETED'].includes(code)) return 'text-warn-300';
+    if (['DUPLICATE_SCAN', 'ATTENDANCE_COMPLETED', 'TRAVEL_ORDER'].includes(code)) return 'text-warn-300';
     return 'text-critical-300';
 }
 
