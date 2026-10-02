@@ -26,11 +26,14 @@ class PardonApprovalController extends Controller
         ]);
     }
 
-    public function show(AttendanceCorrectionRequest $correction)
+    public function show(Request $request, AttendanceCorrectionRequest $correction)
     {
         $correction->load(['employee.department', 'approvalAssignments.user.employee']);
 
-        return view('pardon.approvals.show', ['correction' => $correction]);
+        return view('pardon.approvals.show', [
+            'correction' => $correction,
+            'canApprove' => $this->pardon->userCanAct($request->user(), $correction),
+        ]);
     }
 
     public function decide(Request $request, AttendanceCorrectionRequest $correction)

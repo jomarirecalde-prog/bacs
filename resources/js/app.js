@@ -449,6 +449,64 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    Alpine.data('correctionForm', (payload = {}) => ({
+        previewUrl: payload.previewUrl,
+        date: payload.date || '',
+        punchType: payload.punchType || '',
+        requestedTime: payload.requestedTime || '',
+        preview: payload.preview || null,
+        loading: false,
+        inputValue(punch) {
+            if (this.punchType === punch.type) {
+                return this.requestedTime;
+            }
+
+            return '';
+        },
+        activatePunch(punch, value = null) {
+            if (punch.pending) {
+                window.dtrToast?.('A correction for this field is already pending review.', 'warning');
+                return;
+            }
+            this.punchType = punch.type;
+            if (value !== null) {
+                this.requestedTime = value;
+                return;
+            }
+            this.requestedTime = punch.time_24 || '';
+        },
+        async refreshPreview() {
+            if (!this.previewUrl || !this.date) {
+                this.preview = null;
+                this.punchType = '';
+                this.requestedTime = '';
+                return;
+            }
+            this.loading = true;
+            try {
+                const { data } = await window.axios.get(this.previewUrl, {
+                    params: { date: this.date },
+                });
+                this.preview = data;
+                if (this.punchType && !this.preview.punches?.some((p) => p.type === this.punchType)) {
+                    this.punchType = '';
+                    this.requestedTime = '';
+                }
+            } catch {
+                this.preview = null;
+                window.dtrToast?.('Unable to load attendance for that date.', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+        beforeSubmit(event) {
+            if (!this.punchType || !this.requestedTime) {
+                event.preventDefault();
+                window.dtrToast?.('Enter the correct time on the punch you want to fix.', 'error');
+            }
+        },
+    }));
+
     Alpine.data('leaveApply', (payload = {}) => ({
         previewUrl: payload.previewUrl,
         start: payload.start || '',

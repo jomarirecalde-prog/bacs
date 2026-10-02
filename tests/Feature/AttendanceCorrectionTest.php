@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AccountStatus;
+use App\Enums\ApprovalTransactionType;
 use App\Enums\AttendanceCorrectionStatus;
 use App\Enums\AttendancePunchType;
 use App\Enums\EmploymentStatus;
@@ -17,10 +18,12 @@ use App\Services\EmployeeQrService;
 use App\Services\StationBindingService;
 use App\Support\ManilaTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
 
 class AttendanceCorrectionTest extends TestCase
 {
+    use ConfiguresCentralApprovalWorkflow;
     use RefreshDatabase;
 
     private WorkSchedule $schedule;
@@ -48,6 +51,46 @@ class AttendanceCorrectionTest extends TestCase
             'name' => 'Operations',
             'status' => AccountStatus::Active,
         ]);
+
+        $ceo = User::factory()->create(['role' => \App\Enums\UserRole::Admin]);
+        $ceoEmployee = Employee::query()->create([
+            'user_id' => $ceo->id,
+            'employee_number' => 'CEO-0001',
+            'first_name' => 'Chief',
+            'last_name' => 'Executive',
+            'email' => $ceo->email,
+            'department_id' => $this->department->id,
+            'employment_status' => EmploymentStatus::Regular,
+            'work_schedule_id' => $this->schedule->id,
+        ]);
+        $this->resetCentralApproval(ApprovalTransactionType::Pardon, [], $ceoEmployee->id);
+    }
+
+    public function test_day_preview_lists_punches_and_late_minutes_for_selected_date(): void
+    {
+        $employee = $this->makeEmployee('preview');
+        $date = ManilaTime::todayDate();
+
+        Attendance::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+            'am_time_in' => ManilaTime::combineDateAndTime($date, '08:25'),
+            'am_time_out' => ManilaTime::combineDateAndTime($date, '12:00'),
+            'pm_time_in' => ManilaTime::combineDateAndTime($date, '13:00'),
+            'pm_time_out' => ManilaTime::combineDateAndTime($date, '17:00'),
+            'late_minutes' => 15,
+            'undertime_minutes' => 0,
+            'total_minutes' => 480,
+            'status' => 'late',
+        ]);
+
+        $this->actingAs($employee->user)
+            ->getJson(route('employee.attendance-corrections.day-preview', ['date' => $date]))
+            ->assertOk()
+            ->assertJsonPath('late_minutes', 15)
+            ->assertJsonPath('punches.0.type', AttendancePunchType::AmTimeIn->value)
+            ->assertJsonPath('punches.0.time', '08:25 AM')
+            ->assertJsonPath('punches.3.type', AttendancePunchType::PmTimeOut->value);
     }
 
     public function test_employee_can_submit_correction_for_specific_field(): void
@@ -70,7 +113,7 @@ class AttendanceCorrectionTest extends TestCase
         $this->assertDatabaseHas('attendance_correction_requests', [
             'employee_id' => $employee->id,
             'punch_type' => AttendancePunchType::AmTimeIn->value,
-            'status' => AttendanceCorrectionStatus::Pending->value,
+            'status' => AttendanceCorrectionStatus::PendingFinalApproval->value,
         ]);
     }
 
@@ -108,6 +151,41 @@ class AttendanceCorrectionTest extends TestCase
         $this->assertNotNull($record->am_time_out);
         $this->assertNotNull($record->pm_time_out);
         $this->assertSame('17:30', $record->pm_time_out->format('H:i'));
+    }
+
+    public function test_pending_endorsement_correction_blocks_station_scan_for_today(): void
+    {
+        $employee = $this->makeEmployee('blocked2');
+        $date = ManilaTime::todayDate();
+        $token = app(EmployeeQrService::class)->issue($employee);
+
+        AttendanceCorrectionRequest::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+            'punch_type' => AttendancePunchType::AmTimeIn->value,
+            'requested_value' => ManilaTime::combineDateAndTime($date, '08:05'),
+            'reason' => 'Station did not record my AM Time In properly today.',
+            'status' => AttendanceCorrectionStatus::PendingEndorsement->value,
+        ]);
+
+        $station = AttendanceStation::factory()->create(['password' => 'station-pass']);
+        $response = $this->post(route('station.login.store'), [
+            'station_name' => $station->station_name,
+            'password' => 'station-pass',
+        ]);
+        $response->assertRedirect(route('station.dashboard'));
+        $cookie = $response->getCookie(StationBindingService::COOKIE, decrypt: true);
+        if ($cookie) {
+            $this->withCookie(StationBindingService::COOKIE, $cookie->getValue());
+        }
+        $this->withCredentials();
+        $this->actingAs($station->fresh(), 'station');
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'PENDING_CORRECTION')
+            ->assertJsonPath('ok', false);
     }
 
     public function test_pending_correction_blocks_station_scan_for_today(): void

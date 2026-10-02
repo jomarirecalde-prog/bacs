@@ -34,14 +34,8 @@
             </div>
             @if ($correction->review_notes)
                 <div class="py-3">
-                    <dt class="text-muted">Admin notes</dt>
+                    <dt class="text-muted">Review notes</dt>
                     <dd class="mt-1 text-ink">{{ $correction->review_notes }}</dd>
-                </div>
-            @endif
-            @if ($correction->reviewer)
-                <div class="flex justify-between gap-4 py-3">
-                    <dt class="text-muted">Reviewed by</dt>
-                    <dd>{{ $correction->reviewer->name }} · {{ $correction->reviewed_at?->format('M d, Y g:i A') }}</dd>
                 </div>
             @endif
         </dl>
@@ -53,17 +47,23 @@
                 </form>
             @endif
             <a href="{{ route('employee.attendance-corrections.index') }}" class="btn-outline">Back to list</a>
-            @if ($correction->attendance_id)
-                <a href="{{ route('employee.dtr') }}" class="btn-primary">View my DTR</a>
-            @endif
+            <a href="{{ route('employee.dtr') }}" class="btn-primary">View my DTR</a>
         </div>
     </div>
 
-    <div class="card h-fit overflow-hidden">
-        <div class="card-header"><h2 class="card-title">What happens next</h2></div>
-        <div class="space-y-3 p-5 text-sm text-muted">
-            <p>Your request is reviewed by an administrator. If approved, only the <strong class="text-ink">{{ $correction->punchLabel() }}</strong> field for this date is updated.</p>
-            <p>While a correction is pending for today, QR station scans are temporarily blocked until the request is resolved.</p>
+    <div class="space-y-4">
+        <div class="card card-accent-gold overflow-hidden">
+            <div class="card-header"><h2 class="card-title">Approval progress</h2></div>
+            <div class="card-body">@include('pardon.partials.timeline', ['correction' => $correction])</div>
+        </div>
+
+        <div class="card h-fit overflow-hidden">
+            <div class="card-header"><h2 class="card-title">What happens next</h2></div>
+            <div class="space-y-3 p-5 text-sm text-muted">
+                <p>Your request follows the same central approval workflow as leave and travel (Settings → Approval Workflow → Pardon / Time Correction).</p>
+                <p>If approved, only the <strong class="text-ink">{{ $correction->punchLabel() }}</strong> field for this date is updated.</p>
+                <p>While this request is open for <strong class="text-ink">{{ $correction->attendance_date->toFormattedDateString() }}</strong>, you cannot record attendance for that date (dashboard clock and QR station) until it is approved, rejected, or cancelled.</p>
+            </div>
         </div>
     </div>
 </div>

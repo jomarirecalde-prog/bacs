@@ -118,6 +118,7 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/attendance', [EmployeeAttendanceController::class, 'index'])->name('attendance');
         Route::get('/attendance-corrections', [EmployeeAttendanceCorrectionController::class, 'index'])->name('attendance-corrections.index');
         Route::get('/attendance-corrections/create', [EmployeeAttendanceCorrectionController::class, 'create'])->name('attendance-corrections.create');
+        Route::get('/attendance-corrections/day-preview', [EmployeeAttendanceCorrectionController::class, 'dayPreview'])->name('attendance-corrections.day-preview');
         Route::post('/attendance-corrections', [EmployeeAttendanceCorrectionController::class, 'store'])->name('attendance-corrections.store');
         Route::get('/attendance-corrections/{correction}', [EmployeeAttendanceCorrectionController::class, 'show'])->name('attendance-corrections.show');
         Route::post('/attendance-corrections/{correction}/cancel', [EmployeeAttendanceCorrectionController::class, 'cancel'])->name('attendance-corrections.cancel');

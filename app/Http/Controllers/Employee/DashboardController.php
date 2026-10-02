@@ -25,7 +25,8 @@ class DashboardController extends Controller
 
         $employee->loadMissing(['department', 'workSchedule']);
         $today = $this->attendanceService->todayFor($employee);
-        $nextAction = $this->attendanceService->nextExpectedFor($employee, $today);
+        $pendingCorrection = $this->attendanceService->pendingCorrectionMessageFor($employee);
+        $nextAction = $pendingCorrection ? null : $this->attendanceService->nextExpectedFor($employee, $today);
         $month = (int) ManilaTime::now()->month;
         $year = (int) ManilaTime::now()->year;
         // One batched month query (not N punch lookups). Empty days use the
@@ -39,9 +40,10 @@ class DashboardController extends Controller
             'month' => $month,
             'year' => $year,
             'nextAction' => $nextAction,
-            'canRecord' => $nextAction !== null,
-            'canTimeIn' => $nextAction !== null,
-            'canTimeOut' => $nextAction !== null,
+            'canRecord' => $nextAction !== null && ! $pendingCorrection,
+            'pendingCorrection' => $pendingCorrection,
+            'canTimeIn' => $nextAction !== null && ! $pendingCorrection,
+            'canTimeOut' => $nextAction !== null && ! $pendingCorrection,
             'upcomingEvents' => $this->calendar->upcoming(
                 CalendarEvent::query()->visibleToEmployee($employee),
                 days: 90,

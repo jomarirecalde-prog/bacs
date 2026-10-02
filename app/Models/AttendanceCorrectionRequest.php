@@ -4,12 +4,16 @@ namespace App\Models;
 
 use App\Enums\AttendanceCorrectionStatus;
 use App\Enums\AttendancePunchType;
+use App\Enums\LeaveApprovalStage;
+use App\Enums\LeaveDecision;
+use App\Models\Concerns\HasCentralApprovalTimeline;
 use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceCorrectionRequest extends Model
 {
+    use HasCentralApprovalTimeline;
     protected $fillable = [
         'employee_id',
         'attendance_id',
@@ -34,8 +38,14 @@ class AttendanceCorrectionRequest extends Model
             'original_value' => 'datetime',
             'requested_value' => 'datetime',
             'status' => AttendanceCorrectionStatus::class,
+            'current_approval_stage' => LeaveApprovalStage::class,
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    public function getCurrentStageAttribute(): ?LeaveApprovalStage
+    {
+        return $this->current_approval_stage;
     }
 
     public function employee(): BelongsTo
@@ -73,9 +83,65 @@ class AttendanceCorrectionRequest extends Model
         return $query->where('employee_id', $employee->id);
     }
 
+    public function scopeOpen($query)
+    {
+        return $query->whereIn('status', [
+            AttendanceCorrectionStatus::Pending->value,
+            AttendanceCorrectionStatus::PendingEndorsement->value,
+            AttendanceCorrectionStatus::PendingFinalApproval->value,
+        ]);
+    }
+
+    /** In-flight correction requests (all workflow stages). */
     public function scopePending($query)
     {
-        return $query->where('status', AttendanceCorrectionStatus::Pending->value);
+        return $query->open();
+    }
+
+    public function assignmentsFor(LeaveApprovalStage $stage)
+    {
+        return $this->approvalAssignments->where('stage', $stage);
+    }
+
+    public function stageDecision(LeaveApprovalStage $stage): ?string
+    {
+        $rows = $this->assignmentsFor($stage);
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        if ($rows->contains(fn (AttendanceCorrectionApprovalAssignment $row) => $row->isDenied())) {
+            return LeaveDecision::Denied->value;
+        }
+
+        if ($rows->every(fn (AttendanceCorrectionApprovalAssignment $row) => $row->isApproved())) {
+            return LeaveDecision::Approved->value;
+        }
+
+        if ($rows->contains(fn (AttendanceCorrectionApprovalAssignment $row) => $row->isApproved())) {
+            return 'mixed';
+        }
+
+        return null;
+    }
+
+    public function routedThroughCentralApproval(): bool
+    {
+        return filled($this->central_approval_config_id)
+            || $this->approvalAssignments()->exists();
+    }
+
+    public function allowsAdminDirectReview(): bool
+    {
+        if (! $this->status?->isOpen()) {
+            return false;
+        }
+
+        if ($this->status !== AttendanceCorrectionStatus::Pending) {
+            return false;
+        }
+
+        return ! $this->routedThroughCentralApproval();
     }
 
     public function scopeForDate($query, string $date)

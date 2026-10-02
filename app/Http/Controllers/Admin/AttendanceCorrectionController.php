@@ -41,7 +41,7 @@ class AttendanceCorrectionController extends Controller
     public function show(AttendanceCorrectionRequest $correction)
     {
         $this->authorize('view', $correction);
-        $correction->load(['employee.department', 'reviewer', 'attendance.edits.modifier']);
+        $correction->load(['employee.department', 'reviewer', 'attendance.edits.modifier', 'approvalAssignments.user.employee']);
 
         return view('admin.attendance-corrections.show', [
             'correction' => $correction,

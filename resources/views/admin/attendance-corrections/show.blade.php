@@ -42,7 +42,7 @@
             </div>
         </dl>
 
-        @if ($correction->status->isOpen() && auth()->user()->canEditDtr())
+        @if ($correction->allowsAdminDirectReview() && auth()->user()->canEditDtr())
             <div class="border-t border-line p-5">
                 <form method="POST" action="{{ route('admin.attendance-corrections.review', $correction) }}" class="space-y-4">
                     @csrf
@@ -70,6 +70,19 @@
     </div>
 
     <div class="space-y-4">
+        @if ($correction->routedThroughCentralApproval())
+            <div class="card card-accent-gold overflow-hidden">
+                <div class="card-header"><h2 class="card-title">Approval progress</h2></div>
+                <div class="card-body">@include('pardon.partials.timeline', ['correction' => $correction])</div>
+            </div>
+            @if ($correction->status->isOpen())
+                <div class="alert-info text-xs">
+                    This request is routed through the central pardon workflow. Approvers act from
+                    <a class="link font-semibold" href="{{ route('pardon.approvals.show', $correction) }}">Pardon / Time Correction Review</a>.
+                </div>
+            @endif
+        @endif
+
         @if ($correction->attendance)
             <div class="card overflow-hidden">
                 <div class="card-header"><h2 class="card-title">Current DTR record</h2></div>

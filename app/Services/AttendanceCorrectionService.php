@@ -244,6 +244,6 @@ class AttendanceCorrectionService
             return null;
         }
 
-        return 'You have a pending DTR correction request for '.$pending->punchLabel().' on '.$date.'. Please wait for admin review.';
+        return 'You have a pending DTR correction request for '.$pending->punchLabel().' on '.$date.'. Attendance is paused for that date until the request is resolved.';
     }
 }

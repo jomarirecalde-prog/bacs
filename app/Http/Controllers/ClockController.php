@@ -33,7 +33,7 @@ class ClockController extends Controller
             return response()->json([
                 'ok' => true,
                 'message' => $message,
-                'attendance' => $this->payload($record, $next),
+                'attendance' => $this->payload($record, $next, null),
             ]);
         }
 
@@ -46,14 +46,16 @@ class ClockController extends Controller
         abort_unless($employee, 403);
 
         $record = $this->attendanceService->todayFor($employee);
-        $next = $this->attendanceService->nextExpectedFor($employee);
+        $blocked = $this->attendanceService->pendingCorrectionMessageFor($employee);
+        $next = $blocked ? null : $this->attendanceService->nextExpectedFor($employee);
 
         return response()->json([
             'ok' => true,
             'now' => ManilaTime::now()->toIso8601String(),
-            'attendance' => $record ? $this->payload($record, $next) : null,
+            'attendance' => $record ? $this->payload($record, $next, $blocked) : null,
             'next_action' => $next?->scanCode(),
             'next_action_label' => $next?->label(),
+            'pending_correction' => $blocked,
         ]);
     }
 
@@ -70,15 +72,18 @@ class ClockController extends Controller
         ]);
     }
 
-    private function payload($record, ?AttendancePunchType $next): array
+    private function payload($record, ?AttendancePunchType $next, ?string $blockedMessage = null): array
     {
+        $canRecord = $next !== null && ! $blockedMessage;
+
         return array_merge($record->punchPayload(), [
             'id' => $record->id,
-            'can_record' => $next !== null,
+            'can_record' => $canRecord,
             'next_action' => $next?->scanCode(),
             'next_action_label' => $next?->label(),
-            'can_time_in' => $next === AttendancePunchType::AmTimeIn,
-            'can_time_out' => $next !== null && $next !== AttendancePunchType::AmTimeIn,
+            'can_time_in' => $canRecord && $next === AttendancePunchType::AmTimeIn,
+            'can_time_out' => $canRecord && $next !== null && $next !== AttendancePunchType::AmTimeIn,
+            'pending_correction' => $blockedMessage,
         ]);
     }
 

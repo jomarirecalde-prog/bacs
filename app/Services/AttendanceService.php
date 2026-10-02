@@ -59,6 +59,13 @@ class AttendanceService
         return $this->recordNextPunch($user, null);
     }
 
+    public function pendingCorrectionMessageFor(Employee $employee, ?string $date = null): ?string
+    {
+        $date ??= ManilaTime::todayDate();
+
+        return $this->pendingCorrectionMessage($employee, $date);
+    }
+
     public function recordNextPunch(User $user, ?AttendanceStation $station = null): Attendance
     {
         $employee = $this->requireActiveEmployee($user);
@@ -816,7 +823,7 @@ class AttendanceService
             return null;
         }
 
-        return 'You have a pending DTR correction request for '.$pending->punchLabel().' on '.$date.'. Please wait for admin review.';
+        return 'You have a pending DTR correction request for '.$pending->punchLabel().' on '.$date.'. Attendance is paused for that date until the request is resolved.';
     }
 
     private function stationResult(
