@@ -20,8 +20,8 @@ class SecurityHeaders
         $response->headers->set(
             'Content-Security-Policy',
             "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; "
-            ."script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; "
-            ."img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: wss: ws:;"
+            ."script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; "
+            ."img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.bunny.net; connect-src 'self' https: wss: ws:;"
         );
 
         if ($request->secure()) {

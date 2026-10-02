@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Enums\AccountStatus;
 use App\Enums\EmailNotificationType;
+use App\Enums\UserRole;
 use App\Enums\TravelOrderStatus;
 use App\Mail\AccountCreatedMail;
+use App\Mail\AccountUpdatedMail;
 use App\Mail\TransactionApprovedMail;
 use App\Mail\TransactionRejectedMail;
 use App\Models\AttendanceCorrectionRequest;
@@ -60,6 +62,50 @@ class EmailNotificationService
                 subject: 'BACS | Account Successfully Created',
                 mailable: new AccountCreatedMail($payload),
                 dedupeKey: 'account_created:user:'.$user->id,
+                userId: $user->id,
+                notifiable: $employee,
+                meta: ['employee_id' => $employee->id],
+            );
+        });
+    }
+
+    public function accountAccessUpdated(User $user, Employee $employee, ?string $plainPassword = null): void
+    {
+        $this->afterCommit(function () use ($user, $employee, $plainPassword) {
+            $user->refresh();
+
+            $status = $user->status instanceof AccountStatus
+                ? $user->status->label()
+                : (string) $user->status;
+
+            $role = $user->role instanceof UserRole
+                ? $user->role->label()
+                : (string) $user->role;
+
+            $payload = [
+                'greeting_name' => $employee->first_name ?: $user->name,
+                'employee_name' => $employee->fullName(),
+                'employee_number' => $employee->employee_number,
+                'username' => $user->username,
+                'password_display' => filled($plainPassword)
+                    ? $plainPassword
+                    : 'Not changed — use your existing password.',
+                'email' => $user->email,
+                'updated_at' => now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
+                'role' => $role,
+                'account_status' => $status,
+                'status_badge' => 'account_created',
+                'status_label' => 'ACCOUNT ACCESS UPDATED',
+                'cta_label' => 'LOGIN TO BACS SYSTEM',
+                'cta_url' => route('login'),
+            ];
+
+            $this->deliver(
+                type: EmailNotificationType::AccountUpdated,
+                recipient: $user->email,
+                subject: 'BACS | Account Access Updated',
+                mailable: new AccountUpdatedMail($payload),
+                dedupeKey: 'account_updated:user:'.$user->id.':'.now()->timestamp,
                 userId: $user->id,
                 notifiable: $employee,
                 meta: ['employee_id' => $employee->id],

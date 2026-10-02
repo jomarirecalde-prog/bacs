@@ -136,8 +136,12 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, Employee $employee)
     {
-        DB::transaction(function () use ($request, $employee) {
-            $data = $request->validated();
+        $employee->load('user');
+        $data = $request->validated();
+        $accountAccessChanged = $this->accountAccessChanged($data, $employee->user);
+        $newPassword = filled($data['password'] ?? null) ? $data['password'] : null;
+
+        DB::transaction(function () use ($request, $employee, $data) {
             $photo = $this->storePhoto($request, $employee);
 
             $userData = [
@@ -173,7 +177,20 @@ class EmployeeController extends Controller
             $this->auditLogger->log($request->user(), 'employee_updated', 'Employees', $employee->id, "Employee {$employee->fullName()} updated.");
         });
 
-        return redirect()->route('admin.employees.show', $employee)->with('success', 'Employee updated.');
+        if ($accountAccessChanged && $employee->user) {
+            $this->emailNotifications->accountAccessUpdated(
+                $employee->user,
+                $employee,
+                $newPassword,
+            );
+        }
+
+        $message = 'Employee updated.';
+        if ($accountAccessChanged) {
+            $message .= ' Updated account access was emailed to the employee.';
+        }
+
+        return redirect()->route('admin.employees.show', $employee)->with('success', $message);
     }
 
     public function deactivate(Request $request, Employee $employee)
@@ -203,6 +220,27 @@ class EmployeeController extends Controller
             'accountStatuses' => AccountStatus::cases(),
             'employmentStatuses' => EmploymentStatus::cases(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function accountAccessChanged(array $data, User $user): bool
+    {
+        $roleValue = $data['role'] ?? $user->role;
+        if ($roleValue instanceof UserRole) {
+            $roleValue = $roleValue->value;
+        }
+
+        $statusValue = $data['account_status'] ?? $user->status;
+        if ($statusValue instanceof AccountStatus) {
+            $statusValue = $statusValue->value;
+        }
+
+        return ($data['username'] ?? $user->username) !== $user->username
+            || (string) $roleValue !== $user->role->value
+            || (string) $statusValue !== $user->status->value
+            || filled($data['password'] ?? null);
     }
 
     private function storePhoto(Request $request, ?Employee $employee = null): ?string

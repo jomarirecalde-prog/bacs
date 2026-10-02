@@ -94,7 +94,12 @@
         <div class="card-header">
             <div>
                 <h2 class="card-title">Account Access</h2>
-                <p class="mt-0.5 text-xs text-muted">Login credentials, role, and account state</p>
+                <p class="mt-0.5 text-xs text-muted">
+                    Login credentials, role, and account state.
+                    @if (isset($employee))
+                        When you save changes here, updated account access is emailed to the employee.
+                    @endif
+                </p>
             </div>
         </div>
         <div class="grid gap-4 p-5 md:grid-cols-2">

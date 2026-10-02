@@ -58,13 +58,6 @@
                 @endif
             </div>
 
-            <div class="grid gap-4 px-6 pb-6 sm:grid-cols-2">
-                <form method="POST" action="{{ route('attendance.time-in') }}" class="mt-2" @submit.prevent="confirmIn">
-                    @csrf
-                    <button id="btn-in" type="submit" class="btn-primary btn-block" :disabled="!canTimeIn" @disabled(! $canRecord)>Record Attendance</button>
-                </form>
-            </div>
-
             <div class="px-6 pb-6 hidden">
                 <div class="grid gap-4 sm:grid-cols-2">
                 <div class="rounded-2xl border border-brand-200 bg-brand-50/50 p-5">

@@ -7,6 +7,7 @@ use App\Enums\EmailNotificationType;
 use App\Enums\EmploymentStatus;
 use App\Enums\UserRole;
 use App\Mail\AccountCreatedMail;
+use App\Mail\AccountUpdatedMail;
 use App\Mail\TransactionApprovedMail;
 use App\Mail\TransactionRejectedMail;
 use App\Models\EmailNotificationLog;
@@ -74,6 +75,56 @@ class EmailNotificationTest extends TestCase
         ]);
 
         $this->assertSame(1, EmailNotificationLog::query()->count());
+    }
+
+    public function test_account_access_updated_email_includes_new_password_when_provided(): void
+    {
+        Mail::fake();
+
+        $schedule = WorkSchedule::query()->create([
+            'name' => 'Regular',
+            'start_time' => '08:00:00',
+            'end_time' => '17:00:00',
+            'grace_period_minutes' => 10,
+            'break_start' => '12:00:00',
+            'break_end' => '13:00:00',
+            'required_minutes' => 480,
+            'work_days' => [1, 2, 3, 4, 5],
+            'is_default' => true,
+            'status' => AccountStatus::Active,
+        ]);
+
+        $user = User::factory()->create([
+            'email' => 'updated@bacs.test',
+            'username' => 'old.username',
+            'role' => UserRole::Employee,
+            'status' => AccountStatus::Active,
+        ]);
+
+        $employee = Employee::query()->create([
+            'user_id' => $user->id,
+            'employee_number' => 'EMP-9002',
+            'first_name' => 'Ben',
+            'last_name' => 'Torres',
+            'email' => $user->email,
+            'employment_status' => EmploymentStatus::Regular,
+            'work_schedule_id' => $schedule->id,
+        ]);
+
+        $service = app(EmailNotificationService::class);
+        $service->accountAccessUpdated($user, $employee, 'NewSecurePass1!');
+
+        Mail::assertSent(AccountUpdatedMail::class, 1);
+        Mail::assertSent(AccountUpdatedMail::class, function (AccountUpdatedMail $mail): bool {
+            return $mail->payload['username'] === 'old.username'
+                && $mail->payload['password_display'] === 'NewSecurePass1!';
+        });
+
+        $this->assertDatabaseHas('email_notification_logs', [
+            'notification_type' => EmailNotificationType::AccountUpdated->value,
+            'recipient' => 'updated@bacs.test',
+            'delivery_status' => 'sent',
+        ]);
     }
 
     public function test_preview_renders_html_for_admin(): void
