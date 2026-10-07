@@ -8,7 +8,7 @@
             <div><span class="text-muted">Name:</span> <span class="font-semibold">{{ $employee->fullName() }}</span></div>
             <div><span class="text-muted">Employee No.:</span> <span class="font-mono">{{ $employee->employee_number }}</span></div>
             <div><span class="text-muted">Department:</span> {{ $employee->department?->name ?? '—' }}</div>
-            <div><span class="text-muted">Designation:</span> {{ $employee->designation?->name ?? '—' }}</div>
+            <div><span class="text-muted">Designation:</span> {{ $employee->designation?->designation_name ?? '—' }}</div>
         </div>
     </div>
 

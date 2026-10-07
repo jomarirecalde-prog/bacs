@@ -49,7 +49,7 @@ class OfficialTimeController extends Controller
         return view('admin.official-time.index', [
             'requests' => $query->paginate(20)->withQueryString(),
             'departments' => Department::query()->orderBy('name')->get(['id', 'name']),
-            'designations' => Designation::query()->orderBy('name')->get(['id', 'name']),
+            'designations' => Designation::query()->orderBy('designation_name')->get(['id', 'designation_name']),
             'types' => OfficialTimeType::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => OfficialTimeStatus::cases(),
             'filters' => $request->only(['request_no', 'employee', 'department_id', 'designation_id', 'official_time_type_id', 'status', 'date_from', 'date_to']),

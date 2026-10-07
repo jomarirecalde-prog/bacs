@@ -13,7 +13,7 @@
                 <div class="flex justify-between gap-4"><dt class="text-muted">Name</dt><dd class="font-semibold text-ink">{{ $ot->employee?->fullName() }}</dd></div>
                 <div class="flex justify-between gap-4"><dt class="text-muted">Employee No.</dt><dd class="font-mono">{{ $ot->employee?->employee_number }}</dd></div>
                 <div class="flex justify-between gap-4"><dt class="text-muted">Department</dt><dd>{{ $ot->department?->name ?? $ot->employee?->department?->name ?? '—' }}</dd></div>
-                <div class="flex justify-between gap-4"><dt class="text-muted">Designation</dt><dd>{{ $ot->designation?->name ?? $ot->employee?->designation?->name ?? '—' }}</dd></div>
+                <div class="flex justify-between gap-4"><dt class="text-muted">Designation</dt><dd>{{ $ot->designation?->designation_name ?? $ot->employee?->designation?->designation_name ?? '—' }}</dd></div>
             </dl>
         </div>
         <div>

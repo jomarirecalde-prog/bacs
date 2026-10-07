@@ -16,7 +16,7 @@
         <select class="select" name="designation_id">
             <option value="">All designations</option>
             @foreach ($designations as $des)
-                <option value="{{ $des->id }}" @selected(($filters['designation_id'] ?? '') == $des->id)>{{ $des->name }}</option>
+                <option value="{{ $des->id }}" @selected(($filters['designation_id'] ?? '') == $des->id)>{{ $des->designation_name }}</option>
             @endforeach
         </select>
         <select class="select" name="official_time_type_id">
