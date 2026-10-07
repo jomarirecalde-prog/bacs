@@ -3,13 +3,21 @@
 namespace App\Providers;
 
 use App\Models\AttendanceCorrectionRequest;
+use App\Models\Designation;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\PayrollEmployee;
+use App\Models\PayrollPeriod;
+use App\Policies\DesignationPolicy;
+use App\Policies\PayrollEmployeePolicy;
+use App\Models\OfficialTimeRequest;
 use App\Models\TravelOrder;
 use App\Models\LeaveBalance;
+use App\Policies\PayrollPolicy;
 use App\Policies\AttendanceCorrectionRequestPolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\LeaveApplicationPolicy;
+use App\Policies\OfficialTimeRequestPolicy;
 use App\Policies\TravelOrderPolicy;
 use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
@@ -53,8 +61,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(LeaveApplication::class, LeaveApplicationPolicy::class);
         Gate::policy(TravelOrder::class, TravelOrderPolicy::class);
+        Gate::policy(OfficialTimeRequest::class, OfficialTimeRequestPolicy::class);
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);
         Gate::policy(AttendanceCorrectionRequest::class, AttendanceCorrectionRequestPolicy::class);
+        Gate::policy(Designation::class, DesignationPolicy::class);
+        Gate::policy(PayrollPeriod::class, PayrollPolicy::class);
+        Gate::policy(PayrollEmployee::class, PayrollEmployeePolicy::class);
 
         if (config('database.default') === 'mysql') {
             try {

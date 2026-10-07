@@ -14,6 +14,8 @@ use App\Models\AttendanceCorrectionApprovalAssignment;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\LeaveApplication;
 use App\Models\LeaveApprovalAssignment;
+use App\Models\OfficialTimeRequest;
+use App\Enums\OfficialTimeStatus;
 use App\Models\TravelOrder;
 use App\Models\TravelOrderApprovalAssignment;
 use App\Models\User;
@@ -81,6 +83,42 @@ class CentralApprovalDutyService
                 'travel-order.approvals.index',
                 ['scope' => 'final'],
                 $this->countTravelFinal($user)
+            );
+        }
+
+        if ($this->isConfiguredEndorser($employeeId, ApprovalTransactionType::OvertimeRequest)) {
+            $modules[] = $this->module(
+                'Overtime Endorsement',
+                'overtime.approvals.index',
+                ['scope' => 'endorsement'],
+                app(\App\Services\Payroll\OvertimeApprovalService::class)->pendingFor($user, 'endorsement')->count()
+            );
+        }
+
+        if ($this->isConfiguredFinalApprover($employeeId, ApprovalTransactionType::OvertimeRequest)) {
+            $modules[] = $this->module(
+                'Overtime Final Approval',
+                'overtime.approvals.index',
+                ['scope' => 'final'],
+                app(\App\Services\Payroll\OvertimeApprovalService::class)->pendingFor($user, 'final')->count()
+            );
+        }
+
+        if ($this->isConfiguredEndorser($employeeId, ApprovalTransactionType::OfficialTime)) {
+            $modules[] = $this->module(
+                'Official Time Endorsement',
+                'official-time.approvals.index',
+                ['scope' => 'endorsement'],
+                $this->countOfficialTimeEndorsement($user)
+            );
+        }
+
+        if ($this->isConfiguredFinalApprover($employeeId, ApprovalTransactionType::OfficialTime)) {
+            $modules[] = $this->module(
+                'Official Time Final Approval',
+                'official-time.approvals.index',
+                ['scope' => 'final'],
+                $this->countOfficialTimeFinal($user)
             );
         }
 
@@ -163,6 +201,22 @@ class CentralApprovalDutyService
         return AttendanceCorrectionRequest::query()
             ->where('status', AttendanceCorrectionStatus::PendingFinalApproval)
             ->whereHas('approvalAssignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOfficialTimeEndorsement(User $user): int
+    {
+        return OfficialTimeRequest::query()
+            ->where('status', OfficialTimeStatus::PendingSupervisor)
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::ImmediateSupervisor->value)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOfficialTimeFinal(User $user): int
+    {
+        return OfficialTimeRequest::query()
+            ->where('status', OfficialTimeStatus::PendingCeoFinalApproval)
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
             ->count();
     }
 

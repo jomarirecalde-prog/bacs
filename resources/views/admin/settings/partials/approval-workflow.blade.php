@@ -5,7 +5,7 @@
     <div class="card-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="card-title">Approval Workflow Configuration</h2>
-            <p class="text-sm text-muted">Configure endorsers and final approvers for Leave, Pardon, and Travel Order.</p>
+            <p class="text-sm text-muted">Configure endorsers and final approvers for Leave, Pardon, Travel Order, Overtime, and Official Time.</p>
         </div>
     </div>
 

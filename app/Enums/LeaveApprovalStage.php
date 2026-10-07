@@ -78,6 +78,15 @@ enum LeaveApprovalStage: string
         };
     }
 
+    public function pendingStatusForOfficialTime(): OfficialTimeStatus
+    {
+        return match ($this) {
+            self::ImmediateSupervisor => OfficialTimeStatus::PendingSupervisor,
+            self::CeoFinalApproval => OfficialTimeStatus::PendingCeoFinalApproval,
+            default => OfficialTimeStatus::Approved,
+        };
+    }
+
     public function next(): ?self
     {
         return match ($this) {

@@ -31,6 +31,7 @@ class Employee extends Model
         'address',
         'birth_date',
         'department_id',
+        'designation_id',
         'position',
         'employment_status',
         'date_hired',
@@ -78,6 +79,26 @@ class Employee extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function designation(): BelongsTo
+    {
+        return $this->belongsTo(Designation::class);
+    }
+
+    public function salaryHistory(): HasMany
+    {
+        return $this->hasMany(EmployeeSalaryHistory::class);
+    }
+
+    public function payrollBenefits(): HasMany
+    {
+        return $this->hasMany(EmployeeBenefit::class);
+    }
+
+    public function payrollDeductions(): HasMany
+    {
+        return $this->hasMany(EmployeeDeduction::class);
     }
 
     public function workSchedule(): BelongsTo
@@ -143,6 +164,13 @@ class Employee extends Model
                 $middle = $employee->middle_name ? ' '.$employee->middle_name : '';
                 $suffix = $employee->suffix ? ' '.$employee->suffix : '';
                 $employee->full_name = trim($employee->last_name.', '.$employee->first_name.$middle.$suffix);
+            }
+
+            if ($employee->designation_id && ($employee->isDirty('designation_id') || blank($employee->position))) {
+                $name = Designation::query()->whereKey($employee->designation_id)->value('designation_name');
+                if ($name) {
+                    $employee->position = $name;
+                }
             }
         });
 

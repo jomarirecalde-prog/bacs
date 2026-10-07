@@ -18,6 +18,12 @@ use App\Models\AttendanceCorrectionApprovalAssignment;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\OfficialTimeApprovalAssignment;
+use App\Models\OfficialTimeRequest;
+use App\Models\OvertimeApprovalAssignment;
+use App\Models\OvertimeRequest;
+use App\Enums\OfficialTimeStatus;
+use App\Enums\OvertimeRequestStatus;
 use App\Models\LeaveApprovalAssignment;
 use App\Models\TravelOrder;
 use App\Models\TravelOrderApprovalAssignment;
@@ -232,6 +238,44 @@ class CentralApprovalWorkflowService
         $this->createPardonAssignments($request, $config, $requester);
     }
 
+    public function bootstrapOvertime(OvertimeRequest $request, Employee $requester): void
+    {
+        $config = $this->configurationFor(ApprovalTransactionType::OvertimeRequest);
+        $request->update([
+            'central_approval_config_id' => $config->id,
+            'central_approval_config_version' => $config->version,
+        ]);
+
+        $this->createOvertimeAssignments($request, $config, $requester);
+    }
+
+    public function bootstrapOfficialTime(OfficialTimeRequest $request, Employee $requester): void
+    {
+        $config = $this->configurationFor(ApprovalTransactionType::OfficialTime);
+        $request->update([
+            'central_approval_config_id' => $config->id,
+            'central_approval_config_version' => $config->version,
+            'parallel_rule' => $this->parallelRuleFor($config),
+        ]);
+
+        $this->createOfficialTimeAssignments($request, $config, $requester);
+    }
+
+    public function overtimeStatusAfterBootstrap(ApprovalWorkflowConfiguration $config): OvertimeRequestStatus
+    {
+        $meta = $this->initialStageMeta($config);
+
+        if ($meta['stage'] === LeaveApprovalStage::ImmediateSupervisor) {
+            return OvertimeRequestStatus::PendingEndorsement;
+        }
+
+        if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
+            return OvertimeRequestStatus::PendingFinalApproval;
+        }
+
+        return OvertimeRequestStatus::Pending;
+    }
+
     public function leaveStatusAfterBootstrap(ApprovalWorkflowConfiguration $config): LeaveStatus
     {
         $meta = $this->initialStageMeta($config);
@@ -260,6 +304,21 @@ class CentralApprovalWorkflowService
         }
 
         return TravelOrderStatus::Approved;
+    }
+
+    public function officialTimeStatusAfterBootstrap(ApprovalWorkflowConfiguration $config): OfficialTimeStatus
+    {
+        $meta = $this->initialStageMeta($config);
+
+        if ($meta['stage'] === LeaveApprovalStage::ImmediateSupervisor) {
+            return OfficialTimeStatus::PendingSupervisor;
+        }
+
+        if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
+            return OfficialTimeStatus::PendingCeoFinalApproval;
+        }
+
+        return OfficialTimeStatus::Approved;
     }
 
     public function pardonStatusAfterBootstrap(ApprovalWorkflowConfiguration $config): AttendanceCorrectionStatus
@@ -403,11 +462,82 @@ class CentralApprovalWorkflowService
         ]);
     }
 
+    private function createOfficialTimeAssignments(OfficialTimeRequest $request, ApprovalWorkflowConfiguration $config, Employee $requester): void
+    {
+        if ($config->endorsement_enabled) {
+            foreach ($config->activeEndorsers()->get() as $index => $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOfficialTimeAssignment($request, LeaveApprovalStage::ImmediateSupervisor, $user, $index);
+            }
+        }
+
+        if ($config->final_approval_enabled) {
+            $final = $config->activeFinalApprover();
+            $user = $final?->employee?->user;
+            if ($user && $user->employee?->id !== $requester->id) {
+                $this->createOfficialTimeAssignment($request, LeaveApprovalStage::CeoFinalApproval, $user, 0);
+            }
+        }
+    }
+
+    private function createOfficialTimeAssignment(OfficialTimeRequest $request, LeaveApprovalStage $stage, User $user, int $sort): void
+    {
+        OfficialTimeApprovalAssignment::query()->create([
+            'official_time_request_id' => $request->id,
+            'stage' => $stage,
+            'user_id' => $user->id,
+            'employee_id' => $user->employee?->id,
+            'approver_name' => $user->employee?->fullName() ?: $user->name,
+            'approver_position' => $user->employee?->position,
+            'approver_role' => $user->role?->value,
+            'status' => 'pending',
+            'sort_order' => $sort,
+        ]);
+    }
+
     private function createPardonAssignment(AttendanceCorrectionRequest $correction, LeaveApprovalStage $stage, User $user, int $sort): void
     {
         AttendanceCorrectionApprovalAssignment::query()->create([
             'attendance_correction_request_id' => $correction->id,
             'stage' => $stage,
+            'user_id' => $user->id,
+            'employee_id' => $user->employee?->id,
+            'approver_name' => $user->employee?->fullName() ?: $user->name,
+            'approver_position' => $user->employee?->position,
+            'status' => 'pending',
+            'sort_order' => $sort,
+        ]);
+    }
+
+    private function createOvertimeAssignments(OvertimeRequest $request, ApprovalWorkflowConfiguration $config, Employee $requester): void
+    {
+        if ($config->endorsement_enabled) {
+            foreach ($config->activeEndorsers()->get() as $index => $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOvertimeAssignment($request, LeaveApprovalStage::ImmediateSupervisor, $user, $index);
+            }
+        }
+
+        if ($config->final_approval_enabled) {
+            $final = $config->activeFinalApprover();
+            $user = $final?->employee?->user;
+            if ($user && $user->employee?->id !== $requester->id) {
+                $this->createOvertimeAssignment($request, LeaveApprovalStage::CeoFinalApproval, $user, 0);
+            }
+        }
+    }
+
+    private function createOvertimeAssignment(OvertimeRequest $request, LeaveApprovalStage $stage, User $user, int $sort): void
+    {
+        OvertimeApprovalAssignment::query()->create([
+            'overtime_request_id' => $request->id,
+            'stage' => $stage->value,
             'user_id' => $user->id,
             'employee_id' => $user->employee?->id,
             'approver_name' => $user->employee?->fullName() ?: $user->name,

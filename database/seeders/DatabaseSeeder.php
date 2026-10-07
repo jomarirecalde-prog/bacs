@@ -44,15 +44,22 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             DepartmentSeeder::class,
+            DesignationSeeder::class,
             UserSeeder::class,
             EmployeeSeeder::class,
             LeaveWorkflowSeeder::class,
+            OfficialTimeTypeSeeder::class,
         ]);
 
         $this->deactivateLegacySampleData();
 
         if (filter_var(env('SEED_SAMPLE_DATA', false), FILTER_VALIDATE_BOOL)) {
             $this->call(SampleDataSeeder::class);
+            $this->call(PayrollSampleDataSeeder::class);
+        }
+
+        if (filter_var(env('SEED_PAYROLL_SAMPLE', false), FILTER_VALIDATE_BOOL)) {
+            $this->call(PayrollSampleDataSeeder::class);
         }
     }
 

@@ -27,8 +27,20 @@
                 @endif
             </div>
             <div>
-                <label class="label" for="position">Position</label>
-                <input id="position" class="input" name="position" value="{{ old('position', $employee->position ?? '') }}">
+                <label class="label" for="designation_id">Designation</label>
+                <select id="designation_id" class="select" name="designation_id">
+                    <option value="">— Select designation —</option>
+                    @foreach ($designations ?? [] as $designation)
+                        <option value="{{ $designation->id }}" @selected(old('designation_id', $employee->designation_id ?? null) == $designation->id)>
+                            {{ $designation->designation_name }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="hint mt-1">Used for payroll classification. Salary is set separately per employee.</p>
+            </div>
+            <div>
+                <label class="label" for="position">Position label (legacy)</label>
+                <input id="position" class="input" name="position" value="{{ old('position', $employee->position ?? '') }}" placeholder="Auto-filled from designation when saved">
             </div>
             <div>
                 <label class="label" for="first_name">First Name</label>

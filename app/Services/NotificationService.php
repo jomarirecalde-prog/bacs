@@ -28,9 +28,10 @@ class NotificationService
         bool $toast = true,
         ?int $leaveApplicationId = null,
         ?int $travelOrderId = null,
+        ?int $officialTimeRequestId = null,
     ): ?AppNotification {
-        $contextId = $calendarEventId ?: $leaveApplicationId ?: $travelOrderId;
-        $contextPrefix = $calendarEventId ? 'calendar' : ($leaveApplicationId ? 'leave' : ($travelOrderId ? 'travel_order' : 'generic'));
+        $contextId = $calendarEventId ?: $leaveApplicationId ?: $travelOrderId ?: $officialTimeRequestId;
+        $contextPrefix = $calendarEventId ? 'calendar' : ($leaveApplicationId ? 'leave' : ($travelOrderId ? 'travel_order' : ($officialTimeRequestId ? 'official_time' : 'generic')));
 
         if ($action && $this->isDuplicate($user->id, $contextPrefix, $contextId, $action, $title.$message)) {
             return null;
@@ -45,6 +46,7 @@ class NotificationService
             'calendar_event_id' => $calendarEventId,
             'leave_application_id' => $leaveApplicationId,
             'travel_order_id' => $travelOrderId,
+            'official_time_request_id' => $officialTimeRequestId,
             'action' => $action,
         ]);
 

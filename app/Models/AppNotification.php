@@ -17,6 +17,7 @@ class AppNotification extends Model
         'calendar_event_id',
         'leave_application_id',
         'travel_order_id',
+        'official_time_request_id',
         'action',
         'read_at',
     ];
@@ -46,6 +47,11 @@ class AppNotification extends Model
     public function travelOrder(): BelongsTo
     {
         return $this->belongsTo(TravelOrder::class);
+    }
+
+    public function officialTimeRequest(): BelongsTo
+    {
+        return $this->belongsTo(OfficialTimeRequest::class);
     }
 
     public function isUnread(): bool

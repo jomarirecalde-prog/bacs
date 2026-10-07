@@ -91,6 +91,16 @@ class User extends Authenticatable
         return $this->isAdmin();
     }
 
+    public function canViewPayroll(): bool
+    {
+        return $this->isAdmin() || $this->isSupervisor();
+    }
+
+    public function canManagePayroll(): bool
+    {
+        return $this->isAdmin();
+    }
+
     public function canEditDtr(): bool
     {
         return $this->isAdmin();

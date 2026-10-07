@@ -40,6 +40,9 @@
 
         <div class="card-footer flex flex-wrap gap-2">
             <a class="btn-primary btn-sm" href="{{ route('admin.dtr.monthly', ['employee_id' => $employee->id]) }}">View Complete DTR</a>
+            @if (auth()->user()->canManagePayroll())
+                <a class="btn-outline btn-sm" href="{{ route('admin.payroll.employees.salary.index', $employee) }}">Salary history</a>
+            @endif
             @if (auth()->user()->canManageEmployees())
                 <a class="btn-outline-info btn-sm" href="{{ route('admin.employees.edit', $employee) }}">Edit</a>
             @endif

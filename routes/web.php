@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CalendarController as AdminCalendarController;
 use App\Http\Controllers\Admin\CalendarEventController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DepartmentController;
+use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\DtrController as AdminDtrController;
 use App\Http\Controllers\Admin\EmailNotificationController;
 use App\Http\Controllers\Admin\EmployeeController;
@@ -15,6 +16,15 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\ApprovalWorkflowController;
+use App\Http\Controllers\Admin\Payroll\EmployeeSalaryController as PayrollEmployeeSalaryController;
+use App\Http\Controllers\Admin\Payroll\PayrollDashboardController;
+use App\Http\Controllers\Admin\Payroll\PayrollEmployeeController;
+use App\Http\Controllers\Admin\Payroll\PayrollPeriodController;
+use App\Http\Controllers\Admin\Payroll\OvertimeRequestController as PayrollOvertimeRequestController;
+use App\Http\Controllers\Admin\Payroll\PayrollAdjustmentController;
+use App\Http\Controllers\Admin\Payroll\PayrollRegisterController;
+use App\Http\Controllers\Admin\Payroll\PayrollSettingsController;
+use App\Http\Controllers\Employee\PayrollController as EmployeePayrollController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationMonitoringController;
@@ -37,6 +47,10 @@ use App\Http\Controllers\Admin\TravelOrderController as AdminTravelOrderControll
 use App\Http\Controllers\Employee\TravelOrderController as EmployeeTravelOrderController;
 use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\TravelOrderApprovalController;
+use App\Http\Controllers\OfficialTimeApprovalController;
+use App\Http\Controllers\Employee\OfficialTimeController as EmployeeOfficialTimeController;
+use App\Http\Controllers\Admin\OfficialTimeController as AdminOfficialTimeController;
+use App\Http\Controllers\Admin\OfficialTimeTypeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicStorageController;
@@ -155,12 +169,40 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::post('/travel-orders/{travelOrder}/cancel', [EmployeeTravelOrderController::class, 'cancel'])->name('travel-orders.cancel');
         Route::get('/travel-orders/{travelOrder}/pdf', [EmployeeTravelOrderController::class, 'pdf'])->name('travel-orders.pdf');
         Route::get('/travel-orders/{travelOrder}/print', [EmployeeTravelOrderController::class, 'print'])->name('travel-orders.print');
+
+        Route::get('/official-time', [EmployeeOfficialTimeController::class, 'index'])->name('official-time.index');
+        Route::get('/official-time/create', [EmployeeOfficialTimeController::class, 'create'])->name('official-time.create');
+        Route::post('/official-time', [EmployeeOfficialTimeController::class, 'store'])->name('official-time.store');
+        Route::get('/official-time/{officialTimeRequest}', [EmployeeOfficialTimeController::class, 'show'])->name('official-time.show');
+        Route::get('/official-time/{officialTimeRequest}/edit', [EmployeeOfficialTimeController::class, 'edit'])->name('official-time.edit');
+        Route::put('/official-time/{officialTimeRequest}', [EmployeeOfficialTimeController::class, 'update'])->name('official-time.update');
+        Route::post('/official-time/{officialTimeRequest}/cancel', [EmployeeOfficialTimeController::class, 'cancel'])->name('official-time.cancel');
+        Route::get('/official-time/{officialTimeRequest}/attachment', [EmployeeOfficialTimeController::class, 'attachment'])->name('official-time.attachment');
+
+        Route::get('/payroll', [EmployeePayrollController::class, 'index'])->name('payroll.index');
+        Route::get('/payroll/{payrollEmployee}', [EmployeePayrollController::class, 'show'])->name('payroll.show');
+        Route::get('/payroll/{payrollEmployee}/pdf', [EmployeePayrollController::class, 'pdf'])->name('payroll.pdf');
+        Route::get('/payroll/{payrollEmployee}/print', [EmployeePayrollController::class, 'print'])->name('payroll.print');
+    });
+
+    Route::prefix('overtime/approvals')->name('overtime.approvals.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OvertimeApprovalController::class, 'index'])->name('index');
+        Route::get('/{overtimeRequest}', [\App\Http\Controllers\OvertimeApprovalController::class, 'show'])->name('show');
+        Route::post('/{overtimeRequest}/decide', [\App\Http\Controllers\OvertimeApprovalController::class, 'decide'])->name('decide');
     });
 
     Route::prefix('pardon/approvals')->name('pardon.approvals.')->group(function () {
         Route::get('/', [PardonApprovalController::class, 'index'])->name('index');
         Route::get('/{correction}', [PardonApprovalController::class, 'show'])->name('show');
         Route::post('/{correction}/decide', [PardonApprovalController::class, 'decide'])->name('decide');
+    });
+
+    Route::prefix('official-time/approvals')->name('official-time.approvals.')->group(function () {
+        Route::get('/', [OfficialTimeApprovalController::class, 'index'])->name('index');
+        Route::get('/history', [OfficialTimeApprovalController::class, 'history'])->name('history');
+        Route::get('/{officialTimeRequest}', [OfficialTimeApprovalController::class, 'show'])->name('show');
+        Route::post('/{officialTimeRequest}/decide', [OfficialTimeApprovalController::class, 'decide'])->name('decide');
+        Route::post('/{officialTimeRequest}/return', [OfficialTimeApprovalController::class, 'returnForRevision'])->name('return');
     });
 
     Route::prefix('travel-order/approvals')->name('travel-order.approvals.')->group(function () {
@@ -205,6 +247,15 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/departments/{department}', [DepartmentController::class, 'show'])->name('departments.show');
         Route::put('/departments/{department}', [DepartmentController::class, 'update'])->middleware('role:admin')->name('departments.update');
         Route::post('/departments/{department}/deactivate', [DepartmentController::class, 'deactivate'])->middleware('role:admin')->name('departments.deactivate');
+
+        Route::get('/designations', [DesignationController::class, 'index'])->name('designations.index');
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/designations/create', [DesignationController::class, 'create'])->name('designations.create');
+            Route::post('/designations', [DesignationController::class, 'store'])->name('designations.store');
+            Route::get('/designations/{designation}/edit', [DesignationController::class, 'edit'])->name('designations.edit');
+            Route::put('/designations/{designation}', [DesignationController::class, 'update'])->name('designations.update');
+        });
+        Route::get('/designations/{designation}', [DesignationController::class, 'show'])->name('designations.show');
 
         Route::middleware('role:admin')->group(function () {
             Route::get('/attendance-stations', [AttendanceStationController::class, 'index'])->name('stations.index');
@@ -276,6 +327,12 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::get('/settings/approval-workflow/employees/search', [ApprovalWorkflowController::class, 'searchEmployees'])->middleware('role:admin')->name('settings.approval-workflow.employees.search');
         Route::put('/settings/approval-workflow/{transactionType}', [ApprovalWorkflowController::class, 'update'])->middleware('role:admin')->name('settings.approval-workflow.update');
         Route::get('/settings/approval-workflow/{transactionType}/history', [ApprovalWorkflowController::class, 'history'])->middleware('role:admin')->name('settings.approval-workflow.history');
+        Route::post('/settings/official-time-types', [OfficialTimeTypeController::class, 'store'])->middleware('role:admin')->name('settings.official-time-types.store');
+        Route::put('/settings/official-time-types/{officialTimeType}', [OfficialTimeTypeController::class, 'update'])->middleware('role:admin')->name('settings.official-time-types.update');
+
+        Route::get('/official-time', [AdminOfficialTimeController::class, 'index'])->name('official-time.index');
+        Route::get('/official-time/{officialTimeRequest}', [AdminOfficialTimeController::class, 'show'])->name('official-time.show');
+        Route::get('/official-time/{officialTimeRequest}/attachment', [EmployeeOfficialTimeController::class, 'attachment'])->name('official-time.attachment');
 
         Route::get('/leave', [AdminLeaveApplicationController::class, 'index'])->name('leave.index');
         Route::get('/leave/configuration', fn () => redirect()->route('admin.settings.index')->withFragment('approval-workflow'))->middleware('role:admin')->name('leave.workflow');
@@ -307,5 +364,39 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::post('/travel-orders/{travelOrder}/cancel', [AdminTravelOrderController::class, 'cancelApproved'])->middleware('role:admin')->name('travel-orders.cancel');
         Route::get('/travel-orders/{travelOrder}/pdf', [AdminTravelOrderController::class, 'pdf'])->middleware('role:admin')->name('travel-orders.pdf');
         Route::get('/travel-orders/{travelOrder}/print', [AdminTravelOrderController::class, 'print'])->middleware('role:admin')->name('travel-orders.print');
+
+        Route::prefix('payroll')->name('payroll.')->group(function () {
+            Route::get('/', [PayrollDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/periods', [PayrollPeriodController::class, 'index'])->name('periods.index');
+            Route::get('/periods/{period}', [PayrollPeriodController::class, 'show'])->name('periods.show');
+            Route::get('/periods/{period}/register', [PayrollRegisterController::class, 'index'])->name('register.index');
+            Route::get('/periods/{period}/register/export', [PayrollRegisterController::class, 'export'])->name('register.export');
+            Route::get('/payroll-employees/{payrollEmployee}', [PayrollEmployeeController::class, 'show'])->name('employees.payroll.show');
+            Route::get('/payroll-employees/{payrollEmployee}/pdf', [PayrollEmployeeController::class, 'pdf'])->name('employees.payroll.pdf');
+            Route::get('/payroll-employees/{payrollEmployee}/print', [PayrollEmployeeController::class, 'print'])->name('employees.payroll.print');
+            Route::get('/periods/{period}/overtime', [PayrollOvertimeRequestController::class, 'index'])->name('overtime.index');
+
+            Route::middleware('role:admin')->group(function () {
+                Route::get('/designations', fn () => redirect()->route('admin.designations.index'));
+                Route::get('/periods/create', [PayrollPeriodController::class, 'create'])->name('periods.create');
+                Route::post('/periods', [PayrollPeriodController::class, 'store'])->name('periods.store');
+                Route::post('/periods/{period}/compute', [PayrollPeriodController::class, 'compute'])->name('periods.compute');
+                Route::post('/periods/{period}/compute-payroll', [PayrollPeriodController::class, 'computePayroll'])->name('periods.compute-payroll');
+                Route::put('/periods/{period}/status', [PayrollPeriodController::class, 'updateStatus'])->name('periods.status');
+                Route::post('/periods/{period}/notify-payslips', [PayrollPeriodController::class, 'notifyPayslips'])->name('periods.notify-payslips');
+                Route::get('/settings', [PayrollSettingsController::class, 'index'])->name('settings.index');
+                Route::post('/settings/general', [PayrollSettingsController::class, 'updateGeneral'])->name('settings.general');
+                Route::put('/settings/rules/{rule}', [PayrollSettingsController::class, 'updateRule'])->name('settings.rules.update');
+                Route::post('/overtime/{overtimeRequest}/decide', [PayrollOvertimeRequestController::class, 'decide'])->name('overtime.decide');
+                Route::get('/periods/{period}/adjustments', [PayrollAdjustmentController::class, 'index'])->name('adjustments.index');
+                Route::get('/periods/{period}/adjustments/create', [PayrollAdjustmentController::class, 'create'])->name('adjustments.create');
+                Route::post('/periods/{period}/adjustments', [PayrollAdjustmentController::class, 'store'])->name('adjustments.store');
+                Route::get('/employees/{employee}/salary', [PayrollEmployeeSalaryController::class, 'index'])->name('employees.salary.index');
+                Route::post('/employees/{employee}/salary', [PayrollEmployeeSalaryController::class, 'store'])->name('employees.salary.store');
+                Route::post('/employees/{employee}/benefits', [PayrollEmployeeSalaryController::class, 'storeBenefit'])->name('employees.benefits.store');
+                Route::post('/employees/{employee}/deductions', [PayrollEmployeeSalaryController::class, 'storeDeduction'])->name('employees.deductions.store');
+                Route::put('/payroll-employees/{payrollEmployee}/total-basic-pay', [PayrollEmployeeController::class, 'updateTotalBasicPay'])->name('employees.payroll.total-basic-pay');
+            });
+        });
     });
 });

@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEmployeeRequest;
 use App\Http\Requests\Admin\UpdateEmployeeRequest;
+use App\Models\Designation;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkSchedule;
@@ -92,6 +93,7 @@ class EmployeeController extends Controller
                 'email' => $data['email'],
                 'contact_number' => $data['contact_number'] ?? null,
                 'department_id' => $data['department_id'] ?? null,
+                'designation_id' => $data['designation_id'] ?? null,
                 'position' => $data['position'] ?? null,
                 'employment_status' => $data['employment_status'],
                 'date_hired' => $data['date_hired'] ?? null,
@@ -120,7 +122,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorize('view', $employee);
-        $employee->load(['user', 'department', 'workSchedule', 'attendance' => fn ($q) => $q->latest('attendance_date')->limit(10)]);
+        $employee->load(['user', 'department', 'designation', 'workSchedule', 'attendance' => fn ($q) => $q->latest('attendance_date')->limit(10)]);
         $summary = $this->attendanceService->monthlySummary($employee);
 
         return view('admin.employees.show', compact('employee', 'summary'));
@@ -167,6 +169,7 @@ class EmployeeController extends Controller
                 'email' => $data['email'],
                 'contact_number' => $data['contact_number'] ?? null,
                 'department_id' => $data['department_id'] ?? null,
+                'designation_id' => $data['designation_id'] ?? null,
                 'position' => $data['position'] ?? null,
                 'employment_status' => $data['employment_status'],
                 'date_hired' => $data['date_hired'] ?? null,
@@ -216,6 +219,7 @@ class EmployeeController extends Controller
         return [
             'departments' => app(DirectoryCatalog::class)->departments(),
             'schedules' => WorkSchedule::query()->active()->orderBy('name')->get(['id', 'name', 'start_time', 'end_time', 'is_default', 'status']),
+            'designations' => Designation::query()->active()->orderBy('designation_name')->get(['id', 'designation_name']),
             'roles' => UserRole::cases(),
             'accountStatuses' => AccountStatus::cases(),
             'employmentStatuses' => EmploymentStatus::cases(),

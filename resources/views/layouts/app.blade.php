@@ -142,18 +142,41 @@
                             $navGroups[] = ['label' => 'Travel Orders', 'items' => [
                                 ['admin.travel-orders.index', 'Travel Order Management', $icons['document'], 'admin.travel-orders.*'],
                             ]];
+                            $navGroups[] = ['label' => 'Official Time', 'items' => [
+                                ['admin.official-time.index', 'Official Time Management', $icons['clock'], 'admin.official-time.*'],
+                            ]];
+                        }
+
+                        if (auth()->user()->canViewPayroll()) {
+                            $navGroups[] = ['label' => 'Designations', 'items' => [
+                                ['admin.designations.index', 'Designation Master', $icons['list'], 'admin.designations.*'],
+                            ]];
+                        }
+
+                        if (auth()->user()->canViewPayroll()) {
+                            $payrollNav = [
+                                ['admin.payroll.dashboard', 'Payroll Dashboard', $icons['chart'], 'admin.payroll.dashboard'],
+                                ['admin.payroll.periods.index', 'Payroll Periods', $icons['calendar'], 'admin.payroll.periods.*'],
+                            ];
+                            if ($isFullAdmin) {
+                                $payrollNav[] = ['admin.payroll.settings.index', 'Payroll Configuration', $icons['device'], 'admin.payroll.settings.*'];
+                            }
+                            $navGroups[] = ['label' => 'Payroll', 'items' => $payrollNav];
                         }
 
                         if (auth()->user()->employee) {
                             $navGroups[] = ['label' => 'Personal', 'items' => [
                                 ['employee.dashboard', 'My Time In / Out', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.payroll.index', 'My Payroll', $icons['chart'], 'employee.payroll.*'],
                                 ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
                                 ['employee.leave.apply', 'Apply for Leave', $icons['leave'], 'employee.leave.apply'],
                                 ['employee.leave.index', 'My Leave Applications', $icons['list'], 'employee.leave.index'],
                                 ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
                                 ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
                                 ['employee.travel-orders.index', 'Travel Orders', $icons['document'], 'employee.travel-orders.*'],
+                                ['employee.official-time.index', 'My Official Time', $icons['clock'], 'employee.official-time.index'],
+                                ['employee.official-time.create', 'Request Official Time', $icons['document'], 'employee.official-time.create'],
                                 ['employee.calendar', 'My Calendar', $icons['calendar']],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]];
@@ -187,6 +210,7 @@
                             ['label' => 'My Records', 'items' => [
                                 ['employee.attendance', 'My Attendance', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
+                                ['employee.payroll.index', 'My Payroll', $icons['chart'], 'employee.payroll.*'],
                                 ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]],
@@ -202,6 +226,10 @@
                             ['label' => 'Travel Orders', 'items' => [
                                 ['employee.travel-orders.create', 'New Travel Order', $icons['document'], 'employee.travel-orders.create'],
                                 ['employee.travel-orders.index', 'Travel Order Dashboard', $icons['list'], 'employee.travel-orders.*'],
+                            ]],
+                            ['label' => 'Official Time', 'items' => [
+                                ['employee.official-time.index', 'My Official Time', $icons['list'], 'employee.official-time.index'],
+                                ['employee.official-time.create', 'Request Official Time', $icons['clock'], 'employee.official-time.create'],
                             ]],
                         ];
 

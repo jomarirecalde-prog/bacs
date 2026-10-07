@@ -32,6 +32,7 @@ class UpdateEmployeeRequest extends FormRequest
             ],
             'contact_number' => ['nullable', 'string', 'max:30'],
             'department_id' => ['nullable', 'exists:departments,id'],
+            'designation_id' => ['nullable', 'exists:designations,id'],
             'position' => ['nullable', 'string', 'max:120'],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
             'date_hired' => ['nullable', 'date'],

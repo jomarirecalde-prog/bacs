@@ -15,6 +15,7 @@ class AuditLog extends Model
         'module',
         'record_id',
         'description',
+        'metadata',
         'ip_address',
         'user_agent',
         'created_at',
@@ -24,6 +25,7 @@ class AuditLog extends Model
     {
         return [
             'created_at' => 'datetime',
+            'metadata' => 'array',
         ];
     }
 
