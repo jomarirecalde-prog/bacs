@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\AccountStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\UserRole;
+use App\Support\BacsPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -37,7 +38,7 @@ class UpdateEmployeeRequest extends FormRequest
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
             'date_hired' => ['nullable', 'date'],
             'username' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($employee?->user_id)],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => ['nullable', 'confirmed', BacsPassword::rule()],
             'role' => ['required', Rule::enum(UserRole::class)],
             'account_status' => ['required', Rule::enum(AccountStatus::class)],
             'work_schedule_id' => ['nullable', 'exists:work_schedules,id'],

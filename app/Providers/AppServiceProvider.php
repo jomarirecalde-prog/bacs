@@ -6,8 +6,10 @@ use App\Models\AttendanceCorrectionRequest;
 use App\Models\Designation;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\OvertimeRequest;
 use App\Models\PayrollEmployee;
 use App\Models\PayrollPeriod;
+use App\Policies\OvertimeRequestPolicy;
 use App\Policies\DesignationPolicy;
 use App\Policies\PayrollEmployeePolicy;
 use App\Models\OfficialTimeRequest;
@@ -47,6 +49,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('production')
+            && config('app.debug')
+            && config('security.block_debug_in_production')) {
+            throw new \RuntimeException('APP_DEBUG must be false in production (set SECURITY_BLOCK_DEBUG_IN_PRODUCTION only when ready).');
+        }
+
         if (! $this->app->runningInConsole()) {
             $request = request();
             $appPath = parse_url((string) config('app.url'), PHP_URL_PATH) ?: '';
@@ -67,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Designation::class, DesignationPolicy::class);
         Gate::policy(PayrollPeriod::class, PayrollPolicy::class);
         Gate::policy(PayrollEmployee::class, PayrollEmployeePolicy::class);
+        Gate::policy(OvertimeRequest::class, OvertimeRequestPolicy::class);
 
         if (config('database.default') === 'mysql') {
             try {

@@ -18,7 +18,16 @@ class AttendanceCorrectionRequestPolicy
             return true;
         }
 
-        return $user->employee?->id === $request->employee_id;
+        if ($user->employee?->id === $request->employee_id) {
+            return true;
+        }
+
+        return $request->approvalAssignments()->where('user_id', $user->id)->exists();
+    }
+
+    public function decide(User $user, AttendanceCorrectionRequest $request): bool
+    {
+        return app(\App\Services\PardonApprovalService::class)->userCanAct($user, $request);
     }
 
     public function create(User $user): bool

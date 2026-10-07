@@ -28,6 +28,7 @@ use App\Http\Controllers\Employee\PayrollController as EmployeePayrollController
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationMonitoringController;
+use App\Http\Controllers\Auth\AccountPasswordSetupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ClockController;
 use App\Http\Controllers\Employee\AttendanceCorrectionController as EmployeeAttendanceCorrectionController;
@@ -53,7 +54,7 @@ use App\Http\Controllers\Admin\OfficialTimeController as AdminOfficialTimeContro
 use App\Http\Controllers\Admin\OfficialTimeTypeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PublicStorageController;
+use App\Http\Controllers\TravelOrderAttachmentController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\Station\DashboardController as StationDashboardController;
 use App\Http\Controllers\Station\HeartbeatController as StationHeartbeatController;
@@ -69,10 +70,6 @@ Route::get('/', function () {
 
     return redirect()->route('login');
 });
-
-Route::get('/storage/{path}', [PublicStorageController::class, 'show'])
-    ->where('path', '.*')
-    ->name('storage.public');
 
 Route::get('/employee-photos/{path}', [EmployeePhotoController::class, 'show'])
     ->where('path', '.*')
@@ -97,6 +94,13 @@ Route::prefix('attendance-station')->name('station.')->group(function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
+
+    Route::get('/welcome/set-password/{user}', [AccountPasswordSetupController::class, 'show'])
+        ->middleware('signed')
+        ->name('password.setup.show');
+    Route::post('/welcome/set-password/{user}', [AccountPasswordSetupController::class, 'store'])
+        ->middleware('signed')
+        ->name('password.setup.store');
 });
 
 Route::middleware(['auth', 'account.active', 'password.changed'])->group(function () {
@@ -122,6 +126,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
     Route::delete('/profile/photo', [ProfileController::class, 'removePhoto'])->name('profile.photo.remove');
     Route::get('/profile/password', [ProfileController::class, 'editPassword'])->name('profile.password');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+
+    Route::get('/travel-orders/{travelOrder}/attachments/{attachment}', [TravelOrderAttachmentController::class, 'show'])
+        ->name('travel-orders.attachments.download');
 
     Route::post('/attendance/time-in', [ClockController::class, 'timeIn'])->middleware('throttle:clock')->name('attendance.time-in');
     Route::post('/attendance/time-out', [ClockController::class, 'timeOut'])->middleware('throttle:clock')->name('attendance.time-out');

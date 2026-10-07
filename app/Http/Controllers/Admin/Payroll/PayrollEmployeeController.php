@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PayrollEmployee;
 use App\Services\AuditLogger;
 use App\Services\Payroll\PayrollEngine;
+use App\Services\SensitiveAccessLogger;
 use App\Services\Payroll\PayslipPdfService;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class PayrollEmployeeController extends Controller
         private readonly PayslipPdfService $payslip,
         private readonly PayrollEngine $payroll,
         private readonly AuditLogger $audit,
+        private readonly SensitiveAccessLogger $sensitiveAccess,
     ) {}
 
     public function show(PayrollEmployee $payrollEmployee)
@@ -23,10 +25,7 @@ class PayrollEmployeeController extends Controller
 
         $payrollEmployee->load(['payrollPeriod', 'earnings', 'deductions', 'employee']);
 
-        return view('admin.payroll.employees.show', [
-            'payrollEmployee' => $payrollEmployee,
-            'manualTotalBasicPay' => \App\Support\PayrollSettings::manualTotalBasicPay(),
-        ]);
+        return view('admin.payroll.employees.show', compact('payrollEmployee'));
     }
 
     public function updateTotalBasicPay(Request $request, PayrollEmployee $payrollEmployee)
@@ -58,9 +57,10 @@ class PayrollEmployeeController extends Controller
             ->with('success', 'Total basic pay saved. Gross pay and net pay were recalculated.');
     }
 
-    public function pdf(PayrollEmployee $payrollEmployee)
+    public function pdf(Request $request, PayrollEmployee $payrollEmployee)
     {
         $this->authorize('downloadPayslip', $payrollEmployee);
+        $this->sensitiveAccess->payslipDownload($request->user(), $payrollEmployee, $request);
 
         return $this->payslip->download($payrollEmployee);
     }

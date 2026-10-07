@@ -101,7 +101,8 @@ function mountPartial(html, url) {
     }
 
     teardownPage();
-    main.innerHTML = fragment.innerHTML;
+    const nodes = Array.from(fragment.childNodes).map((node) => node.cloneNode(true));
+    main.replaceChildren(...nodes);
 
     const title = fragment.dataset.title;
     if (title) {

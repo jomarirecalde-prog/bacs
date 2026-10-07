@@ -7,7 +7,7 @@ Use this once per environment (staging/production) and again when onboarding a n
 ## 1. Deploy & database
 
 - [ ] Run migrations: `php artisan migrate`
-- [ ] **Demo payroll (30 employees):** after master seed, run `php artisan db:seed --class=PayrollSampleDataSeeder` (or set `SEED_PAYROLL_SAMPLE=true` / `SEED_SAMPLE_DATA=true`). See `docs/payroll-sample-data.csv`.
+- [ ] **Demo payroll (30 employees):** after master seed, run `php artisan db:seed --class=PayrollSampleDataSeeder` (or set `SEED_PAYROLL_SAMPLE=true` / `SEED_SAMPLE_DATA=true`). See `docs/payroll-sample-data.csv` (salary, de minimis, SSS, PhilHealth, HDMF, tax, sample loans). **ALU** (absence/late/UT) is driven by sample DTR, not the CSV.
 - [ ] Confirm payroll tables exist (designations, periods, `payroll_employees`, premium rules, SSS/tax brackets, OT tables).
 - [ ] Run tests (optional smoke): `php artisan test --filter=Payroll`
 - [ ] `.env` mail settings configured if payslip email is used (`MAIL_*`).

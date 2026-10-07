@@ -39,6 +39,20 @@
                         <div class="sm:col-span-2"><span class="text-muted">Remarks</span><div>{{ $order->remarks }}</div></div>
                     @endif
                 </div>
+                @if ($order->relationLoaded('attachments') && $order->attachments->isNotEmpty())
+                    <div>
+                        <div class="label">Supporting documents</div>
+                        <ul class="mt-2 space-y-2">
+                            @foreach ($order->attachments as $file)
+                                <li>
+                                    <a class="text-brand-700 underline" href="{{ route('travel-orders.attachments.download', [$order, $file]) }}">
+                                        {{ $file->file_name }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </div>
         </div>
     </div>

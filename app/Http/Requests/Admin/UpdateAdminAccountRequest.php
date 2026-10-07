@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\AccountStatus;
+use App\Support\BacsPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,7 +33,7 @@ class UpdateAdminAccountRequest extends FormRequest
                 'alpha_dash',
                 Rule::unique('users', 'username')->ignore($admin?->id),
             ],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => ['nullable', 'confirmed', BacsPassword::rule()],
             'status' => ['required', Rule::enum(AccountStatus::class)],
         ];
     }

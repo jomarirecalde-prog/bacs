@@ -6,11 +6,15 @@ use App\Enums\PayrollPeriodStatus;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollEmployee;
 use App\Services\Payroll\PayslipPdfService;
+use App\Services\SensitiveAccessLogger;
 use Illuminate\Http\Request;
 
 class PayrollController extends Controller
 {
-    public function __construct(private readonly PayslipPdfService $payslip) {}
+    public function __construct(
+        private readonly PayslipPdfService $payslip,
+        private readonly SensitiveAccessLogger $sensitiveAccess,
+    ) {}
 
     public function index(Request $request)
     {
@@ -45,6 +49,7 @@ class PayrollController extends Controller
     {
         $this->authorize('downloadPayslip', $payrollEmployee);
         abort_unless($payrollEmployee->employee_id === $this->employee($request)->id, 403);
+        $this->sensitiveAccess->payslipDownload($request->user(), $payrollEmployee, $request);
 
         return $this->payslip->download($payrollEmployee);
     }

@@ -93,7 +93,11 @@ class User extends Authenticatable
 
     public function canViewPayroll(): bool
     {
-        return $this->isAdmin() || $this->isSupervisor();
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->isSupervisor() && config('payroll.supervisor_full_access', true);
     }
 
     public function canManagePayroll(): bool

@@ -19,37 +19,6 @@
     <div class="alert-warning mb-4 text-sm">{{ implode(' · ', $payrollEmployee->computation_warnings) }}</div>
 @endif
 
-@if ($manualTotalBasicPay && auth()->user()->canManagePayroll() && ! $payrollEmployee->payrollPeriod->isLocked())
-    <div class="card card-accent-brand mb-6 overflow-hidden">
-        <div class="card-header"><h2 class="card-title">Total basic pay (manual entry)</h2></div>
-        <form method="POST" action="{{ route('admin.payroll.employees.payroll.total-basic-pay', $payrollEmployee) }}" class="space-y-4 p-5">
-            @csrf
-            @method('PUT')
-            <p class="text-sm text-muted">
-                Basic pay and absence/late/undertime below are from DTR for reference.
-                Enter the authoritative <strong>total basic pay</strong> for this cut-off; gross wage and net pay will update.
-            </p>
-            @if ((float) $payrollEmployee->computed_total_basic_pay > 0)
-                <p class="text-sm text-muted">
-                    System suggestion (basic pay minus ALU):
-                    <span class="font-semibold tabular-nums text-ink">₱{{ number_format($payrollEmployee->computed_total_basic_pay, 2) }}</span>
-                </p>
-            @endif
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-[12rem] flex-1">
-                    <label class="label" for="total_basic_pay">Total basic pay (₱)</label>
-                    <input id="total_basic_pay" class="input" type="number" step="0.01" min="0" name="total_basic_pay"
-                        value="{{ old('total_basic_pay', $payrollEmployee->total_basic_pay_manually_set ? $payrollEmployee->total_basic_pay : '') }}" required>
-                </div>
-                <button type="submit" class="btn-primary">Save total basic pay</button>
-            </div>
-            @error('total_basic_pay')
-                <p class="text-sm text-critical-700">{{ $message }}</p>
-            @enderror
-        </form>
-    </div>
-@endif
-
 <div class="grid gap-6 lg:grid-cols-2">
     <div class="card overflow-hidden">
         <div class="card-header"><h2 class="card-title">Snapshot</h2></div>

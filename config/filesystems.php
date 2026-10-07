@@ -23,11 +23,11 @@ return [
     | Disk used for employee profile photos. When unset, auto-picks:
     | S3 (if AWS_* is complete) → public (Hostinger / XAMPP).
     |
-    | Supported values: s3, public
+    | Supported values: s3, local (default). "public" is treated as local for legacy .env values.
     |
     */
 
-    'employee_photos_disk' => env('EMPLOYEE_PHOTOS_DISK'),
+    'employee_photos_disk' => env('EMPLOYEE_PHOTOS_DISK', 'local'),
 
     /*
     |--------------------------------------------------------------------------

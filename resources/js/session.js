@@ -9,8 +9,9 @@
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
 const ACTIVITY_IDLE_MS = 30 * 60 * 1000;
-const CSRF_STORAGE_KEY = 'bacs-csrf-sync';
 const EXPIRY_STORAGE_KEY = 'bacs-session-expiry';
+/** @type {BroadcastChannel|null} */
+let csrfBroadcast = null;
 
 let lastActivity = Date.now();
 let expiresAt = null;
@@ -36,7 +37,25 @@ function loginUrl() {
     return window.appUrl?.('/login') || '/login';
 }
 
-export function applyCsrfToken(token) {
+function csrfBroadcastChannel() {
+    if (typeof BroadcastChannel === 'undefined') {
+        return null;
+    }
+
+    if (!csrfBroadcast) {
+        csrfBroadcast = new BroadcastChannel('bacs-csrf');
+        csrfBroadcast.onmessage = (event) => {
+            const token = event?.data?.token;
+            if (token) {
+                applyCsrfToken(token, { fromBroadcast: true });
+            }
+        };
+    }
+
+    return csrfBroadcast;
+}
+
+export function applyCsrfToken(token, options = {}) {
     if (!token) {
         return;
     }
@@ -54,10 +73,12 @@ export function applyCsrfToken(token) {
         input.value = token;
     });
 
-    try {
-        localStorage.setItem(CSRF_STORAGE_KEY, JSON.stringify({ token, at: Date.now() }));
-    } catch {
-        // localStorage may be unavailable.
+    if (!options.fromBroadcast) {
+        try {
+            csrfBroadcastChannel()?.postMessage({ token });
+        } catch {
+            // BroadcastChannel may be unavailable.
+        }
     }
 }
 
@@ -70,17 +91,6 @@ function readCsrfFromResponse(response) {
 }
 
 function syncFromStorage(event) {
-    if (event.key === CSRF_STORAGE_KEY && event.newValue) {
-        try {
-            const parsed = JSON.parse(event.newValue);
-            if (parsed.token) {
-                applyCsrfToken(parsed.token);
-            }
-        } catch {
-            // Ignore malformed sync payloads.
-        }
-    }
-
     if (event.key === EXPIRY_STORAGE_KEY && event.newValue) {
         try {
             const parsed = JSON.parse(event.newValue);

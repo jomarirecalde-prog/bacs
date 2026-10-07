@@ -19,7 +19,7 @@ class AttendanceStationFactory extends Factory
         return [
             'station_code' => 'BACS-STATION-'.fake()->unique()->numerify('###'),
             'station_name' => fake()->company().' Attendance Station',
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
             'location' => fake()->streetAddress(),
             'description' => fake()->optional()->sentence(),
             'status' => StationStatus::Active,

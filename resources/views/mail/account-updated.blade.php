@@ -9,7 +9,12 @@
         Hello {{ $payload['greeting_name'] }},
     </p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#374151;">
-        An administrator updated your account access in the BACS Management System. Sign in with your employee number, username, or registered email address, together with the password shown below if it was reset.
+        An administrator updated your account access in the BACS Management System.
+        @if (! empty($payload['password_reset']))
+            Use the secure button below to set a new password. Your previous password no longer works until you complete setup.
+        @else
+            Sign in with your employee number, username, or registered email address and your existing password.
+        @endif
     </p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">
@@ -25,7 +30,6 @@
             ['label' => 'Employee Name', 'value' => $payload['employee_name']],
             ['label' => 'Employee Number', 'value' => $payload['employee_number']],
             ['label' => 'Username', 'value' => $payload['username']],
-            ['label' => 'Password', 'value' => $payload['password_display']],
             ['label' => 'Registered Email', 'value' => $payload['email']],
             ['label' => 'Updated At', 'value' => $payload['updated_at']],
             ['label' => 'Role', 'value' => $payload['role']],

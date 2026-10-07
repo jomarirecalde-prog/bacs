@@ -6,7 +6,7 @@ use App\Models\LeaveApplication;
 use App\Models\LeaveTypeRecord;
 use App\Support\ManilaTime;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Storage;
+use App\Support\PrivateStorage;
 use Symfony\Component\HttpFoundation\Response;
 
 class LeaveFormPdfService
@@ -75,11 +75,10 @@ class LeaveFormPdfService
             return $path;
         }
 
-        if (! Storage::disk('public')->exists($path)) {
+        $binary = PrivateStorage::get($path);
+        if ($binary === null) {
             return null;
         }
-
-        $binary = Storage::disk('public')->get($path);
         $mime = str_ends_with($path, '.jpg') || str_ends_with($path, '.jpeg') ? 'image/jpeg' : 'image/png';
 
         return 'data:'.$mime.';base64,'.base64_encode($binary);

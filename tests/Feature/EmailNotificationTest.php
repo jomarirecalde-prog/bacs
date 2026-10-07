@@ -58,14 +58,16 @@ class EmailNotificationTest extends TestCase
         ]);
 
         $service = app(EmailNotificationService::class);
-        $service->accountCreated($user, $employee, 'WelcomePass123!');
-        $service->accountCreated($user, $employee, 'WelcomePass123!');
+        $user->update(['must_change_password' => true]);
+        $service->accountCreated($user, $employee);
+        $service->accountCreated($user, $employee);
 
         Mail::assertSent(AccountCreatedMail::class, 1);
         Mail::assertSent(AccountCreatedMail::class, function (AccountCreatedMail $mail) use ($user, $employee): bool {
             return $mail->payload['username'] === $user->username
                 && $mail->payload['employee_number'] === $employee->employee_number
-                && $mail->payload['password'] === 'WelcomePass123!';
+                && filled($mail->payload['setup_url'] ?? null)
+                && ! array_key_exists('password', $mail->payload);
         });
 
         $this->assertDatabaseHas('email_notification_logs', [
@@ -112,12 +114,15 @@ class EmailNotificationTest extends TestCase
         ]);
 
         $service = app(EmailNotificationService::class);
-        $service->accountAccessUpdated($user, $employee, 'NewSecurePass1!');
+        $user->update(['must_change_password' => true]);
+        $service->accountAccessUpdated($user, $employee, passwordReset: true);
 
         Mail::assertSent(AccountUpdatedMail::class, 1);
         Mail::assertSent(AccountUpdatedMail::class, function (AccountUpdatedMail $mail): bool {
             return $mail->payload['username'] === 'old.username'
-                && $mail->payload['password_display'] === 'NewSecurePass1!';
+                && ($mail->payload['password_reset'] ?? false) === true
+                && filled($mail->payload['setup_url'] ?? null)
+                && ! array_key_exists('password_display', $mail->payload);
         });
 
         $this->assertDatabaseHas('email_notification_logs', [
@@ -135,7 +140,7 @@ class EmailNotificationTest extends TestCase
             ->get(route('admin.email-notifications.preview', ['template' => 'account_created', 'raw' => 1]))
             ->assertOk()
             ->assertSee('BACS Construction and Development Corporation', false)
-            ->assertSee('SamplePass123!', false)
+            ->assertSee('SET YOUR PASSWORD', false)
             ->assertSee('juan.delacruz', false);
 
         $this->actingAs($admin)

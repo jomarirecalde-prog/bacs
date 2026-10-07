@@ -28,7 +28,7 @@ class EmployeePhotoStorageTest extends TestCase
         $this->assertStringStartsWith('https://ui-avatars.com/api/', $url);
     }
 
-    public function test_disk_falls_back_to_public_when_s3_is_not_configured(): void
+    public function test_disk_falls_back_to_local_when_s3_is_not_configured(): void
     {
         config([
             'filesystems.employee_photos_disk' => 's3',
@@ -37,7 +37,7 @@ class EmployeePhotoStorageTest extends TestCase
             'filesystems.disks.s3.secret' => null,
         ]);
 
-        $this->assertSame('public', app(EmployeePhotoStorage::class)->disk());
+        $this->assertSame('local', app(EmployeePhotoStorage::class)->disk());
     }
 
     public function test_absolute_remote_url_is_returned_as_is(): void

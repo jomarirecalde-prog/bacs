@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Support\PrivateStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -37,15 +38,15 @@ class EmployeePhotoStorage
             return 's3';
         }
 
-        if (in_array($configured, ['public', 'local'], true)) {
-            return 'public';
+        if ($configured === 'public' || $configured === 'local') {
+            return PrivateStorage::DISK;
         }
 
         if ($this->s3Configured()) {
             return 's3';
         }
 
-        return 'public';
+        return PrivateStorage::DISK;
     }
 
     public function assertWritable(): void
@@ -75,10 +76,12 @@ class EmployeePhotoStorage
         }
 
         try {
-            $ok = Storage::disk($this->disk())->put($path, $binary, [
-                'visibility' => 'public',
-                'ContentType' => 'image/jpeg',
-            ]);
+            $options = ['ContentType' => 'image/jpeg'];
+            if ($this->disk() === 's3') {
+                $options['visibility'] = 'private';
+            }
+
+            $ok = Storage::disk($this->disk())->put($path, $binary, $options);
         } catch (Throwable $e) {
             Log::error('Employee photo upload failed', [
                 'disk' => $this->disk(),
@@ -206,7 +209,16 @@ class EmployeePhotoStorage
                 return Storage::disk('s3')->url($photo);
             }
 
-            if (! Storage::disk('public')->exists($photo)) {
+            $disk = $this->disk();
+            if ($disk === PrivateStorage::DISK || $disk === 'local') {
+                if (! Storage::disk(PrivateStorage::DISK)->exists($photo) && ! Storage::disk('public')->exists($photo)) {
+                    return $this->placeholder($employee);
+                }
+
+                return route('employee-photos.show', ['path' => $photo]);
+            }
+
+            if (! Storage::disk($disk)->exists($photo)) {
                 return $this->placeholder($employee);
             }
 

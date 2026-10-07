@@ -212,12 +212,12 @@ class DtrWorkflowTest extends TestCase
         $this->actingAs($employee->user)
             ->put(route('profile.password.update'), [
                 'current_password' => 'password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'NewPassword1',
+                'password_confirmation' => 'NewPassword1',
             ])
             ->assertRedirect();
 
-        $this->assertTrue(password_verify('new-password', $employee->user->fresh()->password));
+        $this->assertTrue(password_verify('NewPassword1', $employee->user->fresh()->password));
     }
 
     private function makeEmployee(string $username): Employee

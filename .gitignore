@@ -26,6 +26,10 @@
 /storage/*-headers.txt
 /storage/*-response.html
 /storage/*-body.html
+/storage/login*.html
+/storage/home*.html
+/storage/dash*.html
+/storage/employees*.html
 /storage/diag-result*.json
 /storage/app/seed-credentials.csv
 /storage/app/private/seed-credentials.csv

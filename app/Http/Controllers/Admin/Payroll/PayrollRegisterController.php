@@ -9,6 +9,7 @@ use App\Models\PayrollPeriod;
 use App\Services\Payroll\PayrollRegisterExportService;
 use App\Services\Payroll\PayrollRegisterPdfService;
 use App\Services\Payroll\PayrollRegisterReconciliationExportService;
+use App\Services\SensitiveAccessLogger;
 use Illuminate\Http\Request;
 
 class PayrollRegisterController extends Controller
@@ -17,6 +18,7 @@ class PayrollRegisterController extends Controller
         private readonly PayrollRegisterExportService $export,
         private readonly PayrollRegisterPdfService $pdf,
         private readonly PayrollRegisterReconciliationExportService $reconciliation,
+        private readonly SensitiveAccessLogger $sensitiveAccess,
     ) {}
 
     public function index(Request $request, PayrollPeriod $period)
@@ -56,18 +58,26 @@ class PayrollRegisterController extends Controller
         $rows = $this->filteredRows($request, $period);
         $slug = str($period->period_name)->slug('_')->limit(40);
         $stamp = $period->start_date->format('Y-m-d');
+        $format = match (true) {
+            $request->string('format') === 'excel' => 'excel',
+            $request->string('format') === 'pdf' => 'pdf',
+            $request->string('format') === 'reconciliation' => 'reconciliation',
+            default => 'csv',
+        };
 
-        if ($request->string('format') === 'excel') {
+        $this->sensitiveAccess->payrollRegisterExport($request->user(), $period, $format, $request);
+
+        if ($format === 'excel') {
             return $this->export->exportExcel($rows, "payroll-register-{$slug}-{$stamp}.xlsx");
         }
 
-        if ($request->string('format') === 'pdf') {
+        if ($format === 'pdf') {
             $totals = $this->registerTotals($rows);
 
             return $this->pdf->download($period, $rows, $totals);
         }
 
-        if ($request->string('format') === 'reconciliation') {
+        if ($format === 'reconciliation') {
             return $this->reconciliation->export($period, $rows);
         }
 

@@ -857,7 +857,7 @@ class LeaveApplicationService
         }
 
         $name = 'leave-signatures/'.$employee->id.'-'.($suffix ?: uniqid('', true)).'.png';
-        \Illuminate\Support\Facades\Storage::disk('public')->put($name, $binary);
+        \Illuminate\Support\Facades\Storage::disk(\App\Support\PrivateStorage::DISK)->put($name, $binary);
 
         return $name;
     }

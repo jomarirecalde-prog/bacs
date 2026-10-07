@@ -27,6 +27,7 @@ class OvertimeApprovalController extends Controller
 
     public function show(Request $request, OvertimeRequest $overtimeRequest)
     {
+        $this->authorize('view', $overtimeRequest);
         $overtimeRequest->load(['employee.department', 'approvalAssignments.user.employee']);
 
         return view('overtime.approvals.show', [
@@ -37,6 +38,8 @@ class OvertimeApprovalController extends Controller
 
     public function decide(Request $request, OvertimeRequest $overtimeRequest)
     {
+        $this->authorize('decide', $overtimeRequest);
+
         $validated = $request->validate([
             'decision' => ['required', 'in:approved,denied'],
             'reason' => ['nullable', 'string', 'max:2000'],

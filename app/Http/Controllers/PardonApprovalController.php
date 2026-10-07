@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\LeaveDecision;
-use App\Http\Requests\TravelOrder\DecideTravelOrderRequest;
 use App\Models\AttendanceCorrectionRequest;
 use App\Services\PardonApprovalService;
 use Illuminate\Http\Request;
@@ -28,6 +27,7 @@ class PardonApprovalController extends Controller
 
     public function show(Request $request, AttendanceCorrectionRequest $correction)
     {
+        $this->authorize('view', $correction);
         $correction->load(['employee.department', 'approvalAssignments.user.employee']);
 
         return view('pardon.approvals.show', [
@@ -38,6 +38,8 @@ class PardonApprovalController extends Controller
 
     public function decide(Request $request, AttendanceCorrectionRequest $correction)
     {
+        $this->authorize('decide', $correction);
+
         $validated = $request->validate([
             'decision' => ['required', 'in:approved,denied'],
             'reason' => ['nullable', 'string', 'max:2000'],

@@ -79,8 +79,8 @@ class AttendanceStationTest extends TestCase
             ->post(route('admin.stations.store'), [
                 'station_name' => 'Main Office Attendance Station',
                 'station_code' => 'BACS-STATION-001',
-                'password' => 'station-pass',
-                'password_confirmation' => 'station-pass',
+                'password' => 'StationPass1',
+                'password_confirmation' => 'StationPass1',
                 'location' => 'Main Office Lobby',
                 'description' => 'Lobby kiosk',
                 'status' => StationStatus::Active->value,
@@ -94,8 +94,8 @@ class AttendanceStationTest extends TestCase
         ]);
 
         $station = AttendanceStation::query()->first();
-        $this->assertTrue(password_verify('station-pass', $station->password));
-        $this->assertNotSame('station-pass', $station->password);
+        $this->assertTrue(password_verify('StationPass1', $station->password));
+        $this->assertNotSame('StationPass1', $station->password);
     }
 
     public function test_employee_cannot_manage_stations(): void
@@ -111,8 +111,8 @@ class AttendanceStationTest extends TestCase
             ->post(route('admin.stations.store'), [
                 'station_name' => 'Rogue',
                 'station_code' => 'BACS-STATION-999',
-                'password' => 'station-pass',
-                'password_confirmation' => 'station-pass',
+                'password' => 'StationPass1',
+                'password_confirmation' => 'StationPass1',
                 'location' => 'Somewhere',
                 'status' => StationStatus::Active->value,
                 'idle_timeout_minutes' => 0,
@@ -149,12 +149,12 @@ class AttendanceStationTest extends TestCase
         $station = AttendanceStation::factory()->create([
             'station_code' => 'BACS-STATION-001',
             'station_name' => 'Main Office Attendance Station',
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
 
         $response = $this->post(route('station.login.store'), [
             'station_name' => 'Main Office Attendance Station',
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
         $response->assertRedirect(route('station.dashboard'));
         $this->keepStationCookie($response);
@@ -175,7 +175,7 @@ class AttendanceStationTest extends TestCase
 
         $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ])->assertRedirect()
             ->assertSessionHas('device_conflict')
             ->assertSessionHasErrors('device');
@@ -187,12 +187,12 @@ class AttendanceStationTest extends TestCase
     {
         $station = AttendanceStation::factory()->create([
             'station_code' => 'BACS-STATION-010',
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
 
         $response = $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
         $response->assertRedirect(route('station.dashboard'));
         $this->keepStationCookie($response);
@@ -207,7 +207,7 @@ class AttendanceStationTest extends TestCase
 
         $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ])->assertRedirect(route('station.dashboard'));
     }
 
@@ -224,7 +224,7 @@ class AttendanceStationTest extends TestCase
 
         $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ])->assertRedirect(route('station.dashboard'));
 
         $this->assertSame(StationDeviceStatus::Bound, $station->fresh()->device_status);
@@ -408,7 +408,7 @@ class AttendanceStationTest extends TestCase
     {
         $station = AttendanceStation::factory()->create([
             'station_code' => 'BACS-STATION-077',
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
 
         $this->post(route('station.login.store'), [
@@ -427,12 +427,12 @@ class AttendanceStationTest extends TestCase
     private function loginNewStation(array $attrs = []): AttendanceStation
     {
         $station = AttendanceStation::factory()->create(array_merge([
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ], $attrs));
 
         $response = $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
 
         $response->assertRedirect(route('station.dashboard'));
@@ -455,7 +455,7 @@ class AttendanceStationTest extends TestCase
     private function makeBoundStation(): AttendanceStation
     {
         $station = AttendanceStation::factory()->create([
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
             'device_status' => StationDeviceStatus::Bound,
             'binding_nonce' => 'nonce-one',
         ]);

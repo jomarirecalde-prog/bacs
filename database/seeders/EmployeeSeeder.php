@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class EmployeeSeeder extends Seeder
 {
+    /** @deprecated Use SEED_EMPLOYEE_PASSWORD in .env for local/test seeding only. */
     public const DEFAULT_PASSWORD = 'password';
 
     public const EXPECTED_COUNT = 46;
@@ -58,14 +59,23 @@ class EmployeeSeeder extends Seeder
                 'email' => $email,
                 'role' => $role,
                 'status' => AccountStatus::Active,
-                'password' => self::DEFAULT_PASSWORD,
-                'must_change_password' => false,
             ];
+
+            $plainPasswordForCsv = null;
 
             if ($user) {
                 $user->fill($userValues);
+                if ($reset = $this->configuredSeedPassword()) {
+                    $user->password = $reset;
+                    $user->must_change_password = false;
+                    $plainPasswordForCsv = $reset;
+                }
                 $user->save();
             } else {
+                $initial = $this->initialPassword();
+                $userValues['password'] = $initial['hash'];
+                $userValues['must_change_password'] = $initial['must_change_password'];
+                $plainPasswordForCsv = $initial['plain'];
                 $user = User::query()->create($userValues);
             }
 
@@ -87,22 +97,59 @@ class EmployeeSeeder extends Seeder
                 ]
             );
 
-            $credentials[] = [
-                $employeeNumber,
-                $person['name'],
-                $departmentName,
-                $person['position'],
-                $email,
-                self::DEFAULT_PASSWORD,
-            ];
+            if ($plainPasswordForCsv !== null && $this->shouldWriteCredentials()) {
+                $credentials[] = [
+                    $employeeNumber,
+                    $person['name'],
+                    $departmentName,
+                    $person['position'],
+                    $email,
+                    $plainPasswordForCsv,
+                ];
+            }
         }
 
         $this->retireStaleEmployees($officialNumbers);
         $this->assertRosterIntegrity();
-        $this->writeCredentials($credentials);
+        if ($this->shouldWriteCredentials() && $credentials !== []) {
+            $this->writeCredentials($credentials);
+        }
 
         $count = Employee::query()->where('employee_number', 'like', 'BACS-2026-%')->active()->count();
-        $this->command?->info("Employee master data ready: {$count} employees (password: ".self::DEFAULT_PASSWORD.').');
+        $this->command?->info("Employee master data ready: {$count} employees.");
+    }
+
+    /** @return array{hash: string, plain: ?string, must_change_password: bool} */
+    private function initialPassword(): array
+    {
+        if ($configured = $this->configuredSeedPassword()) {
+            return [
+                'hash' => $configured,
+                'plain' => $configured,
+                'must_change_password' => false,
+            ];
+        }
+
+        $plain = bin2hex(random_bytes(12));
+
+        return [
+            'hash' => $plain,
+            'plain' => null,
+            'must_change_password' => true,
+        ];
+    }
+
+    private function configuredSeedPassword(): ?string
+    {
+        $value = env('SEED_EMPLOYEE_PASSWORD');
+
+        return filled($value) ? (string) $value : null;
+    }
+
+    private function shouldWriteCredentials(): bool
+    {
+        return filter_var(env('SEED_WRITE_CREDENTIALS', false), FILTER_VALIDATE_BOOL)
+            && filled($this->configuredSeedPassword());
     }
 
     /**
@@ -257,14 +304,27 @@ class EmployeeSeeder extends Seeder
             throw new \RuntimeException('BACS employee numbers are not unique.');
         }
 
-        $badPasswords = User::query()
+        if ($configured = $this->configuredSeedPassword()) {
+            $badPasswords = User::query()
+                ->whereHas('employee', fn ($q) => $q->where('employee_number', 'like', 'BACS-2026-%')->active())
+                ->get()
+                ->reject(fn (User $user) => Hash::check($configured, $user->password))
+                ->count();
+
+            if ($badPasswords > 0) {
+                throw new \RuntimeException("Found {$badPasswords} employee accounts without the configured SEED_EMPLOYEE_PASSWORD.");
+            }
+
+            return;
+        }
+
+        $missingChangeFlag = User::query()
             ->whereHas('employee', fn ($q) => $q->where('employee_number', 'like', 'BACS-2026-%')->active())
-            ->get()
-            ->reject(fn (User $user) => Hash::check(self::DEFAULT_PASSWORD, $user->password))
+            ->where('must_change_password', false)
             ->count();
 
-        if ($badPasswords > 0) {
-            throw new \RuntimeException("Found {$badPasswords} employee accounts without the default password.");
+        if ($missingChangeFlag > 0) {
+            throw new \RuntimeException("Found {$missingChangeFlag} seeded employees without must_change_password enabled.");
         }
     }
 
@@ -273,7 +333,7 @@ class EmployeeSeeder extends Seeder
         $lines = [
             'BACS CONSTRUCTION AND DEVELOPMENT CORPORATION',
             'Employee login credentials from EMP. ID Number.pdf',
-            'Username is the employee number. Default password for all accounts: '.self::DEFAULT_PASSWORD,
+            'Username is the employee number. Passwords apply only when SEED_WRITE_CREDENTIALS is enabled.',
             '',
             'Employee Number,Name,Department,Position,Email,Password',
         ];

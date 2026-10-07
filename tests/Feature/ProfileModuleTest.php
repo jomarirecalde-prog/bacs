@@ -107,7 +107,7 @@ class ProfileModuleTest extends TestCase
 
     public function test_employee_can_upload_and_remove_profile_photo(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $employee = $this->makeEmployee('photo');
 
         $file = UploadedFile::fake()->image('avatar.jpg', 400, 400);
@@ -120,14 +120,14 @@ class ProfileModuleTest extends TestCase
         $employee->refresh();
         $this->assertNotNull($employee->photo);
         $storedPath = $employee->photo;
-        Storage::disk('public')->assertExists($storedPath);
+        Storage::disk('local')->assertExists($storedPath);
 
         $this->actingAs($employee->user)
             ->deleteJson(route('profile.photo.remove'))
             ->assertOk();
 
         $this->assertNull($employee->fresh()->photo);
-        Storage::disk('public')->assertMissing($storedPath);
+        Storage::disk('local')->assertMissing($storedPath);
     }
 
     public function test_employee_can_change_password(): void
@@ -137,13 +137,13 @@ class ProfileModuleTest extends TestCase
         $this->actingAs($employee->user)
             ->putJson(route('profile.password.update'), [
                 'current_password' => 'password',
-                'password' => 'new-secure-password',
-                'password_confirmation' => 'new-secure-password',
+                'password' => 'NewSecure1',
+                'password_confirmation' => 'NewSecure1',
             ])
             ->assertOk()
             ->assertJsonPath('ok', true);
 
-        $this->assertTrue(password_verify('new-secure-password', $employee->user->fresh()->password));
+        $this->assertTrue(password_verify('NewSecure1', $employee->user->fresh()->password));
         $this->assertNotNull($employee->user->fresh()->password_changed_at);
     }
 

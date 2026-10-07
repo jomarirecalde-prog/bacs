@@ -168,10 +168,10 @@ class AttendanceCorrectionTest extends TestCase
             'status' => AttendanceCorrectionStatus::PendingEndorsement->value,
         ]);
 
-        $station = AttendanceStation::factory()->create(['password' => 'station-pass']);
+        $station = AttendanceStation::factory()->create(['password' => 'StationPass1']);
         $response = $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
         $response->assertRedirect(route('station.dashboard'));
         $cookie = $response->getCookie(StationBindingService::COOKIE, decrypt: true);
@@ -203,10 +203,10 @@ class AttendanceCorrectionTest extends TestCase
             'status' => AttendanceCorrectionStatus::Pending->value,
         ]);
 
-        $station = AttendanceStation::factory()->create(['password' => 'station-pass']);
+        $station = AttendanceStation::factory()->create(['password' => 'StationPass1']);
         $response = $this->post(route('station.login.store'), [
             'station_name' => $station->station_name,
-            'password' => 'station-pass',
+            'password' => 'StationPass1',
         ]);
         $response->assertRedirect(route('station.dashboard'));
         $cookie = $response->getCookie(StationBindingService::COOKIE, decrypt: true);

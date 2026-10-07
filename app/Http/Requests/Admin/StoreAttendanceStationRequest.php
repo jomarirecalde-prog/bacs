@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\StationStatus;
 use App\Models\AttendanceStation;
+use App\Support\BacsPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,7 +27,7 @@ class StoreAttendanceStationRequest extends FormRequest
         return [
             'station_name' => ['required', 'string', 'max:120'],
             'station_code' => ['required', 'string', 'max:64', 'regex:/^[A-Z0-9\-]+$/', 'unique:attendance_stations,station_code'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'confirmed', BacsPassword::rule()],
             'location' => ['required', 'string', 'max:160'],
             'description' => ['nullable', 'string', 'max:500'],
             'status' => ['required', Rule::enum(StationStatus::class)],

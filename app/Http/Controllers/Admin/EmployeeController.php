@@ -79,7 +79,7 @@ class EmployeeController extends Controller
                 'password' => $data['password'],
                 'role' => $data['role'] ?? UserRole::Employee->value,
                 'status' => $data['account_status'] ?? AccountStatus::Active->value,
-                'must_change_password' => false,
+                'must_change_password' => true,
             ]);
 
             $middle = filled($data['middle_name'] ?? null) ? ' '.$data['middle_name'] : '';
@@ -109,11 +109,7 @@ class EmployeeController extends Controller
         });
 
         if ($employee->user) {
-            $this->emailNotifications->accountCreated(
-                $employee->user,
-                $employee,
-                $request->validated('password'),
-            );
+            $this->emailNotifications->accountCreated($employee->user, $employee);
         }
 
         return redirect()->route('admin.employees.show', $employee)->with('success', 'Employee account created.');
@@ -156,6 +152,7 @@ class EmployeeController extends Controller
 
             if (filled($data['password'] ?? null)) {
                 $userData['password'] = $data['password'];
+                $userData['must_change_password'] = true;
             }
 
             $employee->user->update($userData);
@@ -184,7 +181,7 @@ class EmployeeController extends Controller
             $this->emailNotifications->accountAccessUpdated(
                 $employee->user,
                 $employee,
-                $newPassword,
+                passwordReset: filled($newPassword),
             );
         }
 

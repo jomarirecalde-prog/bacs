@@ -34,26 +34,28 @@ class EmailNotificationService
         $callback();
     }
 
-    public function accountCreated(User $user, Employee $employee, string $plainPassword): void
+    public function accountCreated(User $user, Employee $employee): void
     {
-        $this->afterCommit(function () use ($user, $employee, $plainPassword) {
+        $this->afterCommit(function () use ($user, $employee) {
             $status = $user->status instanceof AccountStatus
                 ? $user->status->label()
                 : (string) $user->status;
+
+            $setupUrl = app(AccountPasswordSetupService::class)->signedSetupUrl($user);
 
             $payload = [
                 'greeting_name' => $employee->first_name ?: $user->name,
                 'employee_name' => $employee->fullName(),
                 'employee_number' => $employee->employee_number,
                 'username' => $user->username,
-                'password' => $plainPassword,
                 'email' => $user->email,
                 'registered_at' => $employee->created_at?->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A') ?? now()->format('F j, Y g:i A'),
                 'account_status' => $status,
                 'status_badge' => 'account_created',
                 'status_label' => strtoupper($status === 'Active' ? 'ACCOUNT CREATED' : $status),
-                'cta_label' => 'LOGIN TO BACS SYSTEM',
-                'cta_url' => route('login'),
+                'cta_label' => 'SET YOUR PASSWORD',
+                'cta_url' => $setupUrl,
+                'setup_url' => $setupUrl,
             ];
 
             $this->deliver(
@@ -69,9 +71,9 @@ class EmailNotificationService
         });
     }
 
-    public function accountAccessUpdated(User $user, Employee $employee, ?string $plainPassword = null): void
+    public function accountAccessUpdated(User $user, Employee $employee, bool $passwordReset = false): void
     {
-        $this->afterCommit(function () use ($user, $employee, $plainPassword) {
+        $this->afterCommit(function () use ($user, $employee, $passwordReset) {
             $user->refresh();
 
             $status = $user->status instanceof AccountStatus
@@ -82,22 +84,25 @@ class EmailNotificationService
                 ? $user->role->label()
                 : (string) $user->role;
 
+            $setupUrl = $passwordReset && $user->must_change_password
+                ? app(AccountPasswordSetupService::class)->signedSetupUrl($user)
+                : null;
+
             $payload = [
                 'greeting_name' => $employee->first_name ?: $user->name,
                 'employee_name' => $employee->fullName(),
                 'employee_number' => $employee->employee_number,
                 'username' => $user->username,
-                'password_display' => filled($plainPassword)
-                    ? $plainPassword
-                    : 'Not changed — use your existing password.',
                 'email' => $user->email,
                 'updated_at' => now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
                 'role' => $role,
                 'account_status' => $status,
                 'status_badge' => 'account_created',
                 'status_label' => 'ACCOUNT ACCESS UPDATED',
-                'cta_label' => 'LOGIN TO BACS SYSTEM',
-                'cta_url' => route('login'),
+                'password_reset' => $passwordReset,
+                'setup_url' => $setupUrl,
+                'cta_label' => $setupUrl ? 'SET YOUR NEW PASSWORD' : 'LOGIN TO BACS SYSTEM',
+                'cta_url' => $setupUrl ?: route('login'),
             ];
 
             $this->deliver(
@@ -315,14 +320,14 @@ class EmailNotificationService
             'employee_name' => 'Dela Cruz, Juan M.',
             'employee_number' => 'BACS-2026-0099',
             'username' => 'juan.delacruz',
-            'password' => 'SamplePass123!',
             'email' => 'employee@example.com',
             'registered_at' => now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
             'account_status' => 'Active',
             'status_badge' => 'account_created',
             'status_label' => 'ACCOUNT CREATED',
-            'cta_label' => 'LOGIN TO BACS SYSTEM',
-            'cta_url' => route('login'),
+            'cta_label' => 'SET YOUR PASSWORD',
+            'cta_url' => route('login').'#sample-setup-link',
+            'setup_url' => route('login').'#sample-setup-link',
         ];
     }
 

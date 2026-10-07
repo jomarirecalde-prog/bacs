@@ -763,7 +763,7 @@ class TravelOrderService
                 ]);
             }
 
-            $path = $file->store('travel-order-attachments/'.$order->id, 'public');
+            $path = $file->store('travel-order-attachments/'.$order->id, \App\Support\PrivateStorage::DISK);
             TravelOrderAttachment::query()->create([
                 'travel_order_id' => $order->id,
                 'file_name' => $file->getClientOriginalName(),

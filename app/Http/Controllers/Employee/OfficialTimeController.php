@@ -7,12 +7,16 @@ use App\Http\Requests\OfficialTime\StoreOfficialTimeRequest;
 use App\Models\OfficialTimeRequest;
 use App\Models\OfficialTimeType;
 use App\Services\OfficialTimeService;
+use App\Services\SensitiveAccessLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class OfficialTimeController extends Controller
 {
-    public function __construct(private readonly OfficialTimeService $officialTime) {}
+    public function __construct(
+        private readonly OfficialTimeService $officialTime,
+        private readonly SensitiveAccessLogger $sensitiveAccess,
+    ) {}
 
     public function index(Request $request)
     {
@@ -119,10 +123,19 @@ class OfficialTimeController extends Controller
         return redirect()->route('employee.official-time.index')->with('success', 'Official Time request cancelled.');
     }
 
-    public function attachment(OfficialTimeRequest $officialTimeRequest)
+    public function attachment(Request $request, OfficialTimeRequest $officialTimeRequest)
     {
         $this->authorize('downloadAttachment', $officialTimeRequest);
         abort_unless($officialTimeRequest->attachment_path && Storage::disk('local')->exists($officialTimeRequest->attachment_path), 404);
+
+        $this->sensitiveAccess->fileDownload(
+            $request->user(),
+            'OfficialTime',
+            $officialTimeRequest->id,
+            "Official Time attachment downloaded ({$officialTimeRequest->request_no}).",
+            $request,
+            ['file_name' => $officialTimeRequest->attachment_name],
+        );
 
         return Storage::disk('local')->download($officialTimeRequest->attachment_path, $officialTimeRequest->attachment_name ?: 'attachment');
     }

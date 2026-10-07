@@ -8,6 +8,7 @@ use App\Enums\StationStatus;
 use App\Http\Controllers\Controller;
 use App\Services\AttendanceService;
 use App\Services\EmployeeQrService;
+use App\Services\QrCrossStationGuard;
 use App\Services\StationScanSideEffects;
 use App\Support\ManilaTime;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ class ScanController extends Controller
         private readonly EmployeeQrService $qr,
         private readonly AttendanceService $attendance,
         private readonly StationScanSideEffects $sideEffects,
+        private readonly QrCrossStationGuard $crossStationGuard,
     ) {}
 
     public function store(Request $request)
@@ -71,10 +73,25 @@ class ScanController extends Controller
             ), 422);
         }
 
+        if ($crossBlock = $this->crossStationGuard->blockReason($employee, $station)) {
+            $this->deferActivity($request, $station, $employee, $qrToken->id, 'scan', StationActivityResult::Failure, 'cross_station_scan');
+
+            return response()->json($this->errorPayload(
+                $crossBlock['code'],
+                $crossBlock['title'],
+                $crossBlock['message'],
+                $employee
+            ), 422);
+        }
+
         $result = $this->attendance->recordFromStation($station, $employee);
         $code = $result['code'];
         $recorded = $result['recorded'];
         $attendance = $result['attendance'];
+
+        if ($recorded) {
+            $this->crossStationGuard->rememberSuccessfulScan($employee, $station);
+        }
 
         $this->sideEffects->defer([
             'station_id' => $station->id,

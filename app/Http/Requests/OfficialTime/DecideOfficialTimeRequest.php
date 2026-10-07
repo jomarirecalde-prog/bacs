@@ -10,7 +10,9 @@ class DecideOfficialTimeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $request = $this->route('officialTimeRequest');
+
+        return $request ? ($this->user()?->can('endorse', $request) ?? false) : false;
     }
 
     /** @return array<string, mixed> */
