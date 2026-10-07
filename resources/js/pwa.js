@@ -72,12 +72,14 @@ async function registerServiceWorker() {
         return null;
     }
 
-    if (window.location.pathname.startsWith('/attendance-station')) {
+    if (window.location.pathname.includes('/attendance-station')) {
         return null;
     }
 
     try {
-        registration = await navigator.serviceWorker.register('/sw-app.js', { scope: '/' });
+        const scriptUrl = window.appUrl('sw-app.js');
+        const scope = new URL('./', scriptUrl).pathname;
+        registration = await navigator.serviceWorker.register(scriptUrl, { scope });
 
         registration.addEventListener('updatefound', () => {
             const worker = registration.installing;
