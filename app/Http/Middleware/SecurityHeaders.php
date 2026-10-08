@@ -17,7 +17,13 @@ class SecurityHeaders
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $cameraPolicy = $request->is('attendance-station', 'attendance-station/*')
+            ? 'camera=(self)'
+            : 'camera=()';
+        $response->headers->set(
+            'Permissions-Policy',
+            "{$cameraPolicy}, microphone=(), geolocation=()"
+        );
         $response->headers->set(
             'Content-Security-Policy',
             "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; "
