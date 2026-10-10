@@ -237,6 +237,75 @@ class EmployeeSalaryService
             $data['hourly_rate'] ??= round((float) $data['daily_rate'] / $hours, 4);
         }
 
+        if ($type === SalaryType::Monthly && isset($data['gross_compensation'], $data['semi_monthly_salary'])) {
+            $semi = (float) $data['semi_monthly_salary'];
+            $gross = (float) $data['gross_compensation'];
+            if ($semi > 0 && $gross >= ($semi * 2) - 0.01) {
+                $data['gross_compensation'] = round($gross / 2, 2);
+            }
+        }
+
         return $data;
+    }
+
+    public function basicSalaryPerCutoff(?EmployeeSalaryHistory $salary): ?float
+    {
+        if (! $salary) {
+            return null;
+        }
+
+        return match ($salary->salary_type) {
+            SalaryType::Monthly => isset($salary->semi_monthly_salary)
+                ? (float) $salary->semi_monthly_salary
+                : (isset($salary->monthly_salary) ? (float) $salary->monthly_salary / 2 : (float) ($salary->basic_salary ?? 0)),
+            SalaryType::SemiMonthly => (float) ($salary->semi_monthly_salary ?? $salary->basic_salary ?? 0),
+            default => (float) ($salary->basic_salary ?? 0),
+        };
+    }
+
+    public function grossCompensationPerCutoff(?EmployeeSalaryHistory $salary, float $deMinimisPerCutoff = 0): ?float
+    {
+        if (! $salary) {
+            return null;
+        }
+
+        $basic = $this->basicSalaryPerCutoff($salary) ?? 0.0;
+        $stored = $this->storedGrossCompensationPerCutoff($salary);
+
+        if ($stored === null) {
+            if ($basic <= 0 && $deMinimisPerCutoff <= 0) {
+                return null;
+            }
+
+            return round($basic + $deMinimisPerCutoff, 2);
+        }
+
+        if ($basic <= 0) {
+            return $stored;
+        }
+
+        $aboveBasic = max(0, round($stored - $basic, 2));
+        $fixedAboveDeMinimis = max(0, round($aboveBasic - $deMinimisPerCutoff, 2));
+
+        return round($basic + $deMinimisPerCutoff + $fixedAboveDeMinimis, 2);
+    }
+
+    /**
+     * Gross compensation as stored on the salary record, normalized to a single cut-off amount.
+     */
+    public function storedGrossCompensationPerCutoff(?EmployeeSalaryHistory $salary): ?float
+    {
+        if (! $salary || $salary->gross_compensation === null) {
+            return null;
+        }
+
+        $basic = $this->basicSalaryPerCutoff($salary) ?? 0.0;
+        $gross = (float) $salary->gross_compensation;
+
+        if ($salary->salary_type === SalaryType::Monthly && $basic > 0 && $gross >= ($basic * 2) - 0.01) {
+            return round($gross / 2, 2);
+        }
+
+        return $gross;
     }
 }

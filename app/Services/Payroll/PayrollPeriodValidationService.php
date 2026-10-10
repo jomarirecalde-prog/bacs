@@ -53,19 +53,16 @@ class PayrollPeriodValidationService
         }
 
         if (PayrollSettings::manualTotalBasicPay()) {
-            $missingManualTotal = PayrollEmployee::query()
+            $missingTotalBasic = PayrollEmployee::query()
                 ->where('payroll_period_id', $period->id)
-                ->where(function ($q) {
-                    $q->where('total_basic_pay_manually_set', false)
-                        ->orWhere('total_basic_pay', '<=', 0);
-                })
+                ->where('total_basic_pay', '<=', 0)
                 ->count();
 
-            if ($missingManualTotal > 0) {
+            if ($missingTotalBasic > 0) {
                 $blocking[] = [
                     'code' => 'missing_manual_total_basic_pay',
-                    'message' => "{$missingManualTotal} employee(s) still need total basic pay entered manually.",
-                    'count' => $missingManualTotal,
+                    'message' => "{$missingTotalBasic} employee(s) have no total basic pay (check attendance and salary).",
+                    'count' => $missingTotalBasic,
                 ];
             }
         }

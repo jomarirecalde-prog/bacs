@@ -63,8 +63,9 @@
 
     @if ($current)
         @php
-            $currentBasic = (float) ($current->basic_salary ?? $current->semi_monthly_salary ?? $current->monthly_salary ?? 0);
-            $currentGross = (float) ($current->gross_compensation ?? ($currentBasic + $deMinimisPerCutoff));
+            $salaryAmounts = app(\App\Services\Payroll\EmployeeSalaryService::class);
+            $currentBasic = (float) ($salaryAmounts->basicSalaryPerCutoff($current) ?? 0);
+            $currentGross = (float) ($salaryAmounts->grossCompensationPerCutoff($current, $deMinimisPerCutoff) ?? ($currentBasic + $deMinimisPerCutoff));
         @endphp
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <x-stat-card label="Basic salary (per cut-off)" :value="'₱'.number_format($currentBasic, 2)" tone="gold" icon="chart" />

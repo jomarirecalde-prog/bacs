@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Payroll;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollEmployee;
 use App\Services\AuditLogger;
+use App\Services\Payroll\EmployeeSalaryService;
 use App\Services\Payroll\PayrollEngine;
 use App\Services\SensitiveAccessLogger;
 use App\Services\Payroll\PayslipPdfService;
@@ -17,6 +18,7 @@ class PayrollEmployeeController extends Controller
         private readonly PayrollEngine $payroll,
         private readonly AuditLogger $audit,
         private readonly SensitiveAccessLogger $sensitiveAccess,
+        private readonly EmployeeSalaryService $salaries,
     ) {}
 
     public function show(PayrollEmployee $payrollEmployee)
@@ -25,7 +27,15 @@ class PayrollEmployeeController extends Controller
 
         $payrollEmployee->load(['payrollPeriod', 'earnings', 'deductions', 'employee']);
 
-        return view('admin.payroll.employees.show', compact('payrollEmployee'));
+        $periodEnd = $payrollEmployee->payrollPeriod?->end_date?->toDateString();
+        $salaryRecord = $periodEnd && $payrollEmployee->employee
+            ? $this->salaries->effectiveForDate($payrollEmployee->employee, $periodEnd)
+            : null;
+        $declaredGrossPerCutoff = $salaryRecord
+            ? $this->salaries->grossCompensationPerCutoff($salaryRecord, (float) $payrollEmployee->de_minimis)
+            : null;
+
+        return view('admin.payroll.employees.show', compact('payrollEmployee', 'declaredGrossPerCutoff'));
     }
 
     public function updateTotalBasicPay(Request $request, PayrollEmployee $payrollEmployee)

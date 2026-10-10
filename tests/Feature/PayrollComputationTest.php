@@ -102,6 +102,11 @@ class PayrollComputationTest extends TestCase
         $this->assertGreaterThan(0, (float) $row->late_deduction);
         $this->assertGreaterThan(0, (float) $row->computed_total_basic_pay);
         $this->assertFalse($row->total_basic_pay_manually_set);
+        $this->assertEqualsWithDelta(
+            (float) $row->computed_total_basic_pay,
+            (float) $row->total_basic_pay,
+            0.01,
+        );
 
         $suggestedTotal = (float) $row->computed_total_basic_pay;
 

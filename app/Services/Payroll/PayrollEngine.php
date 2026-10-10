@@ -117,6 +117,11 @@ class PayrollEngine
             ->first();
 
         $totalBasicPay = $this->resolveTotalBasicPayForCompute($existing, $computedTotalBasicPay, $warnings, $status);
+        $totalBasicForGross = $this->totalBasicForGrossTotals(
+            $totalBasicPay,
+            $computedTotalBasicPay,
+            $existing,
+        );
 
         $otMultiplier = PayrollSettings::overtimeMultiplier();
         $overtimePay = Money::toFloat(Money::round((float) $summary->approved_ot_hours * $rates['hourly_rate'] * $otMultiplier));
@@ -125,7 +130,7 @@ class PayrollEngine
         $premiumPay = $premium['premium_pay'];
 
         $compensation = $this->buildCompensationTotals(
-            $totalBasicPay,
+            $totalBasicForGross,
             $overtimePay,
             $holidayPay,
             $premiumPay,
@@ -389,12 +394,31 @@ class PayrollEngine
             return max(0, (float) $existing->total_basic_pay);
         }
 
-        $warnings[] = 'Enter total basic pay manually';
-        if ($status === PayrollComputationStatus::Ok) {
-            $status = PayrollComputationStatus::Warning;
+        return max(0, $computedTotalBasicPay);
+    }
+
+    /**
+     * When manual total basic pay is pending, still preview gross wage / gross compensation
+     * from the attendance-based computed total so register totals match salary expectations.
+     */
+    private function totalBasicForGrossTotals(
+        float $storedTotalBasicPay,
+        float $computedTotalBasicPay,
+        ?PayrollEmployee $existing,
+    ): float {
+        if ($storedTotalBasicPay > 0) {
+            return $storedTotalBasicPay;
         }
 
-        return 0.0;
+        if (
+            PayrollSettings::manualTotalBasicPay()
+            && ! ($existing?->total_basic_pay_manually_set)
+            && $computedTotalBasicPay > 0
+        ) {
+            return $computedTotalBasicPay;
+        }
+
+        return $storedTotalBasicPay;
     }
 
     /**
