@@ -3,6 +3,7 @@
 namespace App\Services\Payroll;
 
 use App\Enums\PayrollComputationStatus;
+use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryType;
 use App\Models\Employee;
 use App\Models\EmployeeBenefit;
@@ -193,6 +194,54 @@ class PayrollEngine
         $this->syncLineItems($payrollEmployee, $earningLines, $compensation['statutory_and_loans'], $summary, $minuteRate, $otMultiplier, $premium, $attendanceMeta);
 
         return $payrollEmployee->fresh(['earnings', 'deductions']);
+    }
+
+    /**
+     * Re-run payroll computation for this employee on every non-locked period that already has attendance.
+     */
+    public function recomputeOpenPeriodsForEmployee(Employee $employee, ?User $actor = null): int
+    {
+        $employee->loadMissing(['department', 'designation']);
+        $count = 0;
+
+        $summaries = PayrollAttendanceSummary::query()
+            ->where('employee_id', $employee->id)
+            ->whereHas('payrollPeriod', function ($query) {
+                $query->whereNotIn('status', [
+                    PayrollPeriodStatus::Finalized->value,
+                    PayrollPeriodStatus::Paid->value,
+                    PayrollPeriodStatus::Cancelled->value,
+                ]);
+            })
+            ->with(['payrollPeriod', 'employee'])
+            ->get();
+
+        foreach ($summaries as $summary) {
+            $period = $summary->payrollPeriod;
+            if (! $period?->status?->allowsRecomputation()) {
+                continue;
+            }
+
+            $hadManualTotal = PayrollEmployee::query()
+                ->where('payroll_period_id', $period->id)
+                ->where('employee_id', $employee->id)
+                ->value('total_basic_pay_manually_set');
+
+            $end = $period->end_date->toDateString();
+            $payrollEmployee = $this->computeEmployee($period, $employee, $summary, $end);
+
+            if ($hadManualTotal && $actor && (float) $payrollEmployee->computed_total_basic_pay > 0) {
+                $payrollEmployee = $this->applyManualTotalBasicPay(
+                    $payrollEmployee,
+                    (float) $payrollEmployee->computed_total_basic_pay,
+                    $actor,
+                );
+            }
+
+            $count++;
+        }
+
+        return $count;
     }
 
     public function applyManualTotalBasicPay(PayrollEmployee $payrollEmployee, float $amount, User $actor): PayrollEmployee

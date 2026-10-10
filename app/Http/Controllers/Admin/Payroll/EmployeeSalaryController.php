@@ -12,6 +12,7 @@ use App\Models\PayrollDeductionType;
 use App\Models\PayrollPeriod;
 use App\Services\AuditLogger;
 use App\Services\Payroll\EmployeeSalaryService;
+use App\Services\Payroll\PayrollEngine;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +20,7 @@ class EmployeeSalaryController extends Controller
 {
     public function __construct(
         private readonly EmployeeSalaryService $salaries,
+        private readonly PayrollEngine $payroll,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -97,8 +99,14 @@ class EmployeeSalaryController extends Controller
         $data = $this->salaries->normalizeAmounts($data);
 
         $this->salaries->assign($employee, $data, $request->user());
+        $recomputed = $this->payroll->recomputeOpenPeriodsForEmployee($employee, $request->user());
 
-        return back()->with('success', 'Salary assignment saved.');
+        $message = 'Salary assignment saved.';
+        if ($recomputed > 0) {
+            $message .= " {$recomputed} open payroll period(s) were recalculated.";
+        }
+
+        return back()->with('success', $message);
     }
 
     public function storeBenefit(Request $request, Employee $employee)
@@ -220,7 +228,13 @@ class EmployeeSalaryController extends Controller
         $this->salaries->assertPrimaryRatePresent($data);
 
         $this->salaries->updateHistory($salaryHistory, $data, $request->user());
+        $recomputed = $this->payroll->recomputeOpenPeriodsForEmployee($employee, $request->user());
 
-        return back()->with('success', 'Salary record updated.');
+        $message = 'Salary record updated.';
+        if ($recomputed > 0) {
+            $message .= " {$recomputed} open payroll period(s) were recalculated.";
+        }
+
+        return back()->with('success', $message);
     }
 }
