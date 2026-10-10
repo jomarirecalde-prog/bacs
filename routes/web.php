@@ -379,6 +379,10 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::prefix('payroll')->name('payroll.')->group(function () {
             Route::get('/', [PayrollDashboardController::class, 'index'])->name('dashboard');
             Route::get('/periods', [PayrollPeriodController::class, 'index'])->name('periods.index');
+            Route::middleware('role:admin')->group(function () {
+                Route::get('/periods/create', [PayrollPeriodController::class, 'create'])->name('periods.create');
+                Route::post('/periods', [PayrollPeriodController::class, 'store'])->name('periods.store');
+            });
             Route::get('/periods/{period}', [PayrollPeriodController::class, 'show'])->name('periods.show');
             Route::get('/periods/{period}/register', [PayrollRegisterController::class, 'index'])->name('register.index');
             Route::get('/periods/{period}/register/export', [PayrollRegisterController::class, 'export'])->name('register.export');
@@ -389,8 +393,6 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
 
             Route::middleware('role:admin')->group(function () {
                 Route::get('/designations', fn () => redirect()->route('admin.designations.index'));
-                Route::get('/periods/create', [PayrollPeriodController::class, 'create'])->name('periods.create');
-                Route::post('/periods', [PayrollPeriodController::class, 'store'])->name('periods.store');
                 Route::post('/periods/{period}/compute', [PayrollPeriodController::class, 'compute'])->name('periods.compute');
                 Route::post('/periods/{period}/compute-payroll', [PayrollPeriodController::class, 'computePayroll'])->name('periods.compute-payroll');
                 Route::put('/periods/{period}/status', [PayrollPeriodController::class, 'updateStatus'])->name('periods.status');
