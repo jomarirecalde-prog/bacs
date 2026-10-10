@@ -18,4 +18,21 @@ return [
         FILTER_VALIDATE_BOOL
     ),
 
+    'overtime_multiplier' => 1.25,
+    'holiday_pay_mode' => 'premium_only',
+    'overtime_requires_approval' => false,
+    'working_days_basis' => 22,
+    'block_finalize_on_warnings' => true,
+    'email_payslips_on_paid' => false,
+    'overtime_central_approval' => false,
+    'pay_unworked_regular_holidays' => false,
+    'manual_total_basic_pay' => true,
+
+    'statutory' => [
+        'philhealth_rate' => 0,
+        'hdmf_employee_amount' => 0,
+        'sss_from_brackets' => false,
+        'tax_from_brackets' => false,
+    ],
+
 ];

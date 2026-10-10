@@ -15,6 +15,7 @@ use App\Models\PayrollEmployee;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\PayrollDeductionConfig;
 use App\Support\PayrollSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +27,7 @@ class PayrollEngine
         private readonly PayrollPremiumCalculator $premiums,
         private readonly SssContributionService $sss,
         private readonly WithholdingTaxService $withholdingTax,
+        private readonly AttendanceDeductionService $attendanceDeductions,
     ) {}
 
     /**
@@ -90,12 +92,20 @@ class PayrollEngine
         $employee->loadMissing(['department', 'designation']);
 
         $rates = $this->resolveRates($salary);
-        $minuteRate = $this->minuteRate($rates);
 
         $basicPay = $this->basicPay($salary, $summary, $rates);
-        $absenceDed = Money::toFloat(Money::round((float) $summary->absent_days * $rates['daily_rate']));
-        $lateDed = Money::toFloat(Money::round($summary->late_minutes * $minuteRate));
-        $undertimeDed = Money::toFloat(Money::round($summary->undertime_minutes * $minuteRate));
+        $alu = $this->attendanceDeductions->calculate(
+            (int) $summary->absent_days,
+            (int) $summary->late_minutes,
+            (int) $summary->undertime_minutes,
+            $rates,
+            $effectiveDate,
+        );
+        $absenceDed = $alu['absence'];
+        $lateDed = $alu['late'];
+        $undertimeDed = $alu['undertime'];
+        $minuteRate = $alu['minute_rate'];
+        $attendanceMeta = $alu['meta'];
         $attendanceDed = $absenceDed + $lateDed + $undertimeDed;
 
         $computedTotalBasicPay = max(0, Money::toFloat(Money::round($basicPay - $attendanceDed)));
@@ -180,7 +190,7 @@ class PayrollEngine
             $earningLines['other_earnings'] = $compensation['other_earnings'];
         }
 
-        $this->syncLineItems($payrollEmployee, $earningLines, $compensation['statutory_and_loans'], $summary, $minuteRate, $otMultiplier, $premium);
+        $this->syncLineItems($payrollEmployee, $earningLines, $compensation['statutory_and_loans'], $summary, $minuteRate, $otMultiplier, $premium, $attendanceMeta);
 
         return $payrollEmployee->fresh(['earnings', 'deductions']);
     }
@@ -270,7 +280,15 @@ class PayrollEngine
         ]);
 
         $rates = $this->resolveRates($salary);
-        $minuteRate = $this->minuteRate($rates);
+        $alu = $this->attendanceDeductions->calculate(
+            (int) $summary->absent_days,
+            (int) $summary->late_minutes,
+            (int) $summary->undertime_minutes,
+            $rates,
+            $effectiveDate,
+        );
+        $minuteRate = $alu['minute_rate'];
+        $attendanceMeta = $alu['meta'];
         $otMultiplier = PayrollSettings::overtimeMultiplier();
 
         $earningLines = [
@@ -299,6 +317,7 @@ class PayrollEngine
             $minuteRate,
             $otMultiplier,
             $premium,
+            $attendanceMeta,
         );
 
         return $payrollEmployee->fresh(['earnings', 'deductions']);
@@ -409,15 +428,6 @@ class PayrollEngine
         ];
     }
 
-    private function minuteRate(array $rates): float
-    {
-        if (config('payroll.formulas.minute_rate_from') === 'daily' && $rates['working_hours'] > 0) {
-            return $rates['daily_rate'] / $rates['working_hours'] / 60;
-        }
-
-        return $rates['hourly_rate'] / 60;
-    }
-
     private function basicPay(?\App\Models\EmployeeSalaryHistory $salary, PayrollAttendanceSummary $summary, array $rates): float
     {
         if (! $salary) {
@@ -524,14 +534,15 @@ class PayrollEngine
     private function applyAutoStatutory(array $items, float $grossCompensation, float $monthlyCompensation, string $asOfDate): array
     {
         $codes = array_column($items, 'code');
-        $types = PayrollDeductionType::query()->pluck('id', 'code');
+        $types = PayrollDeductionType::query()->where('is_active', true)->pluck('id', 'code');
+        $statutory = PayrollDeductionConfig::forDate($asOfDate)['statutory'];
 
-        if (PayrollSettings::sssFromBracketTable() && ! in_array('sss', $codes, true) && $monthlyCompensation > 0) {
+        if ($statutory['auto_sss'] && $statutory['sss_from_brackets'] && isset($types['sss']) && ! in_array('sss', $codes, true) && $monthlyCompensation > 0) {
             $sssAmount = $this->sss->semiMonthlyEmployeeShare($monthlyCompensation, $asOfDate);
             if ($sssAmount > 0) {
                 $items[] = [
                     'code' => 'sss',
-                    'label' => 'SSS (auto)',
+                    'label' => 'SSS (auto, employee share)',
                     'amount' => $sssAmount,
                     'deduction_type_id' => $types['sss'] ?? null,
                 ];
@@ -539,27 +550,27 @@ class PayrollEngine
             }
         }
 
-        $phRate = PayrollSettings::philhealthRate();
-        if ($phRate > 0 && ! in_array('philhealth', $codes, true) && $grossCompensation > 0) {
+        $phRate = (float) $statutory['philhealth_rate'];
+        if ($statutory['auto_philhealth'] && $phRate > 0 && isset($types['philhealth']) && ! in_array('philhealth', $codes, true) && $grossCompensation > 0) {
             $items[] = [
                 'code' => 'philhealth',
-                'label' => 'PhilHealth (auto)',
+                'label' => 'PhilHealth (auto, employee share)',
                 'amount' => Money::toFloat(Money::round($grossCompensation * $phRate / 100)),
                 'deduction_type_id' => $types['philhealth'] ?? null,
             ];
         }
 
-        $hdmf = PayrollSettings::hdmfAmount();
-        if ($hdmf > 0 && ! in_array('hdmf', $codes, true)) {
+        $hdmf = (float) $statutory['hdmf_amount'];
+        if ($statutory['auto_hdmf'] && $hdmf > 0 && isset($types['hdmf']) && ! in_array('hdmf', $codes, true)) {
             $items[] = [
                 'code' => 'hdmf',
-                'label' => 'HDMF (auto)',
+                'label' => 'HDMF / Pag-IBIG (auto, employee share)',
                 'amount' => Money::toFloat(Money::round($hdmf)),
                 'deduction_type_id' => $types['hdmf'] ?? null,
             ];
         }
 
-        if (PayrollSettings::taxFromBracketTable() && $monthlyCompensation > 0 && ! in_array('tax', $codes, true)) {
+        if ($statutory['auto_tax'] && $statutory['tax_from_brackets'] && isset($types['tax']) && $monthlyCompensation > 0 && ! in_array('tax', $codes, true)) {
             $tax = $this->withholdingTax->semiMonthlyTax($monthlyCompensation, $asOfDate);
             if ($tax > 0) {
                 $items[] = [
@@ -581,6 +592,9 @@ class PayrollEngine
     /**
      * @param  array{holiday_pay: float, premium_pay: float, breakdown: list<mixed>}  $premium
      */
+    /**
+     * @param  array{absence?: array<string, mixed>, late?: array<string, mixed>, undertime?: array<string, mixed>}  $attendanceMeta
+     */
     private function syncLineItems(
         PayrollEmployee $payrollEmployee,
         array $earnings,
@@ -588,7 +602,8 @@ class PayrollEngine
         PayrollAttendanceSummary $summary,
         float $minuteRate,
         float $otMultiplier,
-        array $premium = ['holiday_pay' => 0, 'premium_pay' => 0, 'breakdown' => []]
+        array $premium = ['holiday_pay' => 0, 'premium_pay' => 0, 'breakdown' => []],
+        array $attendanceMeta = [],
     ): void {
         $payrollEmployee->earnings()->delete();
         $payrollEmployee->deductions()->delete();
@@ -660,14 +675,17 @@ class PayrollEngine
             if ($amount <= 0) {
                 continue;
             }
+            $meta = $attendanceMeta[$code] ?? (
+                $code === 'late' || $code === 'undertime'
+                    ? ['minutes' => $code === 'late' ? $summary->late_minutes : $summary->undertime_minutes, 'minute_rate' => $minuteRate]
+                    : ['days' => $summary->absent_days]
+            );
             $payrollEmployee->deductions()->create([
                 'deduction_type_id' => $deductionTypes[$code] ?? null,
                 'code' => $code,
                 'label' => ucfirst($code),
                 'amount' => $amount,
-                'meta' => $code === 'late' || $code === 'undertime'
-                    ? ['minutes' => $code === 'late' ? $summary->late_minutes : $summary->undertime_minutes, 'minute_rate' => $minuteRate]
-                    : ['days' => $summary->absent_days],
+                'meta' => $meta,
             ]);
         }
 

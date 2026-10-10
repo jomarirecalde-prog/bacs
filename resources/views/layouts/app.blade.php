@@ -168,7 +168,8 @@
                             $navGroups[] = ['label' => 'Personal', 'items' => [
                                 ['employee.dashboard', 'My Time In / Out', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
-                                ['employee.payroll.index', 'My Payroll', $icons['chart'], 'employee.payroll.*'],
+                                ['employee.salary.index', 'My Salary', $icons['chart'], 'employee.salary.*'],
+                                ['employee.payroll.index', 'My Payroll', $icons['document'], 'employee.payroll.*'],
                                 ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
                                 ['employee.leave.apply', 'Apply for Leave', $icons['leave'], 'employee.leave.apply'],
                                 ['employee.leave.index', 'My Leave Applications', $icons['list'], 'employee.leave.index'],
@@ -210,7 +211,8 @@
                             ['label' => 'My Records', 'items' => [
                                 ['employee.attendance', 'My Attendance', $icons['clock']],
                                 ['employee.dtr', 'My DTR', $icons['document']],
-                                ['employee.payroll.index', 'My Payroll', $icons['chart'], 'employee.payroll.*'],
+                                ['employee.salary.index', 'My Salary', $icons['chart'], 'employee.salary.*'],
+                                ['employee.payroll.index', 'My Payroll', $icons['document'], 'employee.payroll.*'],
                                 ['employee.attendance-corrections.index', 'DTR Corrections', $icons['document'], 'employee.attendance-corrections.*'],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]],

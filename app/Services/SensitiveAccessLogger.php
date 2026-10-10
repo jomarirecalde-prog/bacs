@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Employee;
 use App\Models\PayrollEmployee;
 use App\Models\PayrollPeriod;
 use App\Models\User;
@@ -40,6 +41,24 @@ class SensitiveAccessLogger
             "Payroll register exported ({$format}) for {$period->period_name}.",
             $request,
             ['format' => $format, 'period_id' => $period->id],
+        );
+    }
+
+    public function employeeSalaryView(
+        User $user,
+        Employee $employee,
+        string $context,
+        ?Request $request = null,
+        ?array $metadata = null,
+    ): void {
+        $this->audit->log(
+            $user,
+            'employee_salary_view',
+            'Payroll',
+            $employee->id,
+            'Employee salary module accessed ('.$context.').',
+            $request,
+            array_merge(['employee_id' => $employee->id, 'context' => $context], $metadata ?? []),
         );
     }
 

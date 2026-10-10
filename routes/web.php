@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\Payroll\PayrollAdjustmentController;
 use App\Http\Controllers\Admin\Payroll\PayrollRegisterController;
 use App\Http\Controllers\Admin\Payroll\PayrollSettingsController;
 use App\Http\Controllers\Employee\PayrollController as EmployeePayrollController;
+use App\Http\Controllers\Employee\SalaryController as EmployeeSalaryController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationMonitoringController;
@@ -185,6 +186,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::put('/official-time/{officialTimeRequest}', [EmployeeOfficialTimeController::class, 'update'])->name('official-time.update');
         Route::post('/official-time/{officialTimeRequest}/cancel', [EmployeeOfficialTimeController::class, 'cancel'])->name('official-time.cancel');
         Route::get('/official-time/{officialTimeRequest}/attachment', [EmployeeOfficialTimeController::class, 'attachment'])->name('official-time.attachment');
+
+        Route::get('/salary', [EmployeeSalaryController::class, 'index'])->name('salary.index');
+        Route::get('/salary/{payrollEmployee}', [EmployeeSalaryController::class, 'show'])->name('salary.show');
 
         Route::get('/payroll', [EmployeePayrollController::class, 'index'])->name('payroll.index');
         Route::get('/payroll/{payrollEmployee}', [EmployeePayrollController::class, 'show'])->name('payroll.show');
@@ -393,6 +397,10 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
                 Route::post('/periods/{period}/notify-payslips', [PayrollPeriodController::class, 'notifyPayslips'])->name('periods.notify-payslips');
                 Route::get('/settings', [PayrollSettingsController::class, 'index'])->name('settings.index');
                 Route::post('/settings/general', [PayrollSettingsController::class, 'updateGeneral'])->name('settings.general');
+                Route::post('/settings/statutory', [PayrollSettingsController::class, 'updateStatutory'])->name('settings.statutory');
+                Route::post('/settings/late-deductions', [PayrollSettingsController::class, 'updateLateDeductions'])->name('settings.late-deductions');
+                Route::post('/settings/undertime-deductions', [PayrollSettingsController::class, 'updateUndertimeDeductions'])->name('settings.undertime-deductions');
+                Route::put('/settings/deduction-types/{deductionType}', [PayrollSettingsController::class, 'updateDeductionType'])->name('settings.deduction-types.update');
                 Route::put('/settings/rules/{rule}', [PayrollSettingsController::class, 'updateRule'])->name('settings.rules.update');
                 Route::post('/overtime/{overtimeRequest}/decide', [PayrollOvertimeRequestController::class, 'decide'])->name('overtime.decide');
                 Route::get('/periods/{period}/adjustments', [PayrollAdjustmentController::class, 'index'])->name('adjustments.index');

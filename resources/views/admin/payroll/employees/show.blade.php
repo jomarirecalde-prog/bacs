@@ -86,9 +86,36 @@
         <div class="card-header"><h2 class="card-title">Deduction lines</h2></div>
         <ul class="divide-y divide-line p-5 text-sm">
             @forelse ($payrollEmployee->deductions as $line)
-                <li class="flex justify-between py-2">
-                    <span>{{ $line->label }}</span>
-                    <span class="tabular-nums font-semibold text-critical-700">−₱{{ number_format($line->amount, 2) }}</span>
+                <li class="py-2">
+                    <div class="flex justify-between gap-4">
+                        <span>{{ $line->label }}</span>
+                        <span class="tabular-nums font-semibold text-critical-700">−₱{{ number_format($line->amount, 2) }}</span>
+                    </div>
+                    @if (is_array($line->meta) && $line->meta !== [])
+                        <p class="mt-1 text-xs text-muted">
+                            @if (isset($line->meta['minutes']))
+                                {{ $line->meta['minutes'] }} min
+                                @if (! empty($line->meta['billable_minutes']) && (int) $line->meta['billable_minutes'] !== (int) $line->meta['minutes'])
+                                    (billable {{ $line->meta['billable_minutes'] }} min)
+                                @endif
+                                @if (! empty($line->meta['fixed_per_minute']))
+                                    · ₱{{ number_format((float) $line->meta['fixed_per_minute'], 2) }}/min
+                                @elseif (! empty($line->meta['minute_rate']))
+                                    · ₱{{ number_format((float) $line->meta['minute_rate'], 4) }}/min
+                                @elseif (! empty($line->meta['amount_per_block']))
+                                    · ₱{{ number_format((float) $line->meta['amount_per_block'], 2) }} / {{ $line->meta['block_minutes'] ?? '?' }} min
+                                @endif
+                                @if (! empty($line->meta['calculation_mode']))
+                                    · {{ str_replace('_', ' ', $line->meta['calculation_mode']) }}
+                                @endif
+                            @elseif (isset($line->meta['days']))
+                                {{ $line->meta['days'] }} day(s)
+                                @if (! empty($line->meta['daily_rate']))
+                                    · ₱{{ number_format((float) $line->meta['daily_rate'], 2) }}/day
+                                @endif
+                            @endif
+                        </p>
+                    @endif
                 </li>
             @empty
                 <li class="text-muted">No deduction lines.</li>

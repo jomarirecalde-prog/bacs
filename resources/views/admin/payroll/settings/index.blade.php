@@ -2,16 +2,149 @@
 
 @section('title', 'Payroll configuration')
 @section('page-title', 'Payroll configuration')
-@section('page-subtitle', 'Overtime, statutory defaults, and holiday / rest-day premium rules')
+@section('page-subtitle', 'Statutory contributions, attendance deductions, overtime, and premium rules')
 
 @section('content')
+@php
+    $statutory = $deductionConfig['statutory'] ?? [];
+    $late = $deductionConfig['late'] ?? [];
+    $undertime = $deductionConfig['undertime'] ?? [];
+@endphp
+
 <div class="mb-4 flex flex-wrap gap-2">
     <a href="{{ route('admin.payroll.dashboard') }}" class="btn-outline btn-sm">← Payroll dashboard</a>
     <a href="{{ route('admin.designations.index') }}" class="btn-outline btn-sm">Designation master</a>
 </div>
 
+@if (session('success'))
+    <div class="alert-success mb-4 text-sm">{{ session('success') }}</div>
+@endif
+
+@if ($errors->any())
+    <div class="alert-critical mb-4 text-sm">
+        <ul class="list-disc pl-5">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 <div class="grid gap-6 lg:grid-cols-2">
-    <div class="card card-accent-brand overflow-hidden">
+    <div class="card card-accent-brand overflow-hidden lg:col-span-2">
+        <div class="card-header"><h2 class="card-title">Statutory contributions (employee share)</h2></div>
+        <form method="POST" action="{{ route('admin.payroll.settings.statutory') }}" class="space-y-4 p-5">
+            @csrf
+            <p class="text-sm text-muted">
+                Only <strong class="font-semibold text-ink">employee</strong> shares are deducted from salary. Employer shares are not withheld here.
+                Per-employee recurring deduction lines override auto-computation for that type. SSS uses the bracket table when enabled below.
+            </p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <label class="label" for="statutory_effective_from">Effective from</label>
+                    <input id="statutory_effective_from" class="input" type="date" name="effective_from"
+                        value="{{ old('effective_from', now()->toDateString()) }}" required>
+                </div>
+                <div>
+                    <label class="label" for="payroll_philhealth_rate">PhilHealth rate (% of gross compensation)</label>
+                    <input id="payroll_philhealth_rate" class="input" type="number" step="0.01" min="0" max="100"
+                        name="payroll_philhealth_rate" value="{{ old('payroll_philhealth_rate', $statutory['philhealth_rate'] ?? 0) }}">
+                </div>
+                <div>
+                    <label class="label" for="payroll_hdmf_amount">HDMF / Pag-IBIG employee share (fixed per period)</label>
+                    <input id="payroll_hdmf_amount" class="input" type="number" step="0.01" min="0"
+                        name="payroll_hdmf_amount" value="{{ old('payroll_hdmf_amount', $statutory['hdmf_amount'] ?? 0) }}">
+                </div>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach ([
+                    ['payroll_auto_sss', 'Auto SSS (bracket table)', $statutory['auto_sss'] ?? false],
+                    ['payroll_auto_philhealth', 'Auto PhilHealth', $statutory['auto_philhealth'] ?? false],
+                    ['payroll_auto_hdmf', 'Auto HDMF', $statutory['auto_hdmf'] ?? false],
+                    ['payroll_auto_tax', 'Auto withholding tax', $statutory['auto_tax'] ?? false],
+                ] as [$name, $label, $checked])
+                    <div class="flex items-center gap-2">
+                        <input type="hidden" name="{{ $name }}" value="0">
+                        <input id="{{ $name }}" type="checkbox" class="checkbox" name="{{ $name }}" value="1" @checked(old($name, $checked))>
+                        <label for="{{ $name }}" class="text-sm">{{ $label }}</label>
+                    </div>
+                @endforeach
+            </div>
+            <div class="flex flex-wrap gap-6 border-t border-line pt-4">
+                <div class="flex items-center gap-2">
+                    <input type="hidden" name="payroll_sss_from_brackets" value="0">
+                    <input id="payroll_sss_from_brackets" type="checkbox" class="checkbox" name="payroll_sss_from_brackets" value="1"
+                        @checked(old('payroll_sss_from_brackets', $statutory['sss_from_brackets'] ?? false))>
+                    <label for="payroll_sss_from_brackets" class="text-sm">Use SSS bracket table (semi-monthly employee share)</label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="hidden" name="payroll_tax_from_brackets" value="0">
+                    <input id="payroll_tax_from_brackets" type="checkbox" class="checkbox" name="payroll_tax_from_brackets" value="1"
+                        @checked(old('payroll_tax_from_brackets', $statutory['tax_from_brackets'] ?? false))>
+                    <label for="payroll_tax_from_brackets" class="text-sm">Use withholding tax bracket table</label>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary">Save statutory settings</button>
+        </form>
+    </div>
+
+    <div class="card overflow-hidden lg:col-span-2">
+        <div class="card-header">
+            <h2 class="card-title">Deduction types</h2>
+            <span class="chip">Enable / disable</span>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table text-sm">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($deductionTypes as $type)
+                        <tr>
+                            <td class="font-semibold text-ink">{{ $type->name }}</td>
+                            <td class="text-muted">{{ $type->is_statutory ? 'Statutory' : 'Other' }}</td>
+                            <td>
+                                <span class="{{ $type->is_active ? 'badge-brand' : 'badge-neutral' }}">
+                                    {{ $type->is_active ? 'Active' : 'Disabled' }}
+                                </span>
+                            </td>
+                            <td class="text-right">
+                                <form method="POST" action="{{ route('admin.payroll.settings.deduction-types.update', $type) }}" class="inline-flex items-center gap-2">
+                                    @csrf @method('PUT')
+                                    <select name="is_active" class="select w-auto text-sm">
+                                        <option value="1" @selected($type->is_active)>Active</option>
+                                        <option value="0" @selected(! $type->is_active)>Disabled</option>
+                                    </select>
+                                    <button type="submit" class="btn-outline btn-sm">Update</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @include('admin.payroll.settings.partials.attendance-deduction-form', [
+        'prefix' => 'late',
+        'rule' => $late,
+        'title' => 'Late deductions',
+        'action' => route('admin.payroll.settings.late-deductions'),
+    ])
+
+    @include('admin.payroll.settings.partials.attendance-deduction-form', [
+        'prefix' => 'undertime',
+        'rule' => $undertime,
+        'title' => 'Undertime deductions',
+        'action' => route('admin.payroll.settings.undertime-deductions'),
+    ])
+
+    <div class="card overflow-hidden">
         <div class="card-header"><h2 class="card-title">General settings</h2></div>
         <form method="POST" action="{{ route('admin.payroll.settings.general') }}" class="space-y-4 p-5">
             @csrf
@@ -35,28 +168,11 @@
                 <label for="payroll_ot_requires_approval" class="text-sm">Require OT approval before payroll uses OT hours</label>
             </div>
             <div>
-                <label class="label" for="payroll_philhealth_rate">PhilHealth rate (% of gross comp.)</label>
-                <input id="payroll_philhealth_rate" class="input" type="number" step="0.01" min="0" max="100"
-                    name="payroll_philhealth_rate" value="{{ old('payroll_philhealth_rate', $philhealthRate) }}">
-                <p class="mt-1 text-xs text-muted">Auto-deducted when employee has no active PhilHealth deduction line.</p>
-            </div>
-            <div>
-                <label class="label" for="payroll_hdmf_amount">HDMF employee share (fixed per period)</label>
-                <input id="payroll_hdmf_amount" class="input" type="number" step="0.01" min="0"
-                    name="payroll_hdmf_amount" value="{{ old('payroll_hdmf_amount', $hdmfAmount) }}">
-            </div>
-            <div>
                 <label class="label" for="payroll_working_days_basis">Working days basis (salary derivation)</label>
                 <input id="payroll_working_days_basis" class="input" type="number" min="1" max="31"
                     name="payroll_working_days_basis" value="{{ old('payroll_working_days_basis', $workingDaysBasis) }}" required>
             </div>
             <div class="space-y-2 border-t border-line pt-4">
-                <div class="flex items-center gap-2">
-                    <input type="hidden" name="payroll_sss_from_brackets" value="0">
-                    <input id="payroll_sss_from_brackets" type="checkbox" class="checkbox" name="payroll_sss_from_brackets" value="1"
-                        @checked(old('payroll_sss_from_brackets', $sssFromBrackets))>
-                    <label for="payroll_sss_from_brackets" class="text-sm">Auto SSS from bracket table (semi-monthly share)</label>
-                </div>
                 <div class="flex items-center gap-2">
                     <input type="hidden" name="payroll_block_finalize_on_warnings" value="0">
                     <input id="payroll_block_finalize_on_warnings" type="checkbox" class="checkbox" name="payroll_block_finalize_on_warnings" value="1"
@@ -73,13 +189,7 @@
                     <input type="hidden" name="payroll_ot_central_approval" value="0">
                     <input id="payroll_ot_central_approval" type="checkbox" class="checkbox" name="payroll_ot_central_approval" value="1"
                         @checked(old('payroll_ot_central_approval', $otCentralApproval))>
-                    <label for="payroll_ot_central_approval" class="text-sm">Route OT through central approval workflow (Settings → Approval Workflow → Overtime)</label>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="hidden" name="payroll_tax_from_brackets" value="0">
-                    <input id="payroll_tax_from_brackets" type="checkbox" class="checkbox" name="payroll_tax_from_brackets" value="1"
-                        @checked(old('payroll_tax_from_brackets', $taxFromBrackets))>
-                    <label for="payroll_tax_from_brackets" class="text-sm">Auto withholding tax from bracket table</label>
+                    <label for="payroll_ot_central_approval" class="text-sm">Route OT through central approval workflow</label>
                 </div>
                 <div class="flex items-center gap-2">
                     <input type="hidden" name="payroll_unworked_regular_holiday_pay" value="0">
@@ -91,6 +201,20 @@
             <button type="submit" class="btn-primary btn-block">Save general settings</button>
         </form>
     </div>
+
+    @if ($latestDeductionRevision)
+        <div class="card overflow-hidden">
+            <div class="card-header"><h2 class="card-title">Deduction rule history</h2></div>
+            <ul class="divide-y divide-line p-5 text-sm">
+                @foreach ($revisionHistory as $revision)
+                    <li class="py-2">
+                        <span class="font-semibold text-ink">Effective {{ $revision['effective_from'] ?? '—' }}</span>
+                        <span class="text-muted"> · saved {{ isset($revision['saved_at']) ? \Illuminate\Support\Carbon::parse($revision['saved_at'])->format('M j, Y g:i A') : '—' }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <div class="card overflow-hidden lg:col-span-2">
         <div class="card-header">

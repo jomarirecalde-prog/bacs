@@ -22,6 +22,16 @@ class PayrollEmployeePolicy
         return $this->view($user, $payrollEmployee);
     }
 
+    /** My Salary: own records for any period status (estimates included). */
+    public function viewOwnSalary(User $user, PayrollEmployee $payrollEmployee): bool
+    {
+        if ($user->canViewPayroll()) {
+            return true;
+        }
+
+        return $user->employee?->id === $payrollEmployee->employee_id;
+    }
+
     public function update(User $user, PayrollEmployee $payrollEmployee): bool
     {
         if (! $user->canManagePayroll()) {
