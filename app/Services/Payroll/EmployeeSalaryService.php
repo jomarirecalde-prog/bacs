@@ -31,6 +31,7 @@ class EmployeeSalaryService
                 'designation_id' => $data['designation_id'] ?? $employee->designation_id,
                 'salary_type' => $data['salary_type'],
                 'basic_salary' => $data['basic_salary'] ?? null,
+                'gross_compensation' => $data['gross_compensation'] ?? null,
                 'monthly_salary' => $data['monthly_salary'] ?? null,
                 'semi_monthly_salary' => $data['semi_monthly_salary'] ?? null,
                 'daily_rate' => $data['daily_rate'] ?? null,
@@ -64,6 +65,7 @@ class EmployeeSalaryService
         $record->update([
             'salary_type' => $data['salary_type'],
             'basic_salary' => $data['basic_salary'] ?? null,
+            'gross_compensation' => $data['gross_compensation'] ?? null,
             'monthly_salary' => $data['monthly_salary'] ?? null,
             'semi_monthly_salary' => $data['semi_monthly_salary'] ?? null,
             'daily_rate' => $data['daily_rate'] ?? null,
@@ -156,10 +158,10 @@ class EmployeeSalaryService
     {
         $type = SalaryType::from($data['salary_type']);
         $primary = match ($type) {
-            SalaryType::Monthly => $data['monthly_salary'] ?? null,
-            SalaryType::SemiMonthly => $data['semi_monthly_salary'] ?? null,
-            SalaryType::Daily => $data['daily_rate'] ?? null,
-            SalaryType::Hourly => $data['hourly_rate'] ?? null,
+            SalaryType::Monthly => $data['monthly_salary'] ?? $data['basic_salary'] ?? null,
+            SalaryType::SemiMonthly => $data['semi_monthly_salary'] ?? $data['basic_salary'] ?? null,
+            SalaryType::Daily => $data['daily_rate'] ?? $data['basic_salary'] ?? null,
+            SalaryType::Hourly => $data['hourly_rate'] ?? $data['basic_salary'] ?? null,
             SalaryType::FixedPeriod => $data['basic_salary'] ?? null,
         };
 
@@ -184,12 +186,24 @@ class EmployeeSalaryService
 
         $amount = isset($data['amount']) && $data['amount'] !== '' ? (float) $data['amount'] : null;
 
-        foreach (['basic_salary', 'monthly_salary', 'semi_monthly_salary', 'daily_rate', 'hourly_rate'] as $key) {
+        foreach (['basic_salary', 'gross_compensation', 'monthly_salary', 'semi_monthly_salary', 'daily_rate', 'hourly_rate'] as $key) {
             if (! array_key_exists($key, $data) || $data[$key] === '' || $data[$key] === null) {
                 unset($data[$key]);
             } else {
                 $data[$key] = (float) $data[$key];
             }
+        }
+
+        if (isset($data['basic_salary'])) {
+            $basic = (float) $data['basic_salary'];
+            $amount ??= $basic;
+            match ($type) {
+                SalaryType::SemiMonthly => $data['semi_monthly_salary'] = $data['semi_monthly_salary'] ?? $basic,
+                SalaryType::Monthly => $data['monthly_salary'] = $data['monthly_salary'] ?? $basic,
+                SalaryType::Daily => $data['daily_rate'] = $data['daily_rate'] ?? $basic,
+                SalaryType::Hourly => $data['hourly_rate'] = $data['hourly_rate'] ?? $basic,
+                SalaryType::FixedPeriod => $data['basic_salary'] = $basic,
+            };
         }
 
         match ($type) {

@@ -52,9 +52,12 @@ class EmployeePayrollDeclaredDataUpdateTest extends TestCase
         $svc = app(EmployeeSalaryService::class);
         $data = $svc->normalizeAmounts([
             'salary_type' => SalaryType::SemiMonthly->value,
+            'basic_salary' => 10000,
+            'gross_compensation' => 10200,
             'amount' => 10000,
             'effective_from' => '2026-01-01',
         ]);
+        $data['gross_compensation'] = 10200;
         $history = $svc->assign($employee, $data, $admin);
 
         $this->actingAs($admin)->put(route('admin.payroll.employees.deductions.update', [$employee, $deduction]), [
@@ -66,13 +69,14 @@ class EmployeePayrollDeclaredDataUpdateTest extends TestCase
 
         $this->actingAs($admin)->put(route('admin.payroll.employees.salary.update', [$employee, $history]), [
             'salary_type' => SalaryType::SemiMonthly->value,
-            'semi_monthly_salary' => 12000,
-            'daily_rate' => 600,
+            'basic_salary' => 12000,
+            'gross_compensation' => 12500,
         ])->assertRedirect();
 
         $fresh = $history->fresh();
+        $this->assertSame('12000.00', (string) $fresh->basic_salary);
         $this->assertSame('12000.00', (string) $fresh->semi_monthly_salary);
-        $this->assertSame('600.00', (string) $fresh->daily_rate);
+        $this->assertSame('12500.00', (string) $fresh->gross_compensation);
     }
 
     private function defaultSchedule(): WorkSchedule

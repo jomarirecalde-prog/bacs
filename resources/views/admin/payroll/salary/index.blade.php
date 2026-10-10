@@ -2,6 +2,8 @@
 
 @php
     use App\Enums\EmployeeSalaryStatus;
+
+    $deMinimisPerCutoff = (float) ($activeBenefit?->amount ?? 0);
 @endphp
 
 @section('title', 'Salary History')
@@ -60,11 +62,14 @@
     </div>
 
     @if ($current)
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <x-stat-card label="Monthly equivalent" :value="'₱'.number_format((float) ($current->monthly_salary ?? 0), 2)" tone="gold" icon="chart" />
-            <x-stat-card label="Semi-monthly" :value="$current->semi_monthly_salary ? '₱'.number_format((float) $current->semi_monthly_salary, 2) : '—'" tone="info" icon="document" />
-            <x-stat-card label="Daily rate" :value="$current->daily_rate ? '₱'.number_format((float) $current->daily_rate, 2) : '—'" tone="brand" icon="clock" />
-            <x-stat-card label="Hourly rate" :value="$current->hourly_rate ? '₱'.number_format((float) $current->hourly_rate, 2) : '—'" tone="blue" icon="clock" />
+        @php
+            $currentBasic = (float) ($current->basic_salary ?? $current->semi_monthly_salary ?? $current->monthly_salary ?? 0);
+            $currentGross = (float) ($current->gross_compensation ?? ($currentBasic + $deMinimisPerCutoff));
+        @endphp
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <x-stat-card label="Basic salary (per cut-off)" :value="'₱'.number_format($currentBasic, 2)" tone="gold" icon="chart" />
+            <x-stat-card label="De minimis (per cut-off)" :value="$deMinimisPerCutoff > 0 ? '₱'.number_format($deMinimisPerCutoff, 2) : '—'" tone="info" icon="document" />
+            <x-stat-card label="Gross compensation (declared)" :value="'₱'.number_format($currentGross, 2)" tone="brand" icon="chart" />
         </div>
     @endif
 
@@ -77,7 +82,17 @@
                 </div>
             </div>
             <form method="POST" action="{{ route('admin.payroll.employees.salary.store', $employee) }}" class="form-card-body"
-                x-data="{ submitting: false }"
+                x-data="{
+                    submitting: false,
+                    deMinimis: {{ json_encode($deMinimisPerCutoff) }},
+                    suggestGross() {
+                        const basic = parseFloat(this.$refs.basicSalary?.value);
+                        if (!Number.isFinite(basic) || basic < 0) return;
+                        if (this.$refs.grossComp?.dataset.userEdited === '1') return;
+                        this.$refs.grossComp.value = (basic + this.deMinimis).toFixed(2);
+                    },
+                    markGrossEdited() { if (this.$refs.grossComp) this.$refs.grossComp.dataset.userEdited = '1'; }
+                }"
                 @submit="submitting = true"
                 @if ($designationDefaults) data-designation-defaults='@json($designationDefaults)' @endif>
                 @csrf
@@ -101,10 +116,16 @@
                     @error('salary_type')<p class="error-text">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label class="label" for="amount">Amount (₱)</label>
-                    <input id="amount" class="input @error('amount') input-error @enderror" type="number" step="0.01" min="0" name="amount" value="{{ old('amount') }}" required inputmode="decimal">
-                    <p class="hint">Primary rate for the selected type (monthly, daily, hourly, etc.).</p>
-                    @error('amount')<p class="error-text">{{ $message }}</p>@enderror
+                    <label class="label" for="basic_salary">Basic salary (₱)</label>
+                    <input id="basic_salary" x-ref="basicSalary" class="input @error('basic_salary') input-error @enderror" type="number" step="0.01" min="0" name="basic_salary" value="{{ old('basic_salary') }}" required inputmode="decimal" @input="suggestGross()" @change="suggestGross()">
+                    <p class="hint">Cut-off basic pay (semi-monthly amount when pay type is semi-monthly).</p>
+                    @error('basic_salary')<p class="error-text">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="label" for="gross_compensation">Gross compensation (₱)</label>
+                    <input id="gross_compensation" x-ref="grossComp" class="input @error('gross_compensation') input-error @enderror" type="number" step="0.01" min="0" name="gross_compensation" value="{{ old('gross_compensation') }}" required inputmode="decimal" data-user-edited="0" @input="markGrossEdited()">
+                    <p class="hint">Manual entry per cut-off. Typical formula: <span class="font-semibold text-ink-soft">Basic salary + De minimis</span>@if ($deMinimisPerCutoff > 0) (de minimis ₱{{ number_format($deMinimisPerCutoff, 2) }})@endif.</p>
+                    @error('gross_compensation')<p class="error-text">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="label" for="designation_id">Designation snapshot</label>
@@ -137,21 +158,28 @@
                 <script>
                     (function () {
                         const form = document.querySelector('[data-designation-defaults]');
-                        if (!form || form.querySelector('#amount').value) return;
+                        const basicEl = form?.querySelector('#basic_salary');
+                        if (!form || !basicEl || basicEl.value) return;
                         const defaults = JSON.parse(form.dataset.designationDefaults || '{}');
                         const typeEl = form.querySelector('#salary_type');
-                        const amountEl = form.querySelector('#amount');
+                        const grossEl = form.querySelector('#gross_compensation');
+                        const deMinimis = {{ json_encode($deMinimisPerCutoff) }};
                         const apply = () => {
                             if (defaults.pay_type) typeEl.value = defaults.pay_type;
                             const map = {
                                 monthly: defaults.monthly_salary ?? defaults.basic_salary,
-                                semi_monthly: defaults.semi_monthly_salary,
+                                semi_monthly: defaults.semi_monthly_salary ?? defaults.basic_salary,
                                 daily: defaults.daily_rate,
                                 hourly: defaults.hourly_rate,
                                 fixed_period: defaults.basic_salary,
                             };
                             const val = map[typeEl.value];
-                            if (val != null && val !== '') amountEl.value = val;
+                            if (val != null && val !== '') {
+                                basicEl.value = val;
+                                if (grossEl && grossEl.dataset.userEdited !== '1') {
+                                    grossEl.value = (parseFloat(val) + deMinimis).toFixed(2);
+                                }
+                            }
                         };
                         typeEl.addEventListener('change', apply);
                         apply();
@@ -300,9 +328,8 @@
                             <tr>
                                 <th>Effective</th>
                                 <th>Type</th>
-                                <th class="text-right hidden md:table-cell">Monthly (₱)</th>
-                                <th class="text-right">Semi-monthly (₱)</th>
-                                <th class="text-right hidden sm:table-cell">Daily (₱)</th>
+                                <th class="text-right">Basic salary (₱)</th>
+                                <th class="text-right">Gross compensation (₱)</th>
                                 <th>Status</th>
                                 <th class="w-24"></th>
                             </tr>
@@ -318,6 +345,8 @@
                                     };
                                     $rowClass = $row->status === EmployeeSalaryStatus::Active ? 'row-featured' : '';
                                     $formId = 'salary-history-'.$row->id;
+                                    $rowBasic = old('basic_salary', $row->basic_salary ?? $row->semi_monthly_salary ?? $row->monthly_salary);
+                                    $rowGross = old('gross_compensation', $row->gross_compensation ?? ((float) ($row->basic_salary ?? $row->semi_monthly_salary ?? 0) + $deMinimisPerCutoff));
                                 @endphp
                                 <tr class="{{ $rowClass }}">
                                     <td class="align-top text-muted">
@@ -333,16 +362,14 @@
                                             @endforeach
                                         </select>
                                     </td>
-                                    <td class="align-top text-right hidden md:table-cell">
-                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="monthly_salary" form="{{ $formId }}" value="{{ old('monthly_salary', $row->monthly_salary) }}" inputmode="decimal">
-                                    </td>
                                     <td class="align-top text-right">
-                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="semi_monthly_salary" form="{{ $formId }}" value="{{ old('semi_monthly_salary', $row->semi_monthly_salary) }}" inputmode="decimal">
+                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="basic_salary" form="{{ $formId }}" value="{{ $rowBasic }}" inputmode="decimal">
                                         <input type="hidden" name="working_hours_per_day" form="{{ $formId }}" value="{{ old('working_hours_per_day', $row->working_hours_per_day) }}">
                                         <input type="hidden" name="working_days_basis" form="{{ $formId }}" value="{{ old('working_days_basis', $row->working_days_basis) }}">
                                     </td>
-                                    <td class="align-top text-right hidden sm:table-cell">
-                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="daily_rate" form="{{ $formId }}" value="{{ old('daily_rate', $row->daily_rate) }}" inputmode="decimal">
+                                    <td class="align-top text-right">
+                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="gross_compensation" form="{{ $formId }}" value="{{ $rowGross }}" inputmode="decimal">
+                                        <p class="mt-1 text-[10px] text-muted">Basic + de minimis</p>
                                     </td>
                                     <td class="align-top">
                                         <span class="{{ $statusBadge }}">{{ $row->status?->label() ?? '—' }}</span>
@@ -356,7 +383,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="7" class="p-0"><x-empty-state title="No salary records" message="Add a salary assignment for this employee." icon="document" /></td></tr>
+                                <tr><td colspan="6" class="p-0"><x-empty-state title="No salary records" message="Add a salary assignment for this employee." icon="document" /></td></tr>
                             @endforelse
                         </tbody>
                     </table>

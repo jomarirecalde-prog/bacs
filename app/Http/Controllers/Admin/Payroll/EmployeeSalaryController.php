@@ -85,13 +85,15 @@ class EmployeeSalaryController extends Controller
         $data = $request->validate([
             'designation_id' => ['nullable', 'exists:designations,id'],
             'salary_type' => ['required', Rule::enum(SalaryType::class)],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'basic_salary' => ['required', 'numeric', 'min:0'],
+            'gross_compensation' => ['required', 'numeric', 'min:0'],
             'working_hours_per_day' => ['nullable', 'integer', 'min:1', 'max:24'],
             'working_days_basis' => ['nullable', 'integer', 'min:1', 'max:31'],
             'effective_from' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $data['amount'] = $data['basic_salary'];
         $data = $this->salaries->normalizeAmounts($data);
 
         $this->salaries->assign($employee, $data, $request->user());
@@ -204,6 +206,7 @@ class EmployeeSalaryController extends Controller
             'salary_type' => ['required', Rule::enum(SalaryType::class)],
             'amount' => ['nullable', 'numeric', 'min:0'],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
+            'gross_compensation' => ['nullable', 'numeric', 'min:0'],
             'monthly_salary' => ['nullable', 'numeric', 'min:0'],
             'semi_monthly_salary' => ['nullable', 'numeric', 'min:0'],
             'daily_rate' => ['nullable', 'numeric', 'min:0'],

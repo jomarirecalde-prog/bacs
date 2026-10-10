@@ -16,6 +16,7 @@ class EmployeeSalaryHistory extends Model
         'designation_id',
         'salary_type',
         'basic_salary',
+        'gross_compensation',
         'monthly_salary',
         'semi_monthly_salary',
         'daily_rate',
@@ -34,6 +35,7 @@ class EmployeeSalaryHistory extends Model
         return [
             'salary_type' => SalaryType::class,
             'basic_salary' => 'decimal:2',
+            'gross_compensation' => 'decimal:2',
             'monthly_salary' => 'decimal:2',
             'semi_monthly_salary' => 'decimal:2',
             'daily_rate' => 'decimal:2',

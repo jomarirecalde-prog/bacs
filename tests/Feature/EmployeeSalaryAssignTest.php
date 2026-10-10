@@ -38,14 +38,16 @@ class EmployeeSalaryAssignTest extends TestCase
 
         $payload = [
             'salary_type' => SalaryType::SemiMonthly->value,
-            'amount' => 10000,
+            'basic_salary' => 10000,
+            'gross_compensation' => 10200,
             'effective_from' => '2026-09-01',
         ];
 
         $this->actingAs($admin)->post(route('admin.payroll.employees.salary.store', $employee), $payload)
             ->assertRedirect();
 
-        $payload['amount'] = 12000;
+        $payload['basic_salary'] = 12000;
+        $payload['gross_compensation'] = 12200;
         $payload['effective_from'] = '2026-10-01';
 
         $this->actingAs($admin)->post(route('admin.payroll.employees.salary.store', $employee), $payload)
