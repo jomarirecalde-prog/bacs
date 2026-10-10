@@ -144,7 +144,7 @@
                         const apply = () => {
                             if (defaults.pay_type) typeEl.value = defaults.pay_type;
                             const map = {
-                                monthly: defaults.basic_salary,
+                                monthly: defaults.monthly_salary ?? defaults.basic_salary,
                                 semi_monthly: defaults.semi_monthly_salary,
                                 daily: defaults.daily_rate,
                                 hourly: defaults.hourly_rate,
@@ -174,12 +174,12 @@
                         @csrf
                         <div>
                             <label class="label" for="benefit_amount">Amount per cut-off (₱)</label>
-                            <input id="benefit_amount" class="input @error('amount') input-error @enderror" type="number" step="0.01" min="0" name="amount" value="{{ old('amount') }}" placeholder="0.00" required inputmode="decimal">
+                            <input id="benefit_amount" class="input @error('amount') input-error @enderror" type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $activeBenefit?->amount) }}" placeholder="0.00" required inputmode="decimal">
                             @error('amount')<p class="error-text">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="label" for="benefit_effective_from">Effective from</label>
-                            <input id="benefit_effective_from" class="input" type="date" name="effective_from" value="{{ old('effective_from', now()->toDateString()) }}">
+                            <input id="benefit_effective_from" class="input" type="date" name="effective_from" value="{{ old('effective_from', $activeBenefit?->effective_from?->toDateString() ?? now()->toDateString()) }}">
                         </div>
                         <button type="submit" class="btn-secondary btn-sm btn-block" :disabled="submitting">
                             <span x-show="!submitting">Add / update de minimis</span>
@@ -187,15 +187,29 @@
                         </button>
                     </form>
                     <div class="border-t border-line px-4 pb-4 sm:px-5">
-                        <p class="pt-3 text-[10px] font-bold uppercase tracking-widest text-muted">Configured</p>
+                        <p class="pt-3 text-[10px] font-bold uppercase tracking-widest text-muted">Configured · edit in place</p>
                         @if ($benefits->isEmpty())
                             <p class="py-3 text-sm text-muted">None configured yet.</p>
                         @else
-                            <ul class="compact-list text-sm">
+                            <ul class="space-y-3 pt-2">
                                 @foreach ($benefits as $benefit)
-                                    <li class="compact-list-item">
-                                        <span class="font-semibold text-ink tabular-nums">₱{{ number_format($benefit->amount, 2) }}</span>
-                                        <span class="text-muted">From {{ $benefit->effective_from?->format('M j, Y') ?? '—' }}</span>
+                                    <li>
+                                        <form method="POST" action="{{ route('admin.payroll.employees.benefits.update', [$employee, $benefit]) }}" class="space-y-2 rounded-lg border border-line bg-surface-soft p-3 text-sm">
+                                            @csrf
+                                            @method('PUT')
+                                            <p class="font-semibold text-ink">{{ $benefit->label ?? 'De minimis' }}</p>
+                                            <div class="grid gap-2 sm:grid-cols-2">
+                                                <div>
+                                                    <label class="label text-[10px]">Amount (₱)</label>
+                                                    <input class="input input-sm" type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $benefit->amount) }}" required inputmode="decimal">
+                                                </div>
+                                                <div>
+                                                    <label class="label text-[10px]">Effective from</label>
+                                                    <input class="input input-sm" type="date" name="effective_from" value="{{ old('effective_from', $benefit->effective_from?->toDateString()) }}">
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn-outline btn-sm">Save</button>
+                                        </form>
                                     </li>
                                 @endforeach
                             </ul>
@@ -237,15 +251,29 @@
                         </button>
                     </form>
                     <div class="border-t border-line px-4 pb-4 sm:px-5">
-                        <p class="pt-3 text-[10px] font-bold uppercase tracking-widest text-muted">Recent</p>
+                        <p class="pt-3 text-[10px] font-bold uppercase tracking-widest text-muted">Declared · edit in place</p>
                         @if ($recurringDeductions->isEmpty())
                             <p class="py-3 text-sm text-muted">No recurring deductions on file.</p>
                         @else
-                            <ul class="compact-list text-sm">
+                            <ul class="space-y-3 pt-2">
                                 @foreach ($recurringDeductions as $deduction)
-                                    <li class="compact-list-item">
-                                        <span class="font-semibold text-ink">{{ $deduction->deductionType?->name ?? 'Deduction' }}</span>
-                                        <span class="text-muted tabular-nums">₱{{ number_format($deduction->amount, 2) }} · {{ $deduction->effective_from?->format('M j, Y') ?? '—' }}</span>
+                                    <li>
+                                        <form method="POST" action="{{ route('admin.payroll.employees.deductions.update', [$employee, $deduction]) }}" class="space-y-2 rounded-lg border border-line bg-surface-soft p-3 text-sm">
+                                            @csrf
+                                            @method('PUT')
+                                            <p class="font-semibold text-ink">{{ $deduction->deductionType?->name ?? 'Deduction' }}</p>
+                                            <div class="grid gap-2 sm:grid-cols-2">
+                                                <div>
+                                                    <label class="label text-[10px]">Amount per cut-off (₱)</label>
+                                                    <input class="input input-sm" type="number" step="0.01" min="0" name="amount" value="{{ old('amount', $deduction->amount) }}" required inputmode="decimal">
+                                                </div>
+                                                <div>
+                                                    <label class="label text-[10px]">Effective from</label>
+                                                    <input class="input input-sm" type="date" name="effective_from" value="{{ old('effective_from', $deduction->effective_from?->toDateString()) }}">
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn-outline btn-sm">Save</button>
+                                        </form>
                                     </li>
                                 @endforeach
                             </ul>
@@ -272,10 +300,11 @@
                             <tr>
                                 <th>Effective</th>
                                 <th>Type</th>
-                                <th class="hidden md:table-cell">Designation</th>
-                                <th class="text-right">Monthly</th>
-                                <th class="text-right hidden sm:table-cell">Daily</th>
+                                <th class="text-right hidden md:table-cell">Monthly (₱)</th>
+                                <th class="text-right">Semi-monthly (₱)</th>
+                                <th class="text-right hidden sm:table-cell">Daily (₱)</th>
                                 <th>Status</th>
+                                <th class="w-24"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -288,24 +317,46 @@
                                         default => 'badge-neutral',
                                     };
                                     $rowClass = $row->status === EmployeeSalaryStatus::Active ? 'row-featured' : '';
+                                    $formId = 'salary-history-'.$row->id;
                                 @endphp
                                 <tr class="{{ $rowClass }}">
-                                    <td>
+                                    <td class="align-top text-muted">
                                         {{ $row->effective_from->format('M j, Y') }}
                                         @if ($row->effective_to)
-                                            <span class="text-muted">– {{ $row->effective_to->format('M j, Y') }}</span>
+                                            <span class="block text-xs">– {{ $row->effective_to->format('M j, Y') }}</span>
                                         @endif
                                     </td>
-                                    <td>{{ $row->salary_type?->label() }}</td>
-                                    <td class="hidden md:table-cell">{{ $row->designation?->designation_name ?? '—' }}</td>
-                                    <td class="text-right tabular-nums font-medium text-ink">{{ $row->monthly_salary ? '₱'.number_format($row->monthly_salary, 2) : '—' }}</td>
-                                    <td class="text-right tabular-nums hidden sm:table-cell">{{ $row->daily_rate ? '₱'.number_format($row->daily_rate, 2) : '—' }}</td>
-                                    <td>
+                                    <td class="align-top">
+                                        <select class="select select-sm" name="salary_type" form="{{ $formId }}" required>
+                                            @foreach (\App\Enums\SalaryType::cases() as $type)
+                                                <option value="{{ $type->value }}" @selected(old('salary_type', $row->salary_type?->value) === $type->value)>{{ $type->label() }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                    <td class="align-top text-right hidden md:table-cell">
+                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="monthly_salary" form="{{ $formId }}" value="{{ old('monthly_salary', $row->monthly_salary) }}" inputmode="decimal">
+                                    </td>
+                                    <td class="align-top text-right">
+                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="semi_monthly_salary" form="{{ $formId }}" value="{{ old('semi_monthly_salary', $row->semi_monthly_salary) }}" inputmode="decimal">
+                                        <input type="hidden" name="working_hours_per_day" form="{{ $formId }}" value="{{ old('working_hours_per_day', $row->working_hours_per_day) }}">
+                                        <input type="hidden" name="working_days_basis" form="{{ $formId }}" value="{{ old('working_days_basis', $row->working_days_basis) }}">
+                                    </td>
+                                    <td class="align-top text-right hidden sm:table-cell">
+                                        <input class="input input-sm w-full min-w-[6rem] text-right tabular-nums" type="number" step="0.01" min="0" name="daily_rate" form="{{ $formId }}" value="{{ old('daily_rate', $row->daily_rate) }}" inputmode="decimal">
+                                    </td>
+                                    <td class="align-top">
                                         <span class="{{ $statusBadge }}">{{ $row->status?->label() ?? '—' }}</span>
+                                    </td>
+                                    <td class="align-top">
+                                        <form id="{{ $formId }}" method="POST" action="{{ route('admin.payroll.employees.salary.update', [$employee, $row]) }}">
+                                            @csrf
+                                            @method('PUT')
+                                            <button type="submit" class="btn-outline btn-sm whitespace-nowrap">Save</button>
+                                        </form>
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="p-0"><x-empty-state title="No salary records" message="Add a salary assignment for this employee." icon="document" /></td></tr>
+                                <tr><td colspan="7" class="p-0"><x-empty-state title="No salary records" message="Add a salary assignment for this employee." icon="document" /></td></tr>
                             @endforelse
                         </tbody>
                     </table>

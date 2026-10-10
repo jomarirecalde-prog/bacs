@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeBenefit;
 use App\Models\EmployeeDeduction;
+use App\Models\EmployeeSalaryHistory;
 use App\Models\PayrollDeductionType;
 use App\Models\PayrollPeriod;
 use App\Services\AuditLogger;
@@ -35,8 +36,15 @@ class EmployeeSalaryController extends Controller
         $current = $this->salaries->current($employee);
 
         $deductionTypes = PayrollDeductionType::query()->where('is_active', true)->orderBy('sort_order')->get();
-        $recurringDeductions = $employee->payrollDeductions()->with('deductionType')->orderByDesc('id')->limit(20)->get();
-        $benefits = $employee->payrollBenefits()->orderByDesc('id')->limit(10)->get();
+        $recurringDeductions = $employee->payrollDeductions()
+            ->where('is_active', true)
+            ->with('deductionType')
+            ->orderBy('deduction_type_id')
+            ->get();
+        $benefits = $employee->payrollBenefits()
+            ->where('is_active', true)
+            ->orderByDesc('effective_from')
+            ->get();
 
         $designationDefaults = null;
         if ($employee->designation) {
@@ -44,6 +52,7 @@ class EmployeeSalaryController extends Controller
             $designationDefaults = [
                 'pay_type' => $d->default_pay_type?->value,
                 'basic_salary' => $d->default_basic_salary,
+                'monthly_salary' => $d->default_basic_salary,
                 'semi_monthly_salary' => $d->default_semi_monthly_salary,
                 'daily_rate' => $d->default_daily_rate,
                 'hourly_rate' => $d->default_hourly_rate,
@@ -51,6 +60,11 @@ class EmployeeSalaryController extends Controller
                 'working_days_basis' => $d->default_working_days_per_period,
             ];
         }
+
+        $activeBenefit = $employee->payrollBenefits()
+            ->where('is_active', true)
+            ->orderByDesc('effective_from')
+            ->first();
 
         return view('admin.payroll.salary.index', compact(
             'employee',
@@ -60,6 +74,7 @@ class EmployeeSalaryController extends Controller
             'recurringDeductions',
             'benefits',
             'designationDefaults',
+            'activeBenefit',
         ));
     }
 
@@ -132,5 +147,77 @@ class EmployeeSalaryController extends Controller
         $this->audit->log($request->user(), 'deduction_assigned', 'Payroll', $employee->id, "Recurring deduction added for {$employee->fullName()}.");
 
         return back()->with('success', 'Recurring deduction saved.');
+    }
+
+    public function updateBenefit(Request $request, Employee $employee, EmployeeBenefit $benefit)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+        abort_unless($benefit->employee_id === $employee->id, 404);
+
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0'],
+            'effective_from' => ['nullable', 'date'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+
+        $benefit->update([
+            'amount' => $data['amount'],
+            'effective_from' => $data['effective_from'] ?? $benefit->effective_from,
+            'is_active' => $data['is_active'] ?? $benefit->is_active,
+        ]);
+
+        $this->audit->log($request->user(), 'benefit_updated', 'Payroll', $benefit->id, "De minimis updated for {$employee->fullName()}.");
+
+        return back()->with('success', 'De minimis record updated.');
+    }
+
+    public function updateDeduction(Request $request, Employee $employee, EmployeeDeduction $deduction)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+        abort_unless($deduction->employee_id === $employee->id, 404);
+
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0'],
+            'effective_from' => ['nullable', 'date'],
+            'is_active' => ['sometimes', 'boolean'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $deduction->update([
+            'amount' => $data['amount'],
+            'effective_from' => $data['effective_from'] ?? $deduction->effective_from,
+            'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $deduction->is_active,
+            'notes' => array_key_exists('notes', $data) ? $data['notes'] : $deduction->notes,
+        ]);
+
+        $this->audit->log($request->user(), 'deduction_updated', 'Payroll', $deduction->id, "Recurring deduction updated for {$employee->fullName()}.");
+
+        return back()->with('success', 'Recurring deduction updated.');
+    }
+
+    public function updateSalaryHistory(Request $request, Employee $employee, EmployeeSalaryHistory $salaryHistory)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+        abort_unless($salaryHistory->employee_id === $employee->id, 404);
+
+        $data = $request->validate([
+            'salary_type' => ['required', Rule::enum(SalaryType::class)],
+            'amount' => ['nullable', 'numeric', 'min:0'],
+            'basic_salary' => ['nullable', 'numeric', 'min:0'],
+            'monthly_salary' => ['nullable', 'numeric', 'min:0'],
+            'semi_monthly_salary' => ['nullable', 'numeric', 'min:0'],
+            'daily_rate' => ['nullable', 'numeric', 'min:0'],
+            'hourly_rate' => ['nullable', 'numeric', 'min:0'],
+            'working_hours_per_day' => ['nullable', 'integer', 'min:1', 'max:24'],
+            'working_days_basis' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $data = $this->salaries->normalizeAmounts($data);
+        $this->salaries->assertPrimaryRatePresent($data);
+
+        $this->salaries->updateHistory($salaryHistory, $data, $request->user());
+
+        return back()->with('success', 'Salary record updated.');
     }
 }

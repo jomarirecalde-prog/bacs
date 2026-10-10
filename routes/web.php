@@ -411,7 +411,10 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
                 Route::get('/employees/{employee}/salary', [PayrollEmployeeSalaryController::class, 'index'])->name('employees.salary.index');
                 Route::post('/employees/{employee}/salary', [PayrollEmployeeSalaryController::class, 'store'])->name('employees.salary.store');
                 Route::post('/employees/{employee}/benefits', [PayrollEmployeeSalaryController::class, 'storeBenefit'])->name('employees.benefits.store');
+                Route::put('/employees/{employee}/benefits/{benefit}', [PayrollEmployeeSalaryController::class, 'updateBenefit'])->name('employees.benefits.update');
                 Route::post('/employees/{employee}/deductions', [PayrollEmployeeSalaryController::class, 'storeDeduction'])->name('employees.deductions.store');
+                Route::put('/employees/{employee}/deductions/{deduction}', [PayrollEmployeeSalaryController::class, 'updateDeduction'])->name('employees.deductions.update');
+                Route::put('/employees/{employee}/salary/{salaryHistory}', [PayrollEmployeeSalaryController::class, 'updateSalaryHistory'])->name('employees.salary.update');
                 Route::put('/payroll-employees/{payrollEmployee}/total-basic-pay', [PayrollEmployeeController::class, 'updateTotalBasicPay'])->name('employees.payroll.total-basic-pay');
             });
         });
