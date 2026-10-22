@@ -65,13 +65,6 @@ class CentralApprovalWorkflowService
         $config = $this->configurationFor($type);
         $endorsementEnabled = (bool) ($payload['endorsement_enabled'] ?? false);
         $finalEnabled = (bool) ($payload['final_approval_enabled'] ?? false);
-        $confirmAuto = (bool) ($payload['confirm_auto_approval'] ?? false);
-
-        if (! $endorsementEnabled && ! $finalEnabled && ! $confirmAuto) {
-            throw ValidationException::withMessages([
-                'confirm_auto_approval' => 'Confirm automatic approval when both endorsement and final approval are disabled.',
-            ]);
-        }
 
         $endorserIds = collect($payload['endorser_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
@@ -115,20 +108,6 @@ class CentralApprovalWorkflowService
         $endorsementMode = EndorsementMode::tryFrom((string) ($payload['endorsement_mode'] ?? '')) ?? EndorsementMode::Parallel;
         $parallelRule = LeaveParallelRule::tryFrom((string) ($payload['endorsement_parallel_rule'] ?? '')) ?? LeaveParallelRule::All;
         $activeMap = collect($payload['endorser_active'] ?? [])->map(fn ($v) => (bool) $v);
-        $confirmChange = (bool) ($payload['confirm_workflow_change'] ?? false);
-
-        $existing = ApprovalWorkflowDepartmentSetting::query()
-            ->where('workflow_configuration_id', $config->id)
-            ->where('department_id', $departmentId)
-            ->first();
-        $modeChanged = $existing && $existing->endorsement_mode !== $endorsementMode;
-        $ruleChanged = $existing && $existing->endorsement_parallel_rule !== $parallelRule;
-
-        if (($modeChanged || $ruleChanged) && ! $confirmChange) {
-            throw ValidationException::withMessages([
-                'confirm_workflow_change' => 'Confirm the endorsement mode or completion rule change for this department.',
-            ]);
-        }
 
         $this->assertActiveEmployees($endorserIds->all(), $finalId ? [$finalId] : []);
 
@@ -155,12 +134,6 @@ class CentralApprovalWorkflowService
             $endorserIds->all(),
             $finalId,
         );
-
-        if ($reassignmentPlan['total'] > 0 && ! (bool) ($payload['confirm_reassignment'] ?? false)) {
-            throw ValidationException::withMessages([
-                'confirm_reassignment' => 'Confirm reassignment of '.$reassignmentPlan['total'].' pending approval task(s) affected by this change.',
-            ]);
-        }
 
         return DB::transaction(function () use ($config, $actor, $type, $endorsementEnabled, $finalEnabled, $endorserIds, $finalId, $departmentId, $endorsementMode, $parallelRule, $activeMap, $reassignmentPlan) {
             $config->update([

@@ -64,36 +64,7 @@
                     <span class="text-muted"> — employees in this department use these approvers for {{ $config->transaction_type->label() }}.</span>
                 </div>
 
-                @php
-                    $previewReassignmentUrl = route('admin.settings.approval-workflow.preview-reassignment', $config->transaction_type->value);
-                @endphp
-                <form method="POST" action="{{ route('admin.settings.approval-workflow.update', $config->transaction_type->value) }}" class="space-y-6"
-                      x-data="{
-                          preview: { endorsement_tasks: 0, final_tasks: 0, total: 0 },
-                          loading: false,
-                          previewUrl: @js($previewReassignmentUrl),
-                          departmentId: @js($department->id),
-                          async refreshPreview() {
-                              this.loading = true;
-                              try {
-                                  const form = $el;
-                                  const fd = new FormData(form);
-                                  fd.set('department_id', this.departmentId);
-                                  const res = await fetch(this.previewUrl, {
-                                      method: 'POST',
-                                      headers: {
-                                          'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? '',
-                                          'Accept': 'application/json',
-                                      },
-                                      body: fd,
-                                  });
-                                  if (res.ok) { this.preview = await res.json(); }
-                              } finally { this.loading = false; }
-                          }
-                      }"
-                      x-init="refreshPreview()"
-                      @input.debounce.600ms="refreshPreview()"
-                      @change="refreshPreview()">
+                <form method="POST" action="{{ route('admin.settings.approval-workflow.update', $config->transaction_type->value) }}" class="space-y-6">
                     @csrf
                     @method('PUT')
                     <input type="hidden" name="workflow_tab" value="{{ $config->transaction_type->value }}">
@@ -243,30 +214,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 text-sm space-y-3">
-                        <div class="font-bold text-brand-900">Pending transaction reassignment</div>
-                        <p class="text-muted">When endorsers or the final approver change, eligible open requests in <span class="font-semibold">{{ $department->name }}</span> transfer to the newly configured assignees.</p>
-                        <dl class="grid gap-2 sm:grid-cols-3">
-                            <div><dt class="text-muted">Endorsement tasks</dt><dd class="font-bold tabular-nums" x-text="loading ? '…' : preview.endorsement_tasks"></dd></div>
-                            <div><dt class="text-muted">Final approval tasks</dt><dd class="font-bold tabular-nums" x-text="loading ? '…' : preview.final_tasks"></dd></div>
-                            <div><dt class="text-muted">Total affected</dt><dd class="font-bold tabular-nums text-brand-800" x-text="loading ? '…' : preview.total"></dd></div>
-                        </dl>
-                        @error('confirm_reassignment') <p class="error-text">{{ $message }}</p> @enderror
-                        <label class="flex items-start gap-2" x-show="preview.total > 0" x-cloak>
-                            <input type="checkbox" class="checkbox mt-0.5" name="confirm_reassignment" value="1" :required="preview.total > 0">
-                            <span>I confirm reassignment of <span x-text="preview.total"></span> pending approval task(s) to the newly selected endorser(s) / final approver.</span>
-                        </label>
-                    </div>
-
-                <label class="flex items-start gap-2 text-sm">
-                    <input type="checkbox" class="checkbox mt-0.5" name="confirm_auto_approval" value="1">
-                    <span>I confirm automatic approval when both endorsement and final approval are disabled.</span>
-                </label>
-                <label class="flex items-start gap-2 text-sm">
-                    <input type="checkbox" class="checkbox mt-0.5" name="confirm_workflow_change" value="1">
-                    <span>I confirm changes to endorsement mode or parallel completion rules for this department.</span>
-                </label>
 
                     @if (session('reassignment_result') && (session('reassignment_result')['total'] ?? 0) > 0)
                         <div class="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">

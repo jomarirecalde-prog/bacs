@@ -69,7 +69,6 @@ class ApprovalWorkflowReassignmentTest extends TestCase
             'final_approver_id' => $final->id,
             'endorsement_mode' => 'parallel',
             'endorsement_parallel_rule' => 'all',
-            'confirm_reassignment' => true,
         ]);
 
         $assignment = AttendanceCorrectionApprovalAssignment::query()->first();
@@ -144,7 +143,6 @@ class ApprovalWorkflowReassignmentTest extends TestCase
             'final_approver_id' => $final->id,
             'endorsement_mode' => 'parallel',
             'endorsement_parallel_rule' => 'all',
-            'confirm_reassignment' => true,
         ]);
 
         $peerRow = AttendanceCorrectionApprovalAssignment::query()
@@ -156,7 +154,7 @@ class ApprovalWorkflowReassignmentTest extends TestCase
         $this->assertSame($newEndorser->user_id, AttendanceCorrectionApprovalAssignment::query()->where('status', 'pending')->value('user_id'));
     }
 
-    public function test_update_requires_reassignment_confirmation_when_tasks_affected(): void
+    public function test_update_reassigns_pending_tasks_without_extra_confirmation(): void
     {
         [$department, $staff, $oldEndorser, $newEndorser, $final] = $this->fixtures();
 
@@ -190,8 +188,6 @@ class ApprovalWorkflowReassignmentTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->expectException(\Illuminate\Validation\ValidationException::class);
-
         app(CentralApprovalWorkflowService::class)->update(ApprovalTransactionType::Pardon, $admin, [
             'department_id' => $department->id,
             'endorsement_enabled' => true,
@@ -201,6 +197,8 @@ class ApprovalWorkflowReassignmentTest extends TestCase
             'endorsement_mode' => 'parallel',
             'endorsement_parallel_rule' => 'all',
         ]);
+
+        $this->assertSame($newEndorser->user_id, AttendanceCorrectionApprovalAssignment::query()->where('status', 'pending')->value('user_id'));
     }
 
     /** @return array{0: Department, 1: Employee, 2: Employee, 3: Employee, 4: Employee} */
