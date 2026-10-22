@@ -50,14 +50,14 @@
 
             @if ($canApprove)
                 @php $isFinal = $correction->current_stage === \App\Enums\LeaveApprovalStage::CeoFinalApproval; @endphp
-                <div class="card card-accent-brand" x-data="{ decision: 'approved' }">
+                <div class="card card-accent-brand" x-data="{ decision: 'approved', submitting: false }">
                     <div class="card-header">
                         <h3 class="card-title">{{ $isFinal ? 'Final decision' : 'Your decision' }}</h3>
                         @if ($isFinal)
                             <p class="text-xs font-semibold text-gold-700">FINAL APPROVAL</p>
                         @endif
                     </div>
-                    <form method="POST" action="{{ route('pardon.approvals.decide', $correction) }}" class="card-body space-y-4">
+                    <form method="POST" action="{{ route('pardon.approvals.decide', $correction) }}" class="card-body space-y-4" @submit="submitting = true">
                         @csrf
                         <label class="flex items-center gap-2">
                             <input type="radio" name="decision" value="approved" class="radio" x-model="decision">
@@ -69,9 +69,16 @@
                         </label>
                         <div>
                             <label class="label" for="reason">Remarks <span x-show="decision === 'denied'" class="text-critical-600">*</span></label>
-                            <textarea id="reason" name="reason" rows="3" class="textarea" :required="decision === 'denied'"></textarea>
+                            <textarea id="reason" name="reason" rows="3" class="textarea" :required="decision === 'denied'" :disabled="submitting"></textarea>
+                            @error('reason') <p class="error-text">{{ $message }}</p> @enderror
+                            @error('decision') <p class="error-text">{{ $message }}</p> @enderror
                         </div>
-                        <button class="btn-primary btn-block" type="submit">Record decision</button>
+                        <button class="btn-primary btn-block" type="submit" :disabled="submitting">
+                            <span x-show="!submitting">Record decision</span>
+                            <span x-show="submitting" x-cloak class="inline-flex items-center justify-center gap-2">
+                                <span class="spinner"></span> Processing…
+                            </span>
+                        </button>
                     </form>
                 </div>
             @endif

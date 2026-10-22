@@ -7,6 +7,10 @@ use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\User;
+use App\Enums\ApprovalTransactionType;
+use App\Enums\EndorsementMode;
+use App\Enums\LeaveParallelRule;
+use App\Support\DepartmentApprovalScope;
 use App\Support\ManilaTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +19,7 @@ class PardonApprovalService
 {
     public function __construct(
         private readonly AttendanceCorrectionService $corrections,
+        private readonly EndorsementWorkflowCoordinator $endorsement,
     ) {}
 
     public function pendingFor(User $user, ?string $scope = null)
@@ -38,7 +43,12 @@ class PardonApprovalService
             $query->where('status', AttendanceCorrectionStatus::PendingFinalApproval);
         }
 
-        return $query->latest('id');
+        return $query->latest('id')
+            ->tap(fn ($builder) => DepartmentApprovalScope::constrainToEmployeeDepartments(
+                $builder,
+                $user,
+                ApprovalTransactionType::Pardon,
+            ));
     }
 
     public function userCanAct(User $user, AttendanceCorrectionRequest $request): bool
@@ -48,6 +58,11 @@ class PardonApprovalService
         }
 
         if (! $request->status?->isOpen() || ! $request->current_approval_stage) {
+            return false;
+        }
+
+        $request->loadMissing('employee');
+        if (! DepartmentApprovalScope::approverCanAccessRequestDepartment($user, $request->employee?->department_id)) {
             return false;
         }
 
@@ -72,7 +87,7 @@ class PardonApprovalService
             throw ValidationException::withMessages(['decision' => 'This request is no longer awaiting action.']);
         }
 
-        $stage = LeaveApprovalStage::tryFrom((string) $request->current_approval_stage);
+        $stage = $this->resolveCurrentStage($request);
         if (! $stage) {
             throw ValidationException::withMessages(['decision' => 'This request has no active approval stage.']);
         }
@@ -114,6 +129,14 @@ class PardonApprovalService
             $outcome = $this->evaluateStage($request, $stage);
 
             if ($outcome === 'pending') {
+                if (
+                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    && EndorsementMode::tryFrom((string) $request->endorsement_mode) === EndorsementMode::Sequential
+                    && $decision === LeaveDecision::Approved
+                ) {
+                    $this->endorsement->promoteNextSequentialEndorser($request->approvalAssignments, $stage);
+                }
+
                 return $request->fresh(['employee', 'approvalAssignments']);
             }
 
@@ -137,7 +160,7 @@ class PardonApprovalService
     /** @return 'pending'|'approved'|'denied' */
     private function evaluateStage(AttendanceCorrectionRequest $request, LeaveApprovalStage $stage): string
     {
-        $rows = $request->approvalAssignments->where('stage', $stage)->values();
+        $rows = $request->approvalAssignments->where('stage', $stage->value)->values();
         $pending = $rows->filter->isPending();
         $approved = $rows->filter->isApproved();
         $denied = $rows->filter->isDenied();
@@ -151,8 +174,11 @@ class PardonApprovalService
             return 'denied';
         }
 
-        if ($stage->isParallel() || $total > 1) {
-            return $approved->count() === $total ? 'approved' : 'pending';
+        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+            $mode = EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel;
+            $rule = LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All;
+
+            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
         }
 
         return $approved->isNotEmpty() ? 'approved' : 'pending';
@@ -161,11 +187,24 @@ class PardonApprovalService
     private function nextStage(AttendanceCorrectionRequest $request, LeaveApprovalStage $from): ?LeaveApprovalStage
     {
         if ($from === LeaveApprovalStage::ImmediateSupervisor) {
-            $hasFinal = $request->approvalAssignments->where('stage', LeaveApprovalStage::CeoFinalApproval)->isNotEmpty();
+            $hasFinal = $request->approvalAssignments
+                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
+                ->isNotEmpty();
 
             return $hasFinal ? LeaveApprovalStage::CeoFinalApproval : null;
         }
 
         return null;
+    }
+
+    private function resolveCurrentStage(AttendanceCorrectionRequest $request): ?LeaveApprovalStage
+    {
+        $current = $request->current_approval_stage;
+
+        if ($current instanceof LeaveApprovalStage) {
+            return $current;
+        }
+
+        return LeaveApprovalStage::tryFrom((string) $current);
     }
 }

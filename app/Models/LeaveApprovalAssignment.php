@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\LeaveApprovalStage;
-use App\Enums\LeaveDecision;
+use App\Models\Concerns\InteractsWithApprovalAssignmentStatus;
 use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LeaveApprovalAssignment extends Model
 {
+    use InteractsWithApprovalAssignmentStatus;
     protected $fillable = [
         'leave_application_id',
         'stage',
@@ -49,27 +50,13 @@ class LeaveApprovalAssignment extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function isPending(): bool
-    {
-        return $this->status === 'pending';
-    }
-
-    public function isApproved(): bool
-    {
-        return $this->status === LeaveDecision::Approved->value;
-    }
-
-    public function isDenied(): bool
-    {
-        return $this->status === LeaveDecision::Denied->value;
-    }
-
     public function decisionLabel(): string
     {
         return match ($this->status) {
-            LeaveDecision::Approved->value => 'Approved',
-            LeaveDecision::Denied->value => 'Denied',
+            'approved' => 'Endorsed',
+            'denied' => 'Rejected',
             'skipped' => 'Skipped',
+            'waiting' => 'Waiting turn',
             default => 'Pending',
         };
     }

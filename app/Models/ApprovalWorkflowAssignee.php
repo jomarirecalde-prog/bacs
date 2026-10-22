@@ -10,6 +10,7 @@ class ApprovalWorkflowAssignee extends Model
 {
     protected $fillable = [
         'workflow_configuration_id',
+        'department_id',
         'employee_id',
         'approval_type',
         'sequence_order',
@@ -28,6 +29,11 @@ class ApprovalWorkflowAssignee extends Model
     public function configuration(): BelongsTo
     {
         return $this->belongsTo(ApprovalWorkflowConfiguration::class, 'workflow_configuration_id');
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function employee(): BelongsTo

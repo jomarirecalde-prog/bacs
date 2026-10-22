@@ -47,8 +47,9 @@
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="text-sm font-bold text-ink">{{ $stage->timelineLabel($centralLabels) }}</div>
-                    @if ($stage->isParallel())
-                        <span class="badge-gold">{{ $centralLabels ? 'Parallel endorsement' : 'Parallel' }}</span>
+                    @if ($stage === \App\Enums\LeaveApprovalStage::ImmediateSupervisor)
+                        @php $mode = $app->endorsement_mode ?? \App\Enums\EndorsementMode::Parallel; @endphp
+                        <span class="badge-gold">{{ $mode === \App\Enums\EndorsementMode::Sequential ? 'Sequential endorsement' : 'Parallel endorsement' }}</span>
                     @endif
                     @if ($stage->isFinalApproval())
                         <span class="badge-gold">Final approval</span>
@@ -74,8 +75,10 @@
                                 </div>
                                 @if ($row->acted_at)
                                     <div class="mt-1 text-xs text-muted">{{ $row->actedAtLabel() }}@if ($row->reason) · {{ $row->reason }}@endif</div>
+                                @elseif ($row->status === 'waiting')
+                                    <div class="mt-1 text-xs text-muted">Waiting for prior endorser</div>
                                 @elseif ($isCurrent)
-                                    <div class="mt-1 text-xs text-warn-700">Pending ⏳</div>
+                                    <div class="mt-1 text-xs text-warn-700">Pending endorsement</div>
                                 @else
                                     <div class="mt-1 text-xs text-muted">Waiting</div>
                                 @endif

@@ -7,6 +7,7 @@ enum OvertimeRequestStatus: string
     case Pending = 'pending';
     case PendingEndorsement = 'pending_endorsement';
     case PendingFinalApproval = 'pending_final_approval';
+    case PendingApproverAssignment = 'pending_approver_assignment';
     case Approved = 'approved';
     case Denied = 'denied';
 
@@ -16,6 +17,7 @@ enum OvertimeRequestStatus: string
             self::Pending => 'Pending',
             self::PendingEndorsement => 'Pending Endorsement',
             self::PendingFinalApproval => 'Pending Final Approval',
+            self::PendingApproverAssignment => 'Pending Approver Assignment',
             self::Approved => 'Approved',
             self::Denied => 'Denied',
         };
@@ -23,7 +25,7 @@ enum OvertimeRequestStatus: string
 
     public function isOpen(): bool
     {
-        return in_array($this, [self::Pending, self::PendingEndorsement, self::PendingFinalApproval], true);
+        return in_array($this, [self::Pending, self::PendingEndorsement, self::PendingFinalApproval, self::PendingApproverAssignment], true);
     }
 
     /** @return list<string> */
@@ -33,6 +35,7 @@ enum OvertimeRequestStatus: string
             self::Pending->value,
             self::PendingEndorsement->value,
             self::PendingFinalApproval->value,
+            self::PendingApproverAssignment->value,
         ];
     }
 }

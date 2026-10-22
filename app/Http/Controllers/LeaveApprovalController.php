@@ -23,6 +23,26 @@ class LeaveApprovalController extends Controller
         $scope = $request->string('scope')->toString() ?: null;
         $query = $this->leaves->pendingFor($request->user());
 
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('employee')) {
+            $term = '%'.$request->string('employee')->toString().'%';
+            $query->whereHas('employee', function ($employee) use ($term) {
+                $employee->where('full_name', 'like', $term)
+                    ->orWhere('employee_number', 'like', $term);
+            });
+        }
+
+        if ($request->filled('filed_from')) {
+            $query->whereDate('date_filed', '>=', $request->date('filed_from'));
+        }
+
+        if ($request->filled('filed_to')) {
+            $query->whereDate('date_filed', '<=', $request->date('filed_to'));
+        }
+
         if ($scope === 'endorsement') {
             $query->where('status', \App\Enums\LeaveStatus::PendingSupervisor)
                 ->where('current_stage', \App\Enums\LeaveApprovalStage::ImmediateSupervisor);
@@ -37,6 +57,7 @@ class LeaveApprovalController extends Controller
             'applications' => $applications,
             'mode' => 'pending',
             'scope' => $scope ?? 'all',
+            'filters' => $request->only(['status', 'employee', 'filed_from', 'filed_to']),
         ]);
     }
 
@@ -51,6 +72,7 @@ class LeaveApprovalController extends Controller
         return view('leave.approvals.index', [
             'applications' => $applications,
             'mode' => 'history',
+            'filters' => [],
         ]);
     }
 

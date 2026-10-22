@@ -13,6 +13,7 @@ use App\Models\OfficialTimeApprovalAssignment;
 use App\Models\OfficialTimeRequest;
 use App\Models\OfficialTimeType;
 use App\Models\User;
+use App\Support\DepartmentApprovalScope;
 use App\Support\ManilaTime;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -64,7 +65,7 @@ class OfficialTimeService
         $this->assertNoOverlap($employee, $payload, $existing?->id);
 
         return DB::transaction(function () use ($employee, $actor, $payload, $existing, $data) {
-            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::OfficialTime);
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::OfficialTime, $employee->department_id);
             $centralConfig = $this->centralApproval->configurationFor(ApprovalTransactionType::OfficialTime);
 
             if ($existing) {
@@ -73,7 +74,7 @@ class OfficialTimeService
                     throw ValidationException::withMessages(['official_time' => 'This request can no longer be submitted.']);
                 }
                 $existing->update(array_merge($payload, [
-                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig, $employee->department_id),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
                     'returned_at' => null,
@@ -89,7 +90,7 @@ class OfficialTimeService
                     'employee_id' => $employee->id,
                     'department_id' => $employee->department_id,
                     'designation_id' => $employee->designation_id,
-                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig, $employee->department_id),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
                     'status' => OfficialTimeStatus::PendingSupervisor,
@@ -99,26 +100,39 @@ class OfficialTimeService
 
             $this->storeAttachment($request, $actor, $data['attachment'] ?? null);
             $this->centralApproval->bootstrapOfficialTime($request, $employee);
-            $meta = $this->centralApproval->initialStageMeta($centralConfig);
+            $request->load('assignments');
+            $first = null;
 
-            if ($meta['stage'] === null) {
-                $now = ManilaTime::now();
+            if ($this->centralApproval->missingActionableApprovers($request)) {
                 $request->update([
-                    'status' => OfficialTimeStatus::Approved,
+                    'status' => OfficialTimeStatus::PendingApproverAssignment,
                     'current_stage' => null,
-                    'approved_at' => $now,
-                    'finalized_by' => $actor->id,
                 ]);
-                $first = null;
+                $this->centralApproval->notifyPendingApproverAssignment(
+                    ApprovalTransactionType::OfficialTime,
+                    $employee,
+                    $request->request_no,
+                );
             } else {
-                $request->load('assignments');
-                $first = $request->firstActiveApprovalStage();
-                $request->update([
-                    'status' => $first?->pendingStatusForOfficialTime() ?? OfficialTimeStatus::Approved,
-                    'current_stage' => $first,
-                    'approved_at' => $first ? null : ManilaTime::now(),
-                    'finalized_by' => $first ? null : $actor->id,
-                ]);
+                $meta = $this->centralApproval->initialStageMeta($centralConfig, $employee->department_id);
+
+                if ($meta['stage'] === null) {
+                    $now = ManilaTime::now();
+                    $request->update([
+                        'status' => OfficialTimeStatus::Approved,
+                        'current_stage' => null,
+                        'approved_at' => $now,
+                        'finalized_by' => $actor->id,
+                    ]);
+                } else {
+                    $first = $request->firstActiveApprovalStage();
+                    $request->update([
+                        'status' => $first?->pendingStatusForOfficialTime() ?? OfficialTimeStatus::Approved,
+                        'current_stage' => $first,
+                        'approved_at' => $first ? null : ManilaTime::now(),
+                        'finalized_by' => $first ? null : $actor->id,
+                    ]);
+                }
             }
 
             $this->recordAction(
@@ -349,7 +363,12 @@ class OfficialTimeService
                     ->whereColumn('official_time_approval_assignments.stage', 'official_time_requests.current_stage');
             })
             ->with(['employee.department', 'designation', 'officialTimeType', 'assignments'])
-            ->latest('submitted_at');
+            ->latest('submitted_at')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::OfficialTime,
+            ));
     }
 
     public function historyFor(User $user)
@@ -357,7 +376,12 @@ class OfficialTimeService
         return OfficialTimeRequest::query()
             ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->whereNotNull('acted_at'))
             ->with(['employee.department', 'designation', 'officialTimeType', 'assignments'])
-            ->latest('submitted_at');
+            ->latest('submitted_at')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::OfficialTime,
+            ));
     }
 
     public function userCanAct(User $user, OfficialTimeRequest $request): bool
@@ -367,6 +391,10 @@ class OfficialTimeService
         }
 
         if (! $request->status?->isOpen() || ! $request->current_stage) {
+            return false;
+        }
+
+        if (! DepartmentApprovalScope::approverCanAccessRequestDepartment($user, $request->department_id)) {
             return false;
         }
 

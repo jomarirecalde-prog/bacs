@@ -39,14 +39,14 @@ class OvertimeCentralWorkflowService
         }
 
         try {
-            $this->central->assertCanSubmit(ApprovalTransactionType::OvertimeRequest);
+            $this->central->assertCanSubmit(ApprovalTransactionType::OvertimeRequest, $employee->department_id);
         } catch (\Throwable) {
             return;
         }
 
         $config = $this->central->configurationFor(ApprovalTransactionType::OvertimeRequest);
-        $meta = $this->central->initialStageMeta($config);
-        $status = $this->central->overtimeStatusAfterBootstrap($config);
+        $meta = $this->central->initialStageMeta($config, $employee->department_id);
+        $status = $this->central->overtimeStatusAfterBootstrap($config, $employee->department_id);
 
         $request->update([
             'status' => $status->value,
@@ -54,6 +54,21 @@ class OvertimeCentralWorkflowService
         ]);
 
         $this->central->bootstrapOvertime($request, $employee);
+        $request->load('approvalAssignments');
+
+        if ($this->central->missingActionableApprovers($request)) {
+            $request->update([
+                'status' => OvertimeRequestStatus::PendingApproverAssignment->value,
+                'current_approval_stage' => null,
+            ]);
+            $this->central->notifyPendingApproverAssignment(
+                ApprovalTransactionType::OvertimeRequest,
+                $employee,
+                'OT '.$request->attendance_date?->toDateString(),
+            );
+
+            return;
+        }
 
         if ($meta['stage'] === null) {
             app(OvertimeApprovalService::class)->approve(

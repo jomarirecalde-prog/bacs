@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasCentralApprovalTimeline;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveParallelRule;
 use App\Enums\TravelOrderStatus;
 use App\Enums\TravelTransportation;
@@ -44,6 +45,7 @@ class TravelOrder extends Model
         'status',
         'current_stage',
         'parallel_rule',
+        'endorsement_mode',
         'date_requested',
         'submitted_at',
         'approved_at',
@@ -62,6 +64,7 @@ class TravelOrder extends Model
             'status' => TravelOrderStatus::class,
             'current_stage' => LeaveApprovalStage::class,
             'parallel_rule' => LeaveParallelRule::class,
+            'endorsement_mode' => EndorsementMode::class,
             'transportation' => TravelTransportation::class,
             'date_requested' => 'datetime',
             'submitted_at' => 'datetime',

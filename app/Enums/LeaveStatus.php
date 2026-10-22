@@ -9,6 +9,7 @@ enum LeaveStatus: string
     case PendingAdministrativeHead = 'pending_administrative_head';
     case PendingCeoFinalApproval = 'pending_ceo_final_approval';
     case PendingHr = 'pending_hr';
+    case PendingApproverAssignment = 'pending_approver_assignment';
     case Approved = 'approved';
     case Denied = 'denied';
     case PartiallyApproved = 'partially_approved';
@@ -22,6 +23,7 @@ enum LeaveStatus: string
             self::PendingAdministrativeHead => 'Pending Administrative Head',
             self::PendingCeoFinalApproval => 'Pending CEO Final Approval',
             self::PendingHr => 'Pending HR Processing',
+            self::PendingApproverAssignment => 'Pending Approver Assignment',
             self::Approved => 'Approved',
             self::Denied => 'Denied',
             self::PartiallyApproved => 'Partially Approved',
@@ -35,7 +37,7 @@ enum LeaveStatus: string
             self::Approved => 'brand',
             self::Denied, self::Cancelled => 'critical',
             self::PartiallyApproved => 'gold',
-            self::PendingSupervisor, self::PendingDepartmentHead, self::PendingAdministrativeHead, self::PendingCeoFinalApproval, self::PendingHr => 'warn',
+            self::PendingSupervisor, self::PendingDepartmentHead, self::PendingAdministrativeHead, self::PendingCeoFinalApproval, self::PendingHr, self::PendingApproverAssignment => 'warn',
         };
     }
 
@@ -58,6 +60,7 @@ enum LeaveStatus: string
             self::PendingCeoFinalApproval,
             self::PendingHr,
             self::PartiallyApproved,
+            self::PendingApproverAssignment,
         ], true);
     }
 

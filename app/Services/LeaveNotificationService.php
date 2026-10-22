@@ -98,6 +98,19 @@ class LeaveNotificationService
         $this->notify($user, $application, 'Leave application requires action', $message, 'warning', 'action-required');
     }
 
+    public function notifySingleEndorser(LeaveApplication $application, User $user, LeaveApprovalStage $stage): void
+    {
+        $employeeName = $application->employee?->fullName() ?? 'An employee';
+        $this->notify(
+            $user,
+            $application,
+            'Leave application ready for your endorsement',
+            "{$employeeName} filed {$application->application_number} — your endorsement is now required.",
+            'warning',
+            'stage-'.$stage->value
+        );
+    }
+
     private function notifyStageApprovers(LeaveApplication $application, LeaveApprovalStage $stage, bool $pendingOnly = true, ?string $title = null): void
     {
         $query = $application->assignments()->where('stage', $stage->value)->with('user');

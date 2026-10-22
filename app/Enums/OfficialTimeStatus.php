@@ -7,6 +7,7 @@ enum OfficialTimeStatus: string
     case Draft = 'draft';
     case PendingSupervisor = 'pending_supervisor';
     case PendingCeoFinalApproval = 'pending_ceo_final_approval';
+    case PendingApproverAssignment = 'pending_approver_assignment';
     case PartiallyApproved = 'partially_approved';
     case Approved = 'approved';
     case Denied = 'denied';
@@ -19,6 +20,7 @@ enum OfficialTimeStatus: string
             self::Draft => 'Draft',
             self::PendingSupervisor => 'For Endorsement',
             self::PendingCeoFinalApproval => 'For Approval',
+            self::PendingApproverAssignment => 'Pending Approver Assignment',
             self::PartiallyApproved => 'Partially Endorsed',
             self::Approved => 'Approved',
             self::Denied => 'Rejected',
@@ -56,6 +58,7 @@ enum OfficialTimeStatus: string
             self::PendingSupervisor,
             self::PendingCeoFinalApproval,
             self::PartiallyApproved,
+            self::PendingApproverAssignment,
         ], true);
     }
 

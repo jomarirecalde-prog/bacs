@@ -337,7 +337,9 @@ Route::middleware(['auth', 'account.active', 'password.changed'])->group(functio
         Route::delete('/settings/admins/{admin}', [AdminAccountController::class, 'destroy'])->middleware('role:admin')->name('settings.admins.destroy');
         Route::get('/settings/approval-workflow/employees/search', [ApprovalWorkflowController::class, 'searchEmployees'])->middleware('role:admin')->name('settings.approval-workflow.employees.search');
         Route::put('/settings/approval-workflow/{transactionType}', [ApprovalWorkflowController::class, 'update'])->middleware('role:admin')->name('settings.approval-workflow.update');
+        Route::post('/settings/approval-workflow/{transactionType}/preview-reassignment', [ApprovalWorkflowController::class, 'previewReassignment'])->middleware('role:admin')->name('settings.approval-workflow.preview-reassignment');
         Route::get('/settings/approval-workflow/{transactionType}/history', [ApprovalWorkflowController::class, 'history'])->middleware('role:admin')->name('settings.approval-workflow.history');
+        Route::get('/settings/approval-workflow/{transactionType}/reassignments', [ApprovalWorkflowController::class, 'reassignmentHistory'])->middleware('role:admin')->name('settings.approval-workflow.reassignments');
         Route::post('/settings/official-time-types', [OfficialTimeTypeController::class, 'store'])->middleware('role:admin')->name('settings.official-time-types.store');
         Route::put('/settings/official-time-types/{officialTimeType}', [OfficialTimeTypeController::class, 'update'])->middleware('role:admin')->name('settings.official-time-types.update');
 

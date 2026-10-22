@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ApprovalTransactionType;
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -17,6 +18,7 @@ use App\Models\TravelOrderApprovalAssignment;
 use App\Models\TravelOrderAttachment;
 use App\Models\TravelOrderModificationLog;
 use App\Models\User;
+use App\Support\DepartmentApprovalScope;
 use App\Support\ManilaTime;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -33,6 +35,7 @@ class TravelOrderService
         private readonly CeoResolver $ceo,
         private readonly LeaveWorkflowService $workflows,
         private readonly CentralApprovalWorkflowService $centralApproval,
+        private readonly EndorsementWorkflowCoordinator $endorsement,
         private readonly TravelOrderAttendanceService $attendanceSync,
     ) {}
 
@@ -114,7 +117,7 @@ class TravelOrderService
         }
 
         return DB::transaction(function () use ($requester, $actor, $payload, $travelerIds, $existing, $data) {
-            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::TravelOrder);
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::TravelOrder, $requester->department_id);
             $centralConfig = $this->centralApproval->configurationFor(ApprovalTransactionType::TravelOrder);
             $workflow = LeaveApprovalWorkflow::forDepartment($requester->department_id);
 
@@ -123,7 +126,7 @@ class TravelOrderService
                 $existing->update(array_merge($payload, [
                     'workflow_id' => $workflow->id,
                     'workflow_version' => $workflow->version,
-                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig, $requester->department_id),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
                     'status' => TravelOrderStatus::PendingSupervisor,
@@ -138,7 +141,7 @@ class TravelOrderService
                     'department_id' => $requester->department_id,
                     'workflow_id' => $workflow->id,
                     'workflow_version' => $workflow->version,
-                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
+                    'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig, $requester->department_id),
                     'date_requested' => ManilaTime::now(),
                     'submitted_at' => ManilaTime::now(),
                     'submitted_by' => $actor->id,
@@ -152,26 +155,40 @@ class TravelOrderService
             $this->storeAttachments($order, $actor, $data['attachments'] ?? []);
 
             $this->centralApproval->bootstrapTravelOrder($order, $requester);
-            $meta = $this->centralApproval->initialStageMeta($centralConfig);
+            $order->load('assignments');
 
-            if ($meta['stage'] === null) {
-                $now = ManilaTime::now();
+            $first = null;
+
+            if ($this->centralApproval->missingActionableApprovers($order)) {
                 $order->update([
-                    'status' => TravelOrderStatus::Approved,
+                    'status' => TravelOrderStatus::PendingApproverAssignment,
                     'current_stage' => null,
-                    'approved_at' => $now,
-                    'finalized_by' => $actor->id,
                 ]);
-                $first = null;
+                $this->centralApproval->notifyPendingApproverAssignment(
+                    ApprovalTransactionType::TravelOrder,
+                    $requester,
+                    $order->travel_order_number,
+                );
             } else {
-                $order->load('assignments');
-                $first = $order->firstActiveApprovalStage();
-                $order->update([
-                    'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
-                    'current_stage' => $first,
-                    'approved_at' => $first ? null : ManilaTime::now(),
-                    'finalized_by' => $first ? null : $actor->id,
-                ]);
+                $meta = $this->centralApproval->initialStageMeta($centralConfig, $requester->department_id);
+
+                if ($meta['stage'] === null) {
+                    $now = ManilaTime::now();
+                    $order->update([
+                        'status' => TravelOrderStatus::Approved,
+                        'current_stage' => null,
+                        'approved_at' => $now,
+                        'finalized_by' => $actor->id,
+                    ]);
+                } else {
+                    $first = $order->firstActiveApprovalStage();
+                    $order->update([
+                        'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
+                        'current_stage' => $first,
+                        'approved_at' => $first ? null : ManilaTime::now(),
+                        'finalized_by' => $first ? null : $actor->id,
+                    ]);
+                }
             }
 
             $this->recordAction(
@@ -272,6 +289,14 @@ class TravelOrderService
             $outcome = $this->evaluateStage($order, $stage);
 
             if ($outcome === 'pending') {
+                if (
+                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    && ($order->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
+                    && $decision === LeaveDecision::Approved
+                ) {
+                    $this->endorsement->promoteNextSequentialEndorser($order->assignments, $stage);
+                }
+
                 $this->recordAction($order, $actor, $stage, 'decision', $decision, $previous, $order->status, $reason);
                 $this->notifier->decisionToRequester(
                     $order,
@@ -484,7 +509,12 @@ class TravelOrderService
                     ->whereColumn('travel_order_approval_assignments.stage', 'travel_orders.current_stage');
             })
             ->with(['requester.department', 'personnel.employee', 'assignments'])
-            ->latest('submitted_at');
+            ->latest('submitted_at')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::TravelOrder,
+            ));
     }
 
     public function historyFor(User $user)
@@ -492,7 +522,12 @@ class TravelOrderService
         return TravelOrder::query()
             ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->whereNotNull('acted_at'))
             ->with(['requester.department', 'personnel.employee', 'assignments'])
-            ->latest('submitted_at');
+            ->latest('submitted_at')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::TravelOrder,
+            ));
     }
 
     public function userCanAct(User $user, TravelOrder $order): bool
@@ -502,6 +537,10 @@ class TravelOrderService
         }
 
         if (! $order->status?->isOpen() || ! $order->current_stage) {
+            return false;
+        }
+
+        if (! DepartmentApprovalScope::approverCanAccessRequestDepartment($user, $order->department_id)) {
             return false;
         }
 
@@ -602,24 +641,21 @@ class TravelOrderService
             return 'approved';
         }
 
-        if (! $stage->isParallel()) {
-            if ($denied->isNotEmpty()) {
-                return 'denied';
-            }
-            if ($approved->isNotEmpty()) {
-                return 'approved';
-            }
+        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+            $mode = $order->endorsement_mode ?? EndorsementMode::Parallel;
+            $rule = $order->parallel_rule ?? LeaveParallelRule::All;
 
-            return 'pending';
+            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
         }
 
-        $rule = $order->parallel_rule ?? LeaveParallelRule::All;
+        if ($denied->isNotEmpty()) {
+            return 'denied';
+        }
+        if ($approved->isNotEmpty()) {
+            return 'approved';
+        }
 
-        return match ($rule) {
-            LeaveParallelRule::Any => $this->evalAny($approved, $denied, $pending, $total),
-            LeaveParallelRule::Majority => $this->evalMajority($approved, $denied, $pending, $total),
-            LeaveParallelRule::All => $this->evalAll($approved, $denied, $pending, $total),
-        };
+        return 'pending';
     }
 
     private function evalAll($approved, $denied, $pending, int $total): string

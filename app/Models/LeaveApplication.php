@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasCentralApprovalTimeline;
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -41,6 +42,7 @@ class LeaveApplication extends Model
         'status',
         'current_stage',
         'parallel_rule',
+        'endorsement_mode',
         'payment_type',
         'hr_sil_as_of',
         'hr_sil_balance',
@@ -70,6 +72,7 @@ class LeaveApplication extends Model
             'status' => LeaveStatus::class,
             'current_stage' => LeaveApprovalStage::class,
             'parallel_rule' => LeaveParallelRule::class,
+            'endorsement_mode' => EndorsementMode::class,
             'payment_type' => LeavePaymentType::class,
             'hr_sil_as_of' => 'date',
             'hr_sil_balance' => 'float',

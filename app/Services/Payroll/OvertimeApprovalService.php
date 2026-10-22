@@ -7,6 +7,8 @@ use App\Enums\LeaveDecision;
 use App\Enums\OvertimeRequestStatus;
 use App\Models\OvertimeRequest;
 use App\Models\User;
+use App\Enums\ApprovalTransactionType;
+use App\Support\DepartmentApprovalScope;
 use App\Support\ManilaTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,7 +33,12 @@ class OvertimeApprovalService
             $query->where('status', OvertimeRequestStatus::PendingFinalApproval);
         }
 
-        return $query->orderByDesc('attendance_date');
+        return $query->orderByDesc('attendance_date')
+            ->tap(fn ($builder) => DepartmentApprovalScope::constrainToEmployeeDepartments(
+                $builder,
+                $user,
+                ApprovalTransactionType::OvertimeRequest,
+            ));
     }
 
     public function userCanAct(User $user, OvertimeRequest $request): bool
@@ -41,6 +48,11 @@ class OvertimeApprovalService
         }
 
         if (! $request->status?->isOpen() || ! $request->current_approval_stage) {
+            return false;
+        }
+
+        $request->loadMissing('employee');
+        if (! DepartmentApprovalScope::approverCanAccessRequestDepartment($user, $request->employee?->department_id)) {
             return false;
         }
 
@@ -62,7 +74,7 @@ class OvertimeApprovalService
         }
 
         return DB::transaction(function () use ($request, $actor, $decision, $reason, $approvedMinutes) {
-            $stage = LeaveApprovalStage::tryFrom((string) $request->current_approval_stage);
+            $stage = $this->resolveCurrentStage($request);
             if (! $stage) {
                 throw ValidationException::withMessages(['decision' => 'This request has no active approval stage.']);
             }
@@ -175,5 +187,16 @@ class OvertimeApprovalService
         }
 
         return null;
+    }
+
+    private function resolveCurrentStage(OvertimeRequest $request): ?LeaveApprovalStage
+    {
+        $current = $request->current_approval_stage;
+
+        if ($current instanceof LeaveApprovalStage) {
+            return $current;
+        }
+
+        return LeaveApprovalStage::tryFrom((string) $current);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AttendanceStatus;
+use App\Enums\EndorsementMode;
 use App\Enums\ApprovalTransactionType;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
@@ -21,6 +22,7 @@ use App\Models\LeaveApprovalAssignment;
 use App\Models\LeaveApprovalWorkflow;
 use App\Models\LeaveAttendanceConflict;
 use App\Models\User;
+use App\Support\DepartmentApprovalScope;
 use App\Support\ManilaTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -37,6 +39,7 @@ class LeaveApplicationService
         private readonly CeoResolver $ceo,
         private readonly LeaveWorkflowService $workflows,
         private readonly CentralApprovalWorkflowService $centralApproval,
+        private readonly EndorsementWorkflowCoordinator $endorsement,
     ) {}
 
     public function submit(Employee $employee, User $actor, array $data): LeaveApplication
@@ -99,7 +102,7 @@ class LeaveApplicationService
         $signature = $this->storeSignature($data['employee_signature'] ?? null, $employee);
 
         return DB::transaction(function () use ($employee, $actor, $data, $type, $special, $requested, $signature) {
-            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::LeaveApplication);
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::LeaveApplication, $employee->department_id);
             $centralConfig = $this->centralApproval->configurationFor(ApprovalTransactionType::LeaveApplication);
             $workflow = LeaveApprovalWorkflow::forDepartment($employee->department_id);
 
@@ -121,33 +124,52 @@ class LeaveApplicationService
                 'date_filed' => ManilaTime::now(),
                 'status' => LeaveStatus::PendingSupervisor,
                 'current_stage' => LeaveApprovalStage::ImmediateSupervisor,
-                'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig),
+                'parallel_rule' => $this->centralApproval->parallelRuleFor($centralConfig, $employee->department_id),
+                'endorsement_mode' => $this->centralApproval->endorsementModeFor($centralConfig, $employee->department_id),
                 'submitted_by' => $actor->id,
             ]);
 
             $this->centralApproval->bootstrapLeaveApplication($application, $employee);
-            $meta = $this->centralApproval->initialStageMeta($centralConfig);
+            $application->load('assignments');
+            $first = null;
 
-            if ($meta['stage'] === null) {
-                $this->snapshotHrApproversOnly($application, $employee);
+            if ($this->centralApproval->missingActionableApprovers($application)) {
                 $application->update([
-                    'status' => LeaveStatus::PendingHr,
-                    'current_stage' => LeaveApprovalStage::HrOfficer,
+                    'status' => LeaveStatus::PendingApproverAssignment,
+                    'current_stage' => null,
                 ]);
-                $first = LeaveApprovalStage::HrOfficer;
+                $this->centralApproval->notifyPendingApproverAssignment(
+                    ApprovalTransactionType::LeaveApplication,
+                    $employee,
+                    $application->application_number,
+                );
             } else {
-                $application->load('assignments');
-                $first = $application->firstActiveApprovalStage();
-                $application->update([
-                    'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
-                    'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
-                ]);
-                if ($first === null) {
+                $meta = $this->centralApproval->initialStageMeta($centralConfig, $employee->department_id);
+
+                if ($meta['stage'] === null) {
                     $this->snapshotHrApproversOnly($application, $employee);
+                    $application->update([
+                        'status' => LeaveStatus::PendingHr,
+                        'current_stage' => LeaveApprovalStage::HrOfficer,
+                    ]);
+                    $first = LeaveApprovalStage::HrOfficer;
+                } else {
+                    $first = $application->firstActiveApprovalStage();
+                    $application->update([
+                        'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
+                        'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
+                    ]);
+                    if ($first === null) {
+                        $this->snapshotHrApproversOnly($application, $employee);
+                    }
                 }
             }
 
-            $this->recordAction($application, $actor, $first ?? LeaveApprovalStage::ImmediateSupervisor, 'submitted', null, null, $application->status, 'Leave application submitted.');
+            $stageForAction = $application->status === LeaveStatus::PendingApproverAssignment
+                ? LeaveApprovalStage::ImmediateSupervisor
+                : ($first ?? LeaveApprovalStage::ImmediateSupervisor);
+
+            $this->recordAction($application, $actor, $stageForAction, 'submitted', null, null, $application->status, 'Leave application submitted.');
             $this->audit->log($actor, 'leave_submitted', 'Leave', $application->id, "{$employee->fullName()} submitted {$application->application_number}.");
 
             return $application->fresh(['employee.department', 'employee.user', 'assignments.user', 'actions.user']);
@@ -233,6 +255,17 @@ class LeaveApplicationService
             $outcome = $this->evaluateStage($application, $stage);
 
             if ($outcome === 'pending') {
+                if (
+                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    && ($application->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
+                    && $decision === LeaveDecision::Approved
+                ) {
+                    $next = $this->endorsement->promoteNextSequentialEndorser($application->assignments, $stage);
+                    if ($next?->user) {
+                        $this->notifier->notifySingleEndorser($application, $next->user, $stage);
+                    }
+                }
+
                 $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, $application->status, $reason);
                 $this->audit->log($actor, 'leave_'.$decision->value, 'Leave', $application->id, "{$actor->name} {$decision->value} {$application->application_number} at {$stage->shortLabel()}.");
                 $this->notifier->decisionToEmployee(
@@ -545,7 +578,12 @@ class LeaveApplicationService
                 });
             })
             ->with(['employee.department', 'assignments'])
-            ->latest('date_filed');
+            ->latest('date_filed')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::LeaveApplication,
+            ));
     }
 
     public function historyFor(User $user)
@@ -553,7 +591,12 @@ class LeaveApplicationService
         return LeaveApplication::query()
             ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->whereNotNull('acted_at'))
             ->with(['employee.department', 'assignments'])
-            ->latest('date_filed');
+            ->latest('date_filed')
+            ->tap(fn ($query) => DepartmentApprovalScope::constrainToApproverDepartments(
+                $query,
+                $user,
+                ApprovalTransactionType::LeaveApplication,
+            ));
     }
 
     public function userCanAct(User $user, LeaveApplication $application): bool
@@ -563,6 +606,10 @@ class LeaveApplicationService
         }
 
         if (! $application->status?->isOpen() || ! $application->current_stage) {
+            return false;
+        }
+
+        if (! DepartmentApprovalScope::approverCanAccessRequestDepartment($user, $application->department_id)) {
             return false;
         }
 
@@ -684,24 +731,21 @@ class LeaveApplicationService
             return 'approved';
         }
 
-        if (! $stage->isParallel()) {
-            if ($denied->isNotEmpty()) {
-                return 'denied';
-            }
-            if ($approved->isNotEmpty()) {
-                return 'approved';
-            }
+        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+            $mode = $application->endorsement_mode ?? EndorsementMode::Parallel;
+            $rule = $application->parallel_rule ?? LeaveParallelRule::All;
 
-            return 'pending';
+            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
         }
 
-        $rule = $application->parallel_rule ?? LeaveParallelRule::All;
+        if ($denied->isNotEmpty()) {
+            return 'denied';
+        }
+        if ($approved->isNotEmpty()) {
+            return 'approved';
+        }
 
-        return match ($rule) {
-            LeaveParallelRule::Any => $this->evalAny($approved, $denied, $pending, $total),
-            LeaveParallelRule::Majority => $this->evalMajority($approved, $denied, $pending, $total),
-            LeaveParallelRule::All => $this->evalAll($approved, $denied, $pending, $total),
-        };
+        return 'pending';
     }
 
     private function evalAll($approved, $denied, $pending, int $total): string

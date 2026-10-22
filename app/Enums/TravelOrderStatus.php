@@ -9,6 +9,7 @@ enum TravelOrderStatus: string
     case PendingDepartmentHead = 'pending_department_head';
     case PendingAdministrativeHead = 'pending_administrative_head';
     case PendingCeoFinalApproval = 'pending_ceo_final_approval';
+    case PendingApproverAssignment = 'pending_approver_assignment';
     case PartiallyApproved = 'partially_approved';
     case Approved = 'approved';
     case Denied = 'denied';
@@ -22,6 +23,7 @@ enum TravelOrderStatus: string
             self::PendingDepartmentHead => 'Pending Department Head',
             self::PendingAdministrativeHead => 'Pending Administrative Head',
             self::PendingCeoFinalApproval => 'Pending Final Approval',
+            self::PendingApproverAssignment => 'Pending Approver Assignment',
             self::PartiallyApproved => 'Partially Endorsed',
             self::Approved => 'Approved',
             self::Denied => 'Rejected',
@@ -59,6 +61,7 @@ enum TravelOrderStatus: string
             self::PendingAdministrativeHead,
             self::PendingCeoFinalApproval,
             self::PartiallyApproved,
+            self::PendingApproverAssignment,
         ], true);
     }
 

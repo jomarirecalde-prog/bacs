@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\Holiday;
 use App\Models\Setting;
 use App\Models\User;
@@ -22,12 +23,15 @@ class SettingController extends Controller
             ->orderBy('name')
             ->get();
 
+        $departments = Department::query()->active()->ordered()->get();
+
         return view('admin.settings.index', [
             'company' => Setting::get('company_name', 'BACS'),
             'address' => Setting::get('company_address', ''),
             'holidays' => $holidays,
             'adminAccounts' => $adminAccounts,
             'approvalConfigurations' => $approvalWorkflows->allConfigurations(),
+            'approvalDepartments' => $departments,
             'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
         ]);
     }

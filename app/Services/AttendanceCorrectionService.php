@@ -51,10 +51,10 @@ class AttendanceCorrectionService
         }
 
         return DB::transaction(function () use ($employee, $date, $type, $requested, $original, $record, $data) {
-            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::Pardon);
+            $this->centralApproval->assertCanSubmit(ApprovalTransactionType::Pardon, $employee->department_id);
             $config = $this->centralApproval->configurationFor(ApprovalTransactionType::Pardon);
-            $meta = $this->centralApproval->initialStageMeta($config);
-            $status = $this->centralApproval->pardonStatusAfterBootstrap($config);
+            $meta = $this->centralApproval->initialStageMeta($config, $employee->department_id);
+            $status = $this->centralApproval->pardonStatusAfterBootstrap($config, $employee->department_id);
 
             $request = AttendanceCorrectionRequest::query()->create([
                 'employee_id' => $employee->id,
@@ -69,6 +69,21 @@ class AttendanceCorrectionService
             ]);
 
             $this->centralApproval->bootstrapPardon($request, $employee);
+            $request->load('approvalAssignments');
+
+            if ($this->centralApproval->missingActionableApprovers($request)) {
+                $request->update([
+                    'status' => AttendanceCorrectionStatus::PendingApproverAssignment->value,
+                    'current_approval_stage' => null,
+                ]);
+                $this->centralApproval->notifyPendingApproverAssignment(
+                    ApprovalTransactionType::Pardon,
+                    $employee,
+                    'Correction '.$date,
+                );
+
+                return $request->fresh(['approvalAssignments']);
+            }
 
             if ($meta['stage'] === null) {
                 return $this->approve($employee->user ?? User::query()->where('role', 'admin')->first(), $request, 'Auto-approved (no endorsement/final approval configured).');
@@ -152,17 +167,21 @@ class AttendanceCorrectionService
                 'review_notes' => $notes,
             ]);
 
-            if ($employee->user) {
-                $this->notifications->notify(
-                    $employee->user,
-                    'DTR correction approved',
-                    'Your '.$type->label().' correction for '.$date.' was approved.',
-                    'success',
-                    route('employee.dtr')
-                );
-            }
+            try {
+                if ($employee->user) {
+                    $this->notifications->notify(
+                        $employee->user,
+                        'DTR correction approved',
+                        'Your '.$type->label().' correction for '.$date.' was approved.',
+                        'success',
+                        route('employee.dtr')
+                    );
+                }
 
-            $this->emailNotifications->correctionApproved($request->fresh(['employee.user']), $reviewer);
+                $this->emailNotifications->correctionApproved($request->fresh(['employee.user']), $reviewer);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
 
             return $request->fresh(['employee', 'reviewer']);
         });
