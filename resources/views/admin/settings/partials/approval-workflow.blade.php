@@ -224,7 +224,6 @@
                     <div class="flex flex-wrap gap-3">
                         <button type="submit" class="btn-primary">Save {{ $department->name }} workflow</button>
                         <a href="{{ route('admin.settings.approval-workflow.history', $config->transaction_type->value) }}" class="btn-secondary">Configuration history</a>
-                        <a href="{{ route('admin.settings.approval-workflow.reassignments', $config->transaction_type->value) }}" class="btn-outline">Reassignment history</a>
                     </div>
                 </form>
             </div>
