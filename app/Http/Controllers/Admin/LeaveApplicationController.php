@@ -53,7 +53,6 @@ class LeaveApplicationController extends Controller
         $this->authorize('view', $application);
 
         return view('admin.leave.show', $this->pdf->viewData($application) + [
-            'canProcessHr' => $request->user()->can('processHr', $application),
             'canApprove' => $request->user()->can('approve', $application),
         ]);
     }

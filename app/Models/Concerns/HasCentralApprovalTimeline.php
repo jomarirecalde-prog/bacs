@@ -88,6 +88,12 @@ trait HasCentralApprovalTimeline
             fn (LeaveApprovalStage $stage) => $this->assignmentsFor($stage)->isNotEmpty()
         ));
 
+        if ($this->includesHrApprovalStage()) {
+            $stages[] = LeaveApprovalStage::HrOfficer;
+
+            return $stages;
+        }
+
         if ($stages !== []) {
             return $stages;
         }
@@ -98,6 +104,11 @@ trait HasCentralApprovalTimeline
         }
 
         return [];
+    }
+
+    protected function includesHrApprovalStage(): bool
+    {
+        return false;
     }
 
     protected function usesLegacyDepartmentApprovalStages(): bool

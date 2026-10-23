@@ -181,6 +181,11 @@ class LeaveApplication extends Model
         return $this->assignments->where('stage', $stage);
     }
 
+    protected function includesHrApprovalStage(): bool
+    {
+        return true;
+    }
+
     public function pendingAssignmentsFor(?LeaveApprovalStage $stage = null)
     {
         $stage ??= $this->current_stage;

@@ -312,6 +312,8 @@ class LeaveApplicationService
             }
 
             $mixed = $outcome === 'approved_mixed';
+            $this->prepareHrAssignmentsBeforeAdvance($application, $stage);
+            $application->load('assignments');
             $next = $application->nextApprovalStageAfter($stage);
 
             if ($next) {
@@ -321,20 +323,29 @@ class LeaveApplicationService
                     'current_stage' => $next,
                 ]);
                 $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, $status, $reason);
+                $employeeMessage = $next === LeaveApprovalStage::HrOfficer
+                    ? ($stage === LeaveApprovalStage::CeoFinalApproval
+                        ? "CEO final approval granted for {$application->application_number}. HR is processing your leave."
+                        : "Approvals for {$application->application_number} are complete. HR is processing your leave.")
+                    : "{$stage->shortLabel()} completed for {$application->application_number}. It is now with {$next->shortLabel()}.";
+                $employeeTitle = $next === LeaveApprovalStage::HrOfficer
+                    ? ($stage === LeaveApprovalStage::CeoFinalApproval ? 'Leave application final approved' : 'Leave forwarded to HR')
+                    : ($mixed ? 'Leave partially approved' : 'Leave approval update');
                 $this->notifier->decisionToEmployee(
                     $application,
-                    $mixed ? 'Leave partially approved' : 'Leave approval update',
-                    "{$stage->shortLabel()} completed for {$application->application_number}. It is now with {$next->shortLabel()}.",
-                    $mixed ? 'warning' : 'success'
+                    $employeeTitle,
+                    $employeeMessage,
+                    $mixed && $next !== LeaveApprovalStage::HrOfficer ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), $next);
                 $this->emailNotifications->leaveApproved(
                     $application->fresh(['employee.user']),
                     $actor,
                     $status->label(),
-                    'leave:'.$application->id.':stage:'.$stage->value.':advanced'
+                    'leave:'.$application->id.':stage:'.$stage->value.':'.($next === LeaveApprovalStage::HrOfficer ? 'pending_hr' : 'advanced')
                 );
             } else {
+                $this->ensureHrStageAssignments($application);
                 $application->update([
                     'status' => LeaveStatus::PendingHr,
                     'current_stage' => LeaveApprovalStage::HrOfficer,
@@ -372,6 +383,8 @@ class LeaveApplicationService
             ]);
         }
 
+        $this->ensureHrStageAssignments($application);
+
         if (! $this->userCanProcessHr($actor, $application)) {
             throw ValidationException::withMessages([
                 'payment_type' => 'You are not authorized to process this leave for HR.',
@@ -398,7 +411,7 @@ class LeaveApplicationService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $assignment && ! $actor->isAdmin()) {
+            if (! $assignment) {
                 throw ValidationException::withMessages([
                     'payment_type' => 'You are not authorized to process this leave for HR.',
                 ]);
@@ -634,15 +647,46 @@ class LeaveApplicationService
             return false;
         }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
+        $this->ensureHrStageAssignments($application);
 
         return $application->assignments()
             ->where('stage', LeaveApprovalStage::HrOfficer->value)
             ->where('user_id', $user->id)
             ->where('status', 'pending')
             ->exists();
+    }
+
+    public function ensureHrStageAssignments(LeaveApplication $application): void
+    {
+        if ($application->assignments()->where('stage', LeaveApprovalStage::HrOfficer->value)->exists()) {
+            return;
+        }
+
+        $employee = $application->employee;
+        if (! $employee) {
+            return;
+        }
+
+        $this->snapshotHrApproversOnly($application, $employee);
+    }
+
+    private function prepareHrAssignmentsBeforeAdvance(LeaveApplication $application, LeaveApprovalStage $completedStage): void
+    {
+        if (! $application instanceof LeaveApplication) {
+            return;
+        }
+
+        $sequence = $application->activeApprovalStageSequence();
+        $hrIndex = array_search(LeaveApprovalStage::HrOfficer, $sequence, true);
+        if ($hrIndex === false || $hrIndex === 0) {
+            return;
+        }
+
+        if ($sequence[$hrIndex - 1] !== $completedStage) {
+            return;
+        }
+
+        $this->ensureHrStageAssignments($application);
     }
 
     public function userIsAssignedApprover(User $user): bool
