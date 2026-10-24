@@ -20,7 +20,7 @@
                 <label class="label">Status</label>
                 <select name="status" class="input">
                     <option value="">All open statuses</option>
-                    @foreach ([\App\Enums\LeaveStatus::PendingSupervisor, \App\Enums\LeaveStatus::PendingCeoFinalApproval, \App\Enums\LeaveStatus::PendingHr] as $statusOption)
+                    @foreach ([\App\Enums\LeaveStatus::PendingSupervisor, \App\Enums\LeaveStatus::PendingCeoFinalApproval] as $statusOption)
                         <option value="{{ $statusOption->value }}" @selected(($filters['status'] ?? '') === $statusOption->value)>{{ $statusOption->label() }}</option>
                     @endforeach
                 </select>

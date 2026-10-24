@@ -172,7 +172,7 @@ class LeaveModuleTest extends TestCase
             'decision' => 'approved',
         ])->assertRedirect();
 
-        $this->assertSame(LeaveStatus::PendingHr, $application->fresh()->status);
+        $this->assertSame(LeaveStatus::Approved, $application->fresh()->status);
     }
 
     public function test_parallel_any_advances_after_one_approval(): void

@@ -147,20 +147,16 @@ class LeaveApplicationService
                 $meta = $this->centralApproval->initialStageMeta($centralConfig, $employee->department_id);
 
                 if ($meta['stage'] === null) {
-                    $this->snapshotHrApproversOnly($application, $employee);
-                    $application->update([
-                        'status' => LeaveStatus::PendingHr,
-                        'current_stage' => LeaveApprovalStage::HrOfficer,
-                    ]);
-                    $first = LeaveApprovalStage::HrOfficer;
+                    $this->completeApprovedLeave($application, $actor);
                 } else {
                     $first = $application->firstActiveApprovalStage();
-                    $application->update([
-                        'status' => $first?->pendingStatus() ?? LeaveStatus::PendingHr,
-                        'current_stage' => $first ?? LeaveApprovalStage::HrOfficer,
-                    ]);
                     if ($first === null) {
-                        $this->snapshotHrApproversOnly($application, $employee);
+                        $this->completeApprovedLeave($application, $actor);
+                    } else {
+                        $application->update([
+                            'status' => $first->pendingStatus(),
+                            'current_stage' => $first,
+                        ]);
                     }
                 }
             }
@@ -312,67 +308,111 @@ class LeaveApplicationService
             }
 
             $mixed = $outcome === 'approved_mixed';
-            $this->prepareHrAssignmentsBeforeAdvance($application, $stage);
             $application->load('assignments');
             $next = $application->nextApprovalStageAfter($stage);
 
-            if ($next) {
+            if ($next && $next !== LeaveApprovalStage::HrOfficer) {
                 $status = $next->pendingStatus();
                 $application->update([
                     'status' => $status,
                     'current_stage' => $next,
                 ]);
                 $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, $status, $reason);
-                $employeeMessage = $next === LeaveApprovalStage::HrOfficer
-                    ? ($stage === LeaveApprovalStage::CeoFinalApproval
-                        ? "CEO final approval granted for {$application->application_number}. HR is processing your leave."
-                        : "Approvals for {$application->application_number} are complete. HR is processing your leave.")
-                    : "{$stage->shortLabel()} completed for {$application->application_number}. It is now with {$next->shortLabel()}.";
-                $employeeTitle = $next === LeaveApprovalStage::HrOfficer
-                    ? ($stage === LeaveApprovalStage::CeoFinalApproval ? 'Leave application final approved' : 'Leave forwarded to HR')
-                    : ($mixed ? 'Leave partially approved' : 'Leave approval update');
+                $employeeMessage = "{$stage->shortLabel()} completed for {$application->application_number}. It is now with {$next->shortLabel()}.";
+                $employeeTitle = $mixed ? 'Leave partially approved' : 'Leave approval update';
                 $this->notifier->decisionToEmployee(
                     $application,
                     $employeeTitle,
                     $employeeMessage,
-                    $mixed && $next !== LeaveApprovalStage::HrOfficer ? 'warning' : 'success'
+                    $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), $next);
                 $this->emailNotifications->leaveApproved(
                     $application->fresh(['employee.user']),
                     $actor,
                     $status->label(),
-                    'leave:'.$application->id.':stage:'.$stage->value.':'.($next === LeaveApprovalStage::HrOfficer ? 'pending_hr' : 'advanced')
+                    'leave:'.$application->id.':stage:'.$stage->value.':advanced'
                 );
             } else {
-                $this->ensureHrStageAssignments($application);
-                $application->update([
-                    'status' => LeaveStatus::PendingHr,
-                    'current_stage' => LeaveApprovalStage::HrOfficer,
-                ]);
-                $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, LeaveStatus::PendingHr, $reason);
+                $this->recordAction($application, $actor, $stage, 'decision', $decision, $previous, LeaveStatus::Approved, $reason);
+                $conflict = $this->completeApprovedLeave($application, $actor);
 
                 $title = $stage === LeaveApprovalStage::CeoFinalApproval
                     ? 'Leave application final approved'
-                    : 'Leave forwarded to HR';
-                $message = $stage === LeaveApprovalStage::CeoFinalApproval
-                    ? "CEO final approval granted for {$application->application_number}. HR is processing your leave."
-                    : "Approvals for {$application->application_number} are complete. HR is processing your leave.";
-
+                    : 'Leave application approved';
+                $message = "Your leave application {$application->application_number} has been fully approved.";
                 $this->notifier->decisionToEmployee($application, $title, $message, 'success');
-                $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), LeaveApprovalStage::HrOfficer);
                 $this->emailNotifications->leaveApproved(
                     $application->fresh(['employee.user']),
                     $actor,
-                    LeaveStatus::PendingHr->label(),
-                    'leave:'.$application->id.':stage:'.$stage->value.':pending_hr'
+                    LeaveStatus::Approved->label(),
+                    'leave:'.$application->id.':stage:'.$stage->value.':approved'
                 );
+
+                if ($conflict) {
+                    $this->notifier->needsEmployeeAction(
+                        $application,
+                        'A time-entry conflict exists on one or more approved leave dates. Existing DTR punches were preserved.'
+                    );
+                }
             }
 
             $this->audit->log($actor, 'leave_'.$decision->value, 'Leave', $application->id, "{$actor->name} {$decision->value} {$application->application_number}.");
 
             return $application->fresh(['employee.user', 'assignments.user', 'actions.user']);
         });
+    }
+
+    public function finalizeAfterWorkflowComplete(LeaveApplication $application, User $actor): void
+    {
+        if ($application->finalized_at !== null) {
+            return;
+        }
+
+        DB::transaction(fn () => $this->completeApprovedLeave($application, $actor));
+    }
+
+    public function backfillApproveWithoutHr(LeaveApplication $application): bool
+    {
+        if ($application->status !== LeaveStatus::PendingHr && $application->status !== LeaveStatus::PartiallyApproved) {
+            return false;
+        }
+
+        if ($application->finalized_at !== null) {
+            return false;
+        }
+
+        $actor = $application->assignments()
+            ->whereNotNull('acted_at')
+            ->orderByDesc('acted_at')
+            ->first()
+            ?->user;
+
+        $actor ??= User::query()
+            ->where('role', UserRole::Admin)
+            ->where('status', 'active')
+            ->first();
+
+        if (! $actor) {
+            return false;
+        }
+
+        DB::transaction(function () use ($application, $actor) {
+            $previous = $application->status;
+            $this->completeApprovedLeave($application, $actor);
+            $this->recordAction(
+                $application,
+                $actor,
+                $application->current_stage ?? LeaveApprovalStage::CeoFinalApproval,
+                'approved_after_workflow',
+                LeaveDecision::Approved,
+                $previous,
+                LeaveStatus::Approved,
+                'Approved after workflow (HR processing removed).'
+            );
+        });
+
+        return true;
     }
 
     public function processHr(LeaveApplication $application, User $actor, array $data): LeaveApplication
@@ -401,9 +441,8 @@ class LeaveApplicationService
         }
 
         $previous = $application->status;
-        $year = (int) $application->start_date->year;
 
-        return DB::transaction(function () use ($application, $actor, $data, $payment, $decision, $previous, $year) {
+        return DB::transaction(function () use ($application, $actor, $data, $payment, $decision, $previous) {
             $assignment = $application->assignments()
                 ->where('stage', LeaveApprovalStage::HrOfficer->value)
                 ->where('user_id', $actor->id)
@@ -416,108 +455,38 @@ class LeaveApplicationService
                     'payment_type' => 'You are not authorized to process this leave for HR.',
                 ]);
             }
-            $code = $application->balanceCode();
-            $employee = $application->employee()->lockForUpdate()->first();
-            $vacation = $this->balances->forEmployee($employee, LeaveType::Vacation->value, $year);
-            $applied = $this->balances->forEmployee($employee, $code, $year);
-
-            if ($decision === LeaveDecision::Approved && $payment === LeavePaymentType::WithPay) {
-                $this->balances->deductForApplication($application, $actor, (float) $application->requested_days, $year);
-                $applied = $this->balances->forEmployee($employee, $code, $year)->fresh();
-            }
-
-            $leave = null;
-            $conflict = false;
-
-            if ($decision === LeaveDecision::Approved) {
-                $leave = Leave::query()->create([
-                    'employee_id' => $employee->id,
-                    'start_date' => $application->start_date,
-                    'end_date' => $application->end_date,
-                    'type' => $application->leaveTypeLabel(),
-                    'status' => 'approved',
-                    'remarks' => $application->application_number,
-                    'created_by' => $actor->id,
-                ]);
-                $this->leaveResolver->flush();
-                $conflict = $this->applyToAttendance($application, $employee, $leave);
-            }
 
             $now = ManilaTime::now();
-            $signature = $this->storeSignature($data['signature'] ?? null, $employee, 'hr-'.$application->id);
+            $signature = $this->storeSignature($data['signature'] ?? null, $application->employee, 'hr-'.$application->id);
 
-            if ($assignment) {
+            if ($decision === LeaveDecision::Denied) {
                 $assignment->update([
                     'status' => $decision->value,
                     'reason' => $data['reason'] ?? $data['hr_remarks'] ?? null,
                     'signature' => $signature,
                     'acted_at' => $now,
                 ]);
-            } else {
-                LeaveApprovalAssignment::query()->create([
-                    'leave_application_id' => $application->id,
-                    'stage' => LeaveApprovalStage::HrOfficer,
-                    'user_id' => $actor->id,
-                    'employee_id' => $actor->employee?->id,
-                    'approver_name' => $actor->name,
-                    'approver_position' => $actor->employee?->position ?? $actor->role?->label(),
-                    'approver_role' => $actor->role?->value,
-                    'status' => $decision->value,
-                    'reason' => $data['reason'] ?? $data['hr_remarks'] ?? null,
-                    'signature' => $signature,
-                    'acted_at' => $now,
-                ]);
-            }
 
-            $application->assignments()
-                ->where('stage', LeaveApprovalStage::HrOfficer->value)
-                ->where('status', 'pending')
-                ->update(['status' => 'skipped', 'acted_at' => $now, 'reason' => 'Completed by another HR officer.']);
+                $application->assignments()
+                    ->where('stage', LeaveApprovalStage::HrOfficer->value)
+                    ->where('status', 'pending')
+                    ->update(['status' => 'skipped', 'acted_at' => $now, 'reason' => 'Completed by another HR officer.']);
 
-            $status = $decision === LeaveDecision::Approved ? LeaveStatus::Approved : LeaveStatus::Denied;
+                $application->update(['status' => LeaveStatus::Denied]);
 
-            $application->update([
-                'status' => $status,
-                'payment_type' => $payment,
-                'hr_sil_as_of' => $data['hr_sil_as_of'] ?? $now->toDateString(),
-                'hr_sil_balance' => $vacation->fresh()->remaining(),
-                'hr_leave_taken' => (float) $applied->used_days,
-                'hr_leave_balance' => $applied->remaining(),
-                'hr_remarks' => $data['hr_remarks'] ?? $data['reason'] ?? null,
-                'attendance_conflict' => $conflict,
-                'finalized_at' => $now,
-                'finalized_by' => $actor->id,
-                'leave_id' => $leave?->id,
-            ]);
-
-            $this->recordAction(
-                $application,
-                $actor,
-                LeaveApprovalStage::HrOfficer,
-                'hr_processed',
-                $decision,
-                $previous,
-                $status,
-                $data['hr_remarks'] ?? $data['reason'] ?? null,
-                $signature
-            );
-
-            $this->audit->log($actor, 'leave_hr_processed', 'Leave', $application->id, "HR processed {$application->application_number} as {$status->label()} ({$payment->label()}).");
-
-            if ($status === LeaveStatus::Approved) {
-                $this->notifier->decisionToEmployee(
+                $this->recordAction(
                     $application,
-                    'Leave application approved',
-                    "Your leave application {$application->application_number} has been fully approved.",
-                    'success'
-                );
-                $this->emailNotifications->leaveApproved(
-                    $application->fresh(['employee.user']),
                     $actor,
-                    LeaveStatus::Approved->label(),
-                    'leave:'.$application->id.':hr:approved'
+                    LeaveApprovalStage::HrOfficer,
+                    'hr_processed',
+                    $decision,
+                    $previous,
+                    LeaveStatus::Denied,
+                    $data['hr_remarks'] ?? $data['reason'] ?? null,
+                    $signature
                 );
-            } else {
+
+                $this->audit->log($actor, 'leave_hr_processed', 'Leave', $application->id, "HR processed {$application->application_number} as Denied ({$payment->label()}).");
                 $this->notifier->decisionToEmployee(
                     $application,
                     'Leave application denied',
@@ -531,7 +500,50 @@ class LeaveApplicationService
                     $rejectionReason !== '' ? $rejectionReason : 'No reason was provided.',
                     'leave:'.$application->id.':hr:denied'
                 );
+
+                return $application->fresh(['employee.department', 'employee.user', 'assignments.user', 'actions.user', 'conflicts']);
             }
+
+            $conflict = $this->completeApprovedLeave($application, $actor, $payment, $data);
+
+            $assignment->update([
+                'status' => $decision->value,
+                'reason' => $data['reason'] ?? $data['hr_remarks'] ?? null,
+                'signature' => $signature,
+                'acted_at' => $now,
+            ]);
+
+            $application->assignments()
+                ->where('stage', LeaveApprovalStage::HrOfficer->value)
+                ->where('status', 'pending')
+                ->update(['status' => 'skipped', 'acted_at' => $now, 'reason' => 'Completed by another HR officer.']);
+
+            $this->recordAction(
+                $application,
+                $actor,
+                LeaveApprovalStage::HrOfficer,
+                'hr_processed',
+                $decision,
+                $previous,
+                LeaveStatus::Approved,
+                $data['hr_remarks'] ?? $data['reason'] ?? null,
+                $signature
+            );
+
+            $this->audit->log($actor, 'leave_hr_processed', 'Leave', $application->id, "HR processed {$application->application_number} as Approved ({$payment->label()}).");
+
+            $this->notifier->decisionToEmployee(
+                $application,
+                'Leave application approved',
+                "Your leave application {$application->application_number} has been fully approved.",
+                'success'
+            );
+            $this->emailNotifications->leaveApproved(
+                $application->fresh(['employee.user']),
+                $actor,
+                LeaveStatus::Approved->label(),
+                'leave:'.$application->id.':hr:approved'
+            );
 
             if ($conflict) {
                 $this->notifier->needsEmployeeAction(
@@ -542,6 +554,64 @@ class LeaveApplicationService
 
             return $application->fresh(['employee.department', 'employee.user', 'assignments.user', 'actions.user', 'conflicts']);
         });
+    }
+
+    /** @param  array<string, mixed>  $hrFields */
+    private function completeApprovedLeave(
+        LeaveApplication $application,
+        User $actor,
+        LeavePaymentType $payment = LeavePaymentType::WithPay,
+        array $hrFields = [],
+    ): bool {
+        if ($application->finalized_at !== null) {
+            return (bool) $application->attendance_conflict;
+        }
+
+        $year = (int) $application->start_date->year;
+        $code = $application->balanceCode();
+        $employee = $application->employee()->lockForUpdate()->firstOrFail();
+        $vacation = $this->balances->forEmployee($employee, LeaveType::Vacation->value, $year);
+        $applied = $this->balances->forEmployee($employee, $code, $year);
+
+        if ($payment === LeavePaymentType::WithPay) {
+            $this->balances->deductForApplication($application, $actor, (float) $application->requested_days, $year);
+            $applied = $this->balances->forEmployee($employee, $code, $year)->fresh();
+        }
+
+        $leave = Leave::query()->create([
+            'employee_id' => $employee->id,
+            'start_date' => $application->start_date,
+            'end_date' => $application->end_date,
+            'type' => $application->leaveTypeLabel(),
+            'status' => 'approved',
+            'remarks' => $application->application_number,
+            'created_by' => $actor->id,
+        ]);
+        $this->leaveResolver->flush();
+        $conflict = $this->applyToAttendance($application, $employee, $leave);
+
+        $now = ManilaTime::now();
+
+        $application->assignments()
+            ->where('stage', LeaveApprovalStage::HrOfficer->value)
+            ->where('status', 'pending')
+            ->update(['status' => 'skipped', 'acted_at' => $now, 'reason' => 'HR processing is no longer required.']);
+
+        $application->update([
+            'status' => LeaveStatus::Approved,
+            'payment_type' => $payment,
+            'hr_sil_as_of' => $hrFields['hr_sil_as_of'] ?? $now->toDateString(),
+            'hr_sil_balance' => $vacation->fresh()->remaining(),
+            'hr_leave_taken' => (float) $applied->used_days,
+            'hr_leave_balance' => $applied->remaining(),
+            'hr_remarks' => $hrFields['hr_remarks'] ?? $hrFields['reason'] ?? null,
+            'attendance_conflict' => $conflict,
+            'finalized_at' => $now,
+            'finalized_by' => $actor->id,
+            'leave_id' => $leave->id,
+        ]);
+
+        return $conflict;
     }
 
     public function cancel(LeaveApplication $application, User $actor, string $reason = ''): LeaveApplication

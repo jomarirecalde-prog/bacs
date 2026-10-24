@@ -183,7 +183,7 @@ class LeaveApplication extends Model
 
     protected function includesHrApprovalStage(): bool
     {
-        return true;
+        return false;
     }
 
     public function pendingAssignmentsFor(?LeaveApprovalStage $stage = null)

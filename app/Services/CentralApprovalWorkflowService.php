@@ -412,7 +412,7 @@ class CentralApprovalWorkflowService
             return LeaveStatus::PendingCeoFinalApproval;
         }
 
-        return LeaveStatus::PendingHr;
+        return LeaveStatus::Approved;
     }
 
     public function travelStatusAfterBootstrap(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): TravelOrderStatus
@@ -1008,10 +1008,21 @@ class CentralApprovalWorkflowService
             }
         }
 
-        $this->snapshotLeaveHrOfficers($application, $employee);
+        $actor = $application->assignments()
+            ->whereNotNull('acted_at')
+            ->orderByDesc('acted_at')
+            ->first()
+            ?->user;
+
+        if ($actor) {
+            app(LeaveApplicationService::class)->finalizeAfterWorkflowComplete($application, $actor);
+
+            return;
+        }
+
         $application->update([
-            'status' => LeaveStatus::PendingHr,
-            'current_stage' => LeaveApprovalStage::HrOfficer,
+            'status' => LeaveStatus::Approved,
+            'current_stage' => null,
         ]);
     }
 

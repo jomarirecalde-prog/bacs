@@ -65,15 +65,6 @@
                 </div>
             @endif
 
-            @if ($application->status === \App\Enums\LeaveStatus::PendingHr || $application->status === \App\Enums\LeaveStatus::PartiallyApproved)
-                <div class="card card-accent-warn">
-                    <div class="card-header"><h3 class="card-title">HR processing</h3></div>
-                    <div class="card-body space-y-2 text-sm text-muted">
-                        <p>This application is at the HR stage of the approval workflow. Assigned HR officers complete processing from <a class="link" href="{{ route('leave.approvals.index', ['status' => 'pending_hr']) }}">Pending Leave Requests</a>.</p>
-                    </div>
-                </div>
-            @endif
-
             <div class="card">
                 <div class="card-header"><h3 class="card-title">Audit trail</h3></div>
                 <div class="card-body space-y-3">
