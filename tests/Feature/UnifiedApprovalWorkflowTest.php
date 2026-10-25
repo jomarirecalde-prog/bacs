@@ -58,6 +58,86 @@ class UnifiedApprovalWorkflowTest extends TestCase
         }
     }
 
+    public function test_unified_update_preserves_first_endorsers_when_endorser_ids_array_is_empty(): void
+    {
+        [$department, , $endorser, $secondaryEndorser, $final] = $this->fixtures();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $service = app(CentralApprovalWorkflowService::class);
+        $service->updateUnified($admin, [
+            'department_id' => $department->id,
+            'endorsement_enabled' => true,
+            'final_approval_enabled' => true,
+            'endorser_ids' => [$endorser->id],
+            'final_approver_id' => $final->id,
+            'endorsement_mode' => 'parallel',
+            'endorsement_parallel_rule' => 'all',
+        ]);
+
+        $service->updateUnified($admin, [
+            'department_id' => $department->id,
+            'endorsement_enabled' => true,
+            'secondary_endorsement_enabled' => true,
+            'final_approval_enabled' => true,
+            'endorser_ids' => [],
+            'secondary_endorser_ids' => [$secondaryEndorser->id],
+            'final_approver_id' => $final->id,
+            'endorsement_mode' => 'parallel',
+            'endorsement_parallel_rule' => 'all',
+        ]);
+
+        $config = ApprovalWorkflowConfiguration::forType(ApprovalTransactionType::LeaveApplication);
+        $assignees = $config->assignees()->where('department_id', $department->id)->get();
+
+        $this->assertSame(
+            [$endorser->id],
+            $assignees->where('approval_type', ApprovalAssigneeType::Endorser)->pluck('employee_id')->all(),
+        );
+    }
+
+    public function test_unified_update_preserves_first_endorsers_when_only_second_endorsement_is_submitted(): void
+    {
+        [$department, , $endorser, $secondaryEndorser, $final] = $this->fixtures();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $service = app(CentralApprovalWorkflowService::class);
+        $service->updateUnified($admin, [
+            'department_id' => $department->id,
+            'endorsement_enabled' => true,
+            'final_approval_enabled' => true,
+            'endorser_ids' => [$endorser->id],
+            'final_approver_id' => $final->id,
+            'endorsement_mode' => 'parallel',
+            'endorsement_parallel_rule' => 'all',
+        ]);
+
+        $service->updateUnified($admin, [
+            'department_id' => $department->id,
+            'endorsement_enabled' => true,
+            'secondary_endorsement_enabled' => true,
+            'final_approval_enabled' => true,
+            'secondary_endorser_ids' => [$secondaryEndorser->id],
+            'endorsement_mode' => 'parallel',
+            'endorsement_parallel_rule' => 'all',
+        ]);
+
+        $config = ApprovalWorkflowConfiguration::forType(ApprovalTransactionType::LeaveApplication);
+        $assignees = $config->assignees()->where('department_id', $department->id)->get();
+
+        $this->assertSame(
+            [$endorser->id],
+            $assignees->where('approval_type', ApprovalAssigneeType::Endorser)->pluck('employee_id')->all(),
+        );
+        $this->assertSame(
+            [$secondaryEndorser->id],
+            $assignees->where('approval_type', ApprovalAssigneeType::SecondaryEndorser)->pluck('employee_id')->all(),
+        );
+        $this->assertSame(
+            $final->id,
+            $assignees->where('approval_type', ApprovalAssigneeType::FinalApprover)->value('employee_id'),
+        );
+    }
+
     public function test_admin_can_save_unified_workflow_from_settings(): void
     {
         [$department, , $endorser, , $final] = $this->fixtures();

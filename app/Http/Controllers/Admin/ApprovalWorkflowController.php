@@ -20,7 +20,7 @@ class ApprovalWorkflowController extends Controller
 
     public function update(Request $request, string $transactionType)
     {
-        $data = $request->validate([
+        $validated = $request->validate([
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'endorsement_enabled' => ['sometimes', 'boolean'],
             'secondary_endorsement_enabled' => ['sometimes', 'boolean'],
@@ -38,6 +38,7 @@ class ApprovalWorkflowController extends Controller
             'secondary_endorser_active.*' => ['boolean'],
         ]);
 
+        $data = array_merge($request->all(), $validated);
         $data['endorsement_enabled'] = $request->boolean('endorsement_enabled');
         $data['secondary_endorsement_enabled'] = $request->boolean('secondary_endorsement_enabled');
         $data['final_approval_enabled'] = $request->boolean('final_approval_enabled');

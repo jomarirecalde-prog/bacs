@@ -153,35 +153,61 @@ class CentralApprovalWorkflowService
         $secondaryEndorsementEnabled = (bool) ($payload['secondary_endorsement_enabled'] ?? false);
         $finalEnabled = (bool) ($payload['final_approval_enabled'] ?? false);
 
-        $endorserIds = collect($payload['endorser_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
+        $departmentId = (int) ($payload['department_id'] ?? 0);
+        if ($departmentId <= 0) {
+            throw ValidationException::withMessages([
+                'department_id' => 'Select a department for this approval workflow.',
+            ]);
+        }
 
-        $secondaryEndorserIds = collect($payload['secondary_endorser_ids'] ?? [])
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
+        if (! Department::query()->active()->whereKey($departmentId)->exists()) {
+            throw ValidationException::withMessages([
+                'department_id' => 'The selected department is not active.',
+            ]);
+        }
 
+        $endorserIds = $this->normalizeEmployeeIds($payload['endorser_ids'] ?? []);
+        $secondaryEndorserIds = $this->normalizeEmployeeIds($payload['secondary_endorser_ids'] ?? []);
         $finalId = filled($payload['final_approver_id'] ?? null) ? (int) $payload['final_approver_id'] : null;
 
         if ($endorsementEnabled && $endorserIds->isEmpty()) {
+            $endorserIds = $this->existingAssigneeIdsForDepartment($departmentId, ApprovalAssigneeType::Endorser);
+        }
+
+        if ($endorsementEnabled && $endorserIds->isEmpty()) {
+            $endorserIds = $this->employeeIdsFromActiveMap($payload['endorser_active'] ?? []);
+        }
+
+        if ($endorsementEnabled && $endorserIds->isEmpty()) {
+            $departmentName = Department::query()->whereKey($departmentId)->value('name') ?? 'this department';
             throw ValidationException::withMessages([
-                'endorser_ids' => 'Select at least one endorser or disable endorsement.',
+                'endorser_ids' => "Add at least one first endorser for {$departmentName}, or turn off Enable endorsement.",
             ]);
         }
 
         if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+            $secondaryEndorserIds = $this->existingAssigneeIdsForDepartment($departmentId, ApprovalAssigneeType::SecondaryEndorser);
+        }
+
+        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+            $secondaryEndorserIds = $this->employeeIdsFromActiveMap($payload['secondary_endorser_active'] ?? []);
+        }
+
+        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+            $departmentName = Department::query()->whereKey($departmentId)->value('name') ?? 'this department';
             throw ValidationException::withMessages([
-                'secondary_endorser_ids' => 'Select at least one second endorser or disable second endorsement.',
+                'secondary_endorser_ids' => "Add at least one second endorser for {$departmentName}, or turn off Enable second endorsement.",
             ]);
         }
 
         if ($finalEnabled && ! $finalId) {
+            $finalId = $this->existingFinalApproverIdForDepartment($departmentId);
+        }
+
+        if ($finalEnabled && ! $finalId) {
+            $departmentName = Department::query()->whereKey($departmentId)->value('name') ?? 'this department';
             throw ValidationException::withMessages([
-                'final_approver_id' => 'Select a final approver or disable final approval.',
+                'final_approver_id' => "Select a final approver for {$departmentName}, or turn off Enable final approval.",
             ]);
         }
 
@@ -195,19 +221,6 @@ class CentralApprovalWorkflowService
         if ($endorserIds->intersect($secondaryEndorserIds)->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'secondary_endorser_ids' => 'Second endorsers must be different from the first endorsement list.',
-            ]);
-        }
-
-        $departmentId = (int) ($payload['department_id'] ?? 0);
-        if ($departmentId <= 0) {
-            throw ValidationException::withMessages([
-                'department_id' => 'Select a department for this approval workflow.',
-            ]);
-        }
-
-        if (! Department::query()->active()->whereKey($departmentId)->exists()) {
-            throw ValidationException::withMessages([
-                'department_id' => 'The selected department is not active.',
             ]);
         }
 
@@ -234,6 +247,53 @@ class CentralApprovalWorkflowService
             'endorser_active' => $activeMap,
             'secondary_endorser_active' => $secondaryActiveMap,
         ];
+    }
+
+    /** @param  mixed  $ids @return Collection<int, int> */
+    private function normalizeEmployeeIds(mixed $ids): Collection
+    {
+        return collect($ids)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+    }
+
+    /** @param  array<string|int, mixed>  $activeMap @return Collection<int, int> */
+    private function employeeIdsFromActiveMap(array $activeMap): Collection
+    {
+        return collect($activeMap)
+            ->keys()
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+    }
+
+    /** @return Collection<int, int> */
+    private function existingAssigneeIdsForDepartment(int $departmentId, ApprovalAssigneeType $type): Collection
+    {
+        return ApprovalWorkflowAssignee::query()
+            ->where('workflow_configuration_id', $this->canonicalConfiguration()->id)
+            ->where('department_id', $departmentId)
+            ->where('approval_type', $type->value)
+            ->orderBy('sequence_order')
+            ->pluck('employee_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+    }
+
+    private function existingFinalApproverIdForDepartment(int $departmentId): ?int
+    {
+        $employeeId = ApprovalWorkflowAssignee::query()
+            ->where('workflow_configuration_id', $this->canonicalConfiguration()->id)
+            ->where('department_id', $departmentId)
+            ->where('approval_type', ApprovalAssigneeType::FinalApprover->value)
+            ->value('employee_id');
+
+        return filled($employeeId) ? (int) $employeeId : null;
     }
 
     /**

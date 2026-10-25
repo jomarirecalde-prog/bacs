@@ -44,24 +44,11 @@
             $endorsers = $deptAssignees->where('approval_type', ApprovalAssigneeType::Endorser)->sortBy('sequence_order');
             $secondaryEndorsers = $deptAssignees->where('approval_type', ApprovalAssigneeType::SecondaryEndorser)->sortBy('sequence_order');
             $final = $deptAssignees->where('approval_type', ApprovalAssigneeType::FinalApprover)->first();
-            $selectedEndorsers = $endorsers->map(fn ($row) => [
-                'id' => $row->employee_id,
-                'name' => $row->employee?->fullName(),
-                'position' => $row->employee?->position,
-                'department' => $row->employee?->department?->name,
-            ])->values();
-            $selectedSecondaryEndorsers = $secondaryEndorsers->map(fn ($row) => [
-                'id' => $row->employee_id,
-                'name' => $row->employee?->fullName(),
-                'position' => $row->employee?->position,
-                'department' => $row->employee?->department?->name,
-            ])->values();
-            $selectedFinal = $final ? [[
-                'id' => $final->employee_id,
-                'name' => $final->employee?->fullName(),
-                'position' => $final->employee?->position,
-                'department' => $final->employee?->department?->name,
-            ]] : [];
+            // Existing assignees are submitted via the table rows; Alpine picker only tracks newly added ones.
+            $selectedEndorsers = collect([]);
+            $selectedSecondaryEndorsers = collect([]);
+            // Existing final approver is submitted via hidden input; Alpine picker only tracks a replacement.
+            $selectedFinal = collect([]);
             $outOfSync = $workflowService->outOfSyncTransactionTypes($department->id);
         @endphp
         <div x-show="dept === @js($department->id)" x-cloak class="space-y-6 p-5">
@@ -82,6 +69,31 @@
                 @csrf
                 @method('PUT')
                 <input type="hidden" name="department_id" value="{{ $department->id }}">
+                @foreach ($endorsers as $row)
+                    <input type="hidden" name="endorser_ids[]" value="{{ $row->employee_id }}">
+                @endforeach
+                @foreach ($secondaryEndorsers as $row)
+                    <input type="hidden" name="secondary_endorser_ids[]" value="{{ $row->employee_id }}">
+                @endforeach
+                @if ($final)
+                    <input type="hidden" name="final_approver_id" value="{{ $final->employee_id }}">
+                @endif
+
+                @error('endorser_ids')
+                    <div class="rounded-xl border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-900">{{ $message }}</div>
+                @enderror
+                @error('secondary_endorser_ids')
+                    <div class="rounded-xl border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-900">{{ $message }}</div>
+                @enderror
+                @error('final_approver_id')
+                    <div class="rounded-xl border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-900">{{ $message }}</div>
+                @enderror
+
+                @if ($config->endorsement_enabled && $endorsers->isEmpty())
+                    <div class="rounded-xl border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+                        <span class="font-semibold">{{ $department->name }}</span> has no first endorsers yet. Add at least one under <strong>First endorsement</strong> before you can save second endorsement or other changes for this department.
+                    </div>
+                @endif
 
                 <div class="grid gap-4 xl:grid-cols-3">
                     <div class="rounded-2xl border border-line p-4 space-y-4">
@@ -136,7 +148,10 @@
                                         <tbody>
                                             @foreach ($endorsers as $index => $row)
                                                 <tr>
-                                                    <td class="tabular-nums">{{ $index + 1 }}</td>
+                                                    <td class="tabular-nums">
+                                                        <input type="hidden" name="endorser_ids[]" value="{{ $row->employee_id }}">
+                                                        {{ $index + 1 }}
+                                                    </td>
                                                     <td class="font-semibold">{{ $row->employee?->fullName() }}</td>
                                                     <td>{{ $row->employee?->department?->name ?? $department->name }}</td>
                                                     <td>{{ $row->employee?->position ?? '—' }}</td>
@@ -200,7 +215,10 @@
                                         <tbody>
                                             @foreach ($secondaryEndorsers as $index => $row)
                                                 <tr>
-                                                    <td class="tabular-nums">{{ $index + 1 }}</td>
+                                                    <td class="tabular-nums">
+                                                        <input type="hidden" name="secondary_endorser_ids[]" value="{{ $row->employee_id }}">
+                                                        {{ $index + 1 }}
+                                                    </td>
                                                     <td class="font-semibold">{{ $row->employee?->fullName() }}</td>
                                                     <td>
                                                         <input type="hidden" name="secondary_endorser_active[{{ $row->employee_id }}]" value="0">
@@ -242,6 +260,10 @@
                         </label>
                         <div x-data="travelEmployeePicker({ selected: @js($selectedFinal), searchUrl: @js($employeeSearchUrl), single: true, inputName: 'final_approver_id' })">
                             <label class="label">Department final approver</label>
+                            @if ($final)
+                                <p class="mb-2 text-sm font-semibold text-ink">{{ $final->employee?->fullName() }}</p>
+                                <input type="hidden" name="final_approver_id" value="{{ $final->employee_id }}">
+                            @endif
                             <div class="flex flex-wrap gap-2">
                                 <template x-for="person in selected" :key="person.id">
                                     <span class="inline-flex items-center gap-2 rounded-full border border-gold-200 bg-gold-50 px-3 py-1 text-sm">
