@@ -122,4 +122,47 @@
         </ul>
     </div>
 </div>
+
+@php
+    $otLine = $payrollEmployee->earnings->firstWhere('code', 'overtime');
+    $otBreakdown = is_array($otLine?->meta['breakdown'] ?? null) ? $otLine->meta['breakdown'] : [];
+@endphp
+@if ($otBreakdown !== [])
+    <div class="card mt-6 overflow-hidden">
+        <div class="card-header"><h2 class="card-title">Overtime compensation breakdown</h2></div>
+        <div class="table-wrap">
+            <table class="data-table text-sm">
+                <thead>
+                    <tr>
+                        <th>Work date</th>
+                        <th>Classification</th>
+                        <th class="text-right">OT hours</th>
+                        <th class="text-right">Night hrs</th>
+                        <th class="text-right">Multiplier</th>
+                        <th class="text-right">Hourly</th>
+                        <th class="text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($otBreakdown as $row)
+                        <tr>
+                            <td>{{ $row['work_date'] ?? '—' }}</td>
+                            <td>
+                                {{ $row['day_classification_label'] ?? $row['day_classification'] ?? '—' }}
+                                @if (! empty($row['rest_day']))
+                                    <span class="text-xs text-muted">· Rest day</span>
+                                @endif
+                            </td>
+                            <td class="text-right tabular-nums">{{ number_format((float) ($row['qualified_ot_hours'] ?? 0), 2) }}</td>
+                            <td class="text-right tabular-nums">{{ number_format((float) ($row['night_shift_hours'] ?? 0), 2) }}</td>
+                            <td class="text-right tabular-nums">{{ number_format((float) ($row['applied_multiplier'] ?? 0), 4) }}× ({{ number_format((float) ($row['applied_percentage'] ?? 0), 2) }}%)</td>
+                            <td class="text-right tabular-nums">₱{{ number_format((float) ($row['hourly_rate'] ?? 0), 4) }}</td>
+                            <td class="text-right tabular-nums font-semibold">₱{{ number_format((float) ($row['computed_ot_amount'] ?? 0), 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@endif
 @endsection

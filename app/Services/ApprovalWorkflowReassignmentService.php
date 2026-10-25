@@ -50,21 +50,27 @@ class ApprovalWorkflowReassignmentService
         ?int $oldFinalId,
         array $newEndorserIds,
         ?int $newFinalId,
+        array $oldSecondaryEndorserIds = [],
+        array $newSecondaryEndorserIds = [],
     ): array {
         $endorserMap = $this->buildEndorserReplacementMap($oldEndorserIds, $newEndorserIds);
+        $secondaryEndorserMap = $this->buildEndorserReplacementMap($oldSecondaryEndorserIds, $newSecondaryEndorserIds);
         $finalMap = $this->buildFinalReplacementMap($oldFinalId, $newFinalId);
 
         $this->validateReplacementEmployees($departmentId, $endorserMap, $finalMap);
+        $this->validateReplacementEmployees($departmentId, $secondaryEndorserMap, []);
 
         $endorsementTasks = $this->countTasks($type, $departmentId, $endorserMap, LeaveApprovalStage::ImmediateSupervisor);
+        $secondaryTasks = $this->countTasks($type, $departmentId, $secondaryEndorserMap, LeaveApprovalStage::DepartmentHead);
         $finalTasks = $this->countTasks($type, $departmentId, $finalMap, LeaveApprovalStage::CeoFinalApproval);
 
         return [
             'endorser_map' => $endorserMap,
+            'secondary_endorser_map' => $secondaryEndorserMap,
             'final_map' => $finalMap,
-            'endorsement_tasks' => $endorsementTasks,
+            'endorsement_tasks' => $endorsementTasks + $secondaryTasks,
             'final_tasks' => $finalTasks,
-            'total' => $endorsementTasks + $finalTasks,
+            'total' => $endorsementTasks + $secondaryTasks + $finalTasks,
         ];
     }
 
@@ -81,13 +87,15 @@ class ApprovalWorkflowReassignmentService
         string $reason = 'Approval workflow configuration update',
     ): array {
         $endorserMap = $plan['endorser_map'] ?? [];
+        $secondaryEndorserMap = $plan['secondary_endorser_map'] ?? [];
         $finalMap = $plan['final_map'] ?? [];
 
-        if ($endorserMap === [] && $finalMap === []) {
+        if ($endorserMap === [] && $secondaryEndorserMap === [] && $finalMap === []) {
             return ['endorsement_tasks' => 0, 'final_tasks' => 0, 'total' => 0, 'transactions' => 0];
         }
 
         $this->validateReplacementEmployees($departmentId, $endorserMap, $finalMap);
+        $this->validateReplacementEmployees($departmentId, $secondaryEndorserMap, []);
 
         $endorsementTasks = 0;
         $finalTasks = 0;
@@ -98,6 +106,7 @@ class ApprovalWorkflowReassignmentService
             $departmentId,
             $config,
             $endorserMap,
+            $secondaryEndorserMap,
             $finalMap,
             $actor,
             $reason,
@@ -135,6 +144,31 @@ class ApprovalWorkflowReassignmentService
                             $oldEmployeeId,
                             $newEmployeeId,
                             LeaveApprovalStage::ImmediateSupervisor,
+                            $actor,
+                            $reason,
+                        );
+
+                        if ($count > 0) {
+                            $endorsementTasks += $count;
+                            $touchedParents[$parent::class.':'.$parentId] = true;
+                        }
+                    }
+
+                    foreach ($secondaryEndorserMap as $oldEmployeeId => $newEmployeeId) {
+                        if ($currentStage !== LeaveApprovalStage::DepartmentHead) {
+                            continue;
+                        }
+
+                        $count = $this->reassignForEmployee(
+                            $type,
+                            $departmentId,
+                            $config,
+                            $assignmentModel,
+                            $parentFk,
+                            $parent,
+                            $oldEmployeeId,
+                            $newEmployeeId,
+                            LeaveApprovalStage::DepartmentHead,
                             $actor,
                             $reason,
                         );

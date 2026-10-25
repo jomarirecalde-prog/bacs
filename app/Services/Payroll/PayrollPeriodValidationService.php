@@ -47,9 +47,25 @@ class PayrollPeriodValidationService
         if ($errorCount > 0) {
             $blocking[] = [
                 'code' => 'computation_errors',
-                'message' => "{$errorCount} employee(s) have payroll computation errors (e.g. missing salary).",
+                'message' => "{$errorCount} employee(s) have payroll computation errors (e.g. missing salary or OT rate configuration).",
                 'count' => $errorCount,
             ];
+        }
+
+        if (PayrollSettings::useOvertimeCompensationMatrix()) {
+            $missingOtConfig = PayrollEmployee::query()
+                ->where('payroll_period_id', $period->id)
+                ->whereNotNull('computation_warnings')
+                ->where('computation_warnings', 'like', '%Missing OT compensation rate%')
+                ->count();
+
+            if ($missingOtConfig > 0) {
+                $blocking[] = [
+                    'code' => 'missing_ot_compensation_rates',
+                    'message' => "{$missingOtConfig} employee(s) have missing overtime compensation rate configuration.",
+                    'count' => $missingOtConfig,
+                ];
+            }
         }
 
         if (PayrollSettings::manualTotalBasicPay()) {

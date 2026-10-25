@@ -252,7 +252,7 @@ class LeaveApplicationService
 
             if ($outcome === 'pending') {
                 if (
-                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    $stage->usesCentralEndorsementRules()
                     && ($application->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
@@ -845,7 +845,7 @@ class LeaveApplicationService
             return 'approved';
         }
 
-        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+        if ($stage->usesCentralEndorsementRules()) {
             $mode = $application->endorsement_mode ?? EndorsementMode::Parallel;
             $rule = $application->parallel_rule ?? LeaveParallelRule::All;
 

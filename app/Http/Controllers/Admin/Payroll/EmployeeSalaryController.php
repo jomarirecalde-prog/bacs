@@ -9,6 +9,7 @@ use App\Models\EmployeeBenefit;
 use App\Models\EmployeeDeduction;
 use App\Models\EmployeeSalaryHistory;
 use App\Models\PayrollDeductionType;
+use App\Models\ManualSalaryComputation;
 use App\Models\PayrollPeriod;
 use App\Services\AuditLogger;
 use App\Services\Payroll\EmployeeSalaryService;
@@ -68,6 +69,13 @@ class EmployeeSalaryController extends Controller
             ->orderByDesc('effective_from')
             ->first();
 
+        $manualComputations = ManualSalaryComputation::query()
+            ->where('employee_id', $employee->id)
+            ->with('preparedByUser:id,name')
+            ->orderByDesc('updated_at')
+            ->limit(10)
+            ->get();
+
         return view('admin.payroll.salary.index', compact(
             'employee',
             'history',
@@ -77,6 +85,7 @@ class EmployeeSalaryController extends Controller
             'benefits',
             'designationDefaults',
             'activeBenefit',
+            'manualComputations',
         ));
     }
 

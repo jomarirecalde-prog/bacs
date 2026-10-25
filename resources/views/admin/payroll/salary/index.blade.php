@@ -74,6 +74,8 @@
         </div>
     @endif
 
+    @include('admin.payroll.salary.partials.manual-computation-section')
+
     <div class="grid gap-6 xl:grid-cols-12">
         <div class="card card-accent-brand overflow-hidden xl:col-span-5">
             <div class="card-header">

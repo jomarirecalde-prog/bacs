@@ -2,8 +2,11 @@
 
 namespace App\Services\Payroll;
 
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
+use App\Enums\LeaveParallelRule;
+use App\Services\EndorsementWorkflowCoordinator;
 use App\Enums\OvertimeRequestStatus;
 use App\Models\OvertimeRequest;
 use App\Models\User;
@@ -169,8 +172,11 @@ class OvertimeApprovalService
             return 'denied';
         }
 
-        if ($stage->isParallel() || $total > 1) {
-            return $approved->count() === $total ? 'approved' : 'pending';
+        if ($stage->usesCentralEndorsementRules()) {
+            $mode = EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel;
+            $rule = LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All;
+
+            return app(EndorsementWorkflowCoordinator::class)->evaluateEndorsementStage($rows, $mode, $rule);
         }
 
         return $approved->isNotEmpty() ? 'approved' : 'pending';
@@ -178,12 +184,27 @@ class OvertimeApprovalService
 
     private function nextStage(OvertimeRequest $request, LeaveApprovalStage $from): ?LeaveApprovalStage
     {
-        if ($from === LeaveApprovalStage::ImmediateSupervisor) {
-            $hasFinal = $request->approvalAssignments
-                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
-                ->isNotEmpty();
+        $stages = [
+            LeaveApprovalStage::ImmediateSupervisor,
+            LeaveApprovalStage::DepartmentHead,
+            LeaveApprovalStage::CeoFinalApproval,
+        ];
 
-            return $hasFinal ? LeaveApprovalStage::CeoFinalApproval : null;
+        $passed = false;
+        foreach ($stages as $stage) {
+            if ($passed) {
+                $hasAssignments = $request->approvalAssignments
+                    ->where('stage', $stage->value)
+                    ->isNotEmpty();
+
+                if ($hasAssignments) {
+                    return $stage;
+                }
+            }
+
+            if ($stage === $from) {
+                $passed = true;
+            }
         }
 
         return null;

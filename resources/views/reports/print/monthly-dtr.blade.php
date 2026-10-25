@@ -47,9 +47,11 @@
         </tbody>
     </table>
 
-    <div class="sign">
-        <div><div class="line">Employee Signature</div></div>
-        <div><div class="line">Authorized Official</div></div>
-    </div>
+    <table class="sign">
+        <tr>
+            <td><div class="line">Employee Signature</div></td>
+            <td><div class="line">Authorized Official</div></td>
+        </tr>
+    </table>
 </body>
 </html>

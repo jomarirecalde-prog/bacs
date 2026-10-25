@@ -12,6 +12,7 @@ class ApprovalWorkflowConfiguration extends Model
     protected $fillable = [
         'transaction_type',
         'endorsement_enabled',
+        'secondary_endorsement_enabled',
         'final_approval_enabled',
         'version',
         'is_active',
@@ -24,6 +25,7 @@ class ApprovalWorkflowConfiguration extends Model
         return [
             'transaction_type' => ApprovalTransactionType::class,
             'endorsement_enabled' => 'boolean',
+            'secondary_endorsement_enabled' => 'boolean',
             'final_approval_enabled' => 'boolean',
             'version' => 'integer',
             'is_active' => 'boolean',
@@ -55,6 +57,20 @@ class ApprovalWorkflowConfiguration extends Model
     {
         $query = $this->assignees()
             ->where('approval_type', ApprovalAssigneeType::Endorser->value)
+            ->where('is_active', true)
+            ->with('employee.user');
+
+        if ($departmentId !== null) {
+            $query->where('department_id', $departmentId);
+        }
+
+        return $query;
+    }
+
+    public function activeSecondaryEndorsers(?int $departmentId = null)
+    {
+        $query = $this->assignees()
+            ->where('approval_type', ApprovalAssigneeType::SecondaryEndorser->value)
             ->where('is_active', true)
             ->with('employee.user');
 

@@ -149,10 +149,28 @@
         <form method="POST" action="{{ route('admin.payroll.settings.general') }}" class="space-y-4 p-5">
             @csrf
             <div>
-                <label class="label" for="payroll_overtime_multiplier">Overtime multiplier</label>
+                <label class="label" for="payroll_overtime_multiplier">Legacy OT multiplier (fallback)</label>
                 <input id="payroll_overtime_multiplier" class="input" type="number" step="0.01" min="1" max="5"
                     name="payroll_overtime_multiplier" value="{{ old('payroll_overtime_multiplier', $otMultiplier) }}" required>
-                <p class="mt-1 text-xs text-muted">Applied to approved OT hours × hourly rate (default 1.25).</p>
+                <p class="mt-1 text-xs text-muted">Used only when the OT compensation matrix is disabled.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="hidden" name="payroll_ot_use_compensation_matrix" value="0">
+                <input id="payroll_ot_use_compensation_matrix" type="checkbox" class="checkbox" name="payroll_ot_use_compensation_matrix" value="1"
+                    @checked(old('payroll_ot_use_compensation_matrix', $otUseCompensationMatrix))>
+                <label for="payroll_ot_use_compensation_matrix" class="text-sm">Use OT compensation matrix for payroll computation</label>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <label class="label" for="payroll_night_shift_start">Night shift start</label>
+                    <input id="payroll_night_shift_start" class="input" type="time" name="payroll_night_shift_start"
+                        value="{{ old('payroll_night_shift_start', substr($nightShiftStart, 0, 5)) }}">
+                </div>
+                <div>
+                    <label class="label" for="payroll_night_shift_end">Night shift end</label>
+                    <input id="payroll_night_shift_end" class="input" type="time" name="payroll_night_shift_end"
+                        value="{{ old('payroll_night_shift_end', substr($nightShiftEnd, 0, 5)) }}">
+                </div>
             </div>
             <div>
                 <label class="label" for="payroll_holiday_pay_mode">Holiday pay mode</label>
@@ -215,6 +233,8 @@
             </ul>
         </div>
     @endif
+
+    @include('admin.payroll.settings.partials.overtime-compensation')
 
     <div class="card overflow-hidden lg:col-span-2">
         <div class="card-header">

@@ -43,10 +43,36 @@ class PayrollAttendanceAggregator
         return ['employees' => $employeeCount, 'warnings' => $warningCount];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function summarizeEmployeeDateRange(Employee $employee, string $start, string $end): array
+    {
+        return $this->buildEmployeeSummaryPayload($employee, $start, $end);
+    }
+
     public function aggregateEmployee(Employee $employee, PayrollPeriod $period, ?string $start = null, ?string $end = null): PayrollAttendanceSummary
     {
         $start ??= $period->start_date->toDateString();
         $end ??= $period->end_date->toDateString();
+        $payload = $this->buildEmployeeSummaryPayload($employee, $start, $end);
+
+        return DB::transaction(function () use ($period, $employee, $payload) {
+            return PayrollAttendanceSummary::query()->updateOrCreate(
+                [
+                    'payroll_period_id' => $period->id,
+                    'employee_id' => $employee->id,
+                ],
+                $payload
+            );
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildEmployeeSummaryPayload(Employee $employee, string $start, string $end): array
+    {
         $schedule = $employee->schedule();
         $warnings = [];
 
@@ -169,7 +195,7 @@ class PayrollAttendanceAggregator
             $approvedOtHours = $recordedOtHours;
         }
 
-        $payload = [
+        return [
             'scheduled_days' => $scheduledDays,
             'worked_days' => $workedDays,
             'paid_days' => round($paidDays, 2),
@@ -188,16 +214,6 @@ class PayrollAttendanceAggregator
             'warnings' => $warnings === [] ? null : $warnings,
             'computed_at' => now(),
         ];
-
-        return DB::transaction(function () use ($period, $employee, $payload) {
-            return PayrollAttendanceSummary::query()->updateOrCreate(
-                [
-                    'payroll_period_id' => $period->id,
-                    'employee_id' => $employee->id,
-                ],
-                $payload
-            );
-        });
     }
 
     /**

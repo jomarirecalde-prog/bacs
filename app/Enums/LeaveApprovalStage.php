@@ -40,10 +40,16 @@ enum LeaveApprovalStage: string
 
         return match ($this) {
             self::ImmediateSupervisor => 'Endorsement',
+            self::DepartmentHead => 'Second endorsement',
             self::CeoFinalApproval => 'Final approval',
             self::HrOfficer => 'HR processing',
             default => $this->shortLabel(),
         };
+    }
+
+    public function usesCentralEndorsementRules(): bool
+    {
+        return in_array($this, [self::ImmediateSupervisor, self::DepartmentHead], true);
     }
 
     public function isParallel(): bool
@@ -81,7 +87,7 @@ enum LeaveApprovalStage: string
     public function pendingStatusForOfficialTime(): OfficialTimeStatus
     {
         return match ($this) {
-            self::ImmediateSupervisor => OfficialTimeStatus::PendingSupervisor,
+            self::ImmediateSupervisor, self::DepartmentHead => OfficialTimeStatus::PendingSupervisor,
             self::CeoFinalApproval => OfficialTimeStatus::PendingCeoFinalApproval,
             default => OfficialTimeStatus::Approved,
         };

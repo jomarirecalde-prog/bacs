@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin\Payroll;
 
 use App\Http\Controllers\Controller;
+use App\Enums\PayrollWorkdayClassification;
 use App\Models\PayrollDeductionType;
+use App\Models\PayrollOvertimeCompensationRate;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollPremiumRule;
 use App\Models\Setting;
 use App\Services\AuditLogger;
+use App\Services\Payroll\PayrollOvertimeCompensationRateService;
 use App\Support\PayrollDeductionConfig;
 use App\Support\PayrollSettings;
 use Illuminate\Http\Request;
@@ -16,7 +19,10 @@ use Illuminate\Validation\Rule;
 
 class PayrollSettingsController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly PayrollOvertimeCompensationRateService $otRates,
+    ) {}
 
     public function index()
     {
@@ -39,6 +45,15 @@ class PayrollSettingsController extends Controller
             'deductionTypes' => PayrollDeductionType::query()->orderBy('sort_order')->get(),
             'latestDeductionRevision' => $latestRevision,
             'revisionHistory' => array_reverse(PayrollDeductionConfig::revisionHistory()),
+            'otCompensationRates' => PayrollOvertimeCompensationRate::query()
+                ->orderByDesc('effective_from')
+                ->orderBy('workday_classification')
+                ->orderByDesc('is_overtime')
+                ->get(),
+            'otUseCompensationMatrix' => PayrollSettings::useOvertimeCompensationMatrix(),
+            'nightShiftStart' => PayrollSettings::nightShiftStart(),
+            'nightShiftEnd' => PayrollSettings::nightShiftEnd(),
+            'workdayClassifications' => PayrollWorkdayClassification::cases(),
         ]);
     }
 
@@ -55,9 +70,19 @@ class PayrollSettingsController extends Controller
             'payroll_email_on_paid' => ['nullable', 'boolean'],
             'payroll_ot_central_approval' => ['nullable', 'boolean'],
             'payroll_unworked_regular_holiday_pay' => ['nullable', 'boolean'],
+            'payroll_ot_use_compensation_matrix' => ['nullable', 'boolean'],
+            'payroll_night_shift_start' => ['nullable', 'date_format:H:i'],
+            'payroll_night_shift_end' => ['nullable', 'date_format:H:i'],
         ]);
 
         Setting::put('payroll_overtime_multiplier', (string) $data['payroll_overtime_multiplier']);
+        Setting::put('payroll_ot_use_compensation_matrix', $request->boolean('payroll_ot_use_compensation_matrix') ? '1' : '0');
+        if (! empty($data['payroll_night_shift_start'])) {
+            Setting::put('payroll_night_shift_start', $data['payroll_night_shift_start'].':00');
+        }
+        if (! empty($data['payroll_night_shift_end'])) {
+            Setting::put('payroll_night_shift_end', $data['payroll_night_shift_end'].':00');
+        }
         Setting::put('payroll_holiday_pay_mode', $data['payroll_holiday_pay_mode']);
         Setting::put('payroll_ot_requires_approval', $request->boolean('payroll_ot_requires_approval') ? '1' : '0');
         Setting::put('payroll_working_days_basis', (string) $data['payroll_working_days_basis']);
@@ -229,6 +254,106 @@ class PayrollSettingsController extends Controller
         $rule->update($data);
 
         return back()->with('success', "Rule {$rule->name} updated.");
+    }
+
+    public function loadDefaultOtRates(Request $request)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+
+        $data = $request->validate([
+            'effective_from' => ['required', 'date'],
+        ]);
+
+        $result = $this->otRates->loadDefaults($data['effective_from'], $request->user());
+
+        $this->audit->log(
+            $request->user(),
+            'payroll_ot_rates_defaults_loaded',
+            'Payroll',
+            null,
+            "Default OT compensation rates loaded ({$result['inserted']} inserted, {$result['skipped']} skipped).",
+            $request,
+            ['effective_from' => $data['effective_from'], 'result' => $result],
+        );
+
+        return back()->with(
+            'success',
+            "Default OT rates loaded: {$result['inserted']} added, {$result['skipped']} skipped (existing custom rates preserved)."
+        );
+    }
+
+    public function storeOtRate(Request $request)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:191'],
+            'workday_classification' => ['required', Rule::in(array_column(PayrollWorkdayClassification::cases(), 'value'))],
+            'is_rest_day' => ['nullable', 'boolean'],
+            'is_night_shift' => ['nullable', 'boolean'],
+            'is_overtime' => ['nullable', 'boolean'],
+            'multiplier_input' => ['required', 'string', 'max:32'],
+            'effective_from' => ['required', 'date'],
+            'effective_to' => ['nullable', 'date', 'after_or_equal:effective_from'],
+            'is_active' => ['nullable', 'boolean'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'change_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $rate = $this->otRates->create($data, $request->user());
+
+        $this->audit->log(
+            $request->user(),
+            'payroll_ot_rate_created',
+            'Payroll',
+            $rate->id,
+            'OT compensation rate created.',
+            $request,
+            [
+                'new' => $rate->toArray(),
+                'reason' => $data['change_reason'] ?? null,
+            ],
+        );
+
+        return back()->with('success', 'Overtime compensation rate added.');
+    }
+
+    public function updateOtRate(Request $request, PayrollOvertimeCompensationRate $otRate)
+    {
+        $this->authorize('create', PayrollPeriod::class);
+
+        $data = $request->validate([
+            'label' => ['sometimes', 'string', 'max:191'],
+            'workday_classification' => ['sometimes', Rule::in(array_column(PayrollWorkdayClassification::cases(), 'value'))],
+            'is_rest_day' => ['nullable', 'boolean'],
+            'is_night_shift' => ['nullable', 'boolean'],
+            'is_overtime' => ['nullable', 'boolean'],
+            'multiplier_input' => ['sometimes', 'string', 'max:32'],
+            'effective_from' => ['sometimes', 'date'],
+            'effective_to' => ['nullable', 'date'],
+            'is_active' => ['nullable', 'boolean'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'change_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $previous = $otRate->toArray();
+        $rate = $this->otRates->update($otRate, $data, $request->user());
+
+        $this->audit->log(
+            $request->user(),
+            'payroll_ot_rate_updated',
+            'Payroll',
+            $rate->id,
+            'OT compensation rate updated.',
+            $request,
+            [
+                'previous' => $previous,
+                'new' => $rate->toArray(),
+                'reason' => $data['change_reason'] ?? null,
+            ],
+        );
+
+        return back()->with('success', 'Overtime compensation rate updated.');
     }
 
     /**

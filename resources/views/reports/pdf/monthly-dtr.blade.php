@@ -47,10 +47,12 @@
         </tbody>
     </table>
 
-    <div class="sign">
-        <div><div class="line">Employee Signature</div></div>
-        <div><div class="line">Supervisor / Admin Signature</div></div>
-    </div>
+    <table class="sign">
+        <tr>
+            <td><div class="line">Employee Signature</div></td>
+            <td><div class="line">Supervisor / Admin Signature</div></td>
+        </tr>
+    </table>
 
     <p class="certify">I certify that the above is a true and correct report of the hours of work performed.</p>
 </body>

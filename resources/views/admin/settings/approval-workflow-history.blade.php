@@ -1,14 +1,20 @@
 @extends('layouts.app')
 @section('title', 'Workflow History')
 @section('page-title', 'Approval Workflow History')
-@section('page-subtitle', $type->label())
+@section('page-subtitle', $typeLabel ?? $type?->label())
 
 @section('content')
 <div class="card">
     <div class="card-body space-y-4">
         @forelse ($histories as $history)
             <div class="rounded-xl border border-line p-4 text-sm">
-                <div class="font-semibold">Version {{ $history->version }} · {{ $history->updater?->name }} · {{ $history->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A') }}</div>
+                <div class="font-semibold">
+                    Version {{ $history->version }}
+                    @if ($history->configuration?->transaction_type)
+                        · {{ $history->configuration->transaction_type->label() }}
+                    @endif
+                    · {{ $history->updater?->name }} · {{ $history->created_at?->timezone('Asia/Manila')->format('M j, Y g:i A') }}
+                </div>
                 <div class="text-muted">{{ $history->summary }}</div>
             </div>
         @empty

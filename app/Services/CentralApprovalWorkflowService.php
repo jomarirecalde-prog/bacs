@@ -53,6 +53,32 @@ class CentralApprovalWorkflowService
             ->get();
     }
 
+    public function canonicalConfiguration(): ApprovalWorkflowConfiguration
+    {
+        return $this->configurationFor(ApprovalTransactionType::LeaveApplication);
+    }
+
+    /** @return list<ApprovalTransactionType> */
+    public function outOfSyncTransactionTypes(int $departmentId): array
+    {
+        $canonical = $this->canonicalConfiguration();
+        $signature = $this->departmentWorkflowSignature($canonical, $departmentId);
+
+        $outOfSync = [];
+        foreach (ApprovalTransactionType::cases() as $type) {
+            if ($type === ApprovalTransactionType::LeaveApplication) {
+                continue;
+            }
+
+            $config = $this->configurationFor($type);
+            if ($this->departmentWorkflowSignature($config, $departmentId) !== $signature) {
+                $outOfSync[] = $type;
+            }
+        }
+
+        return $outOfSync;
+    }
+
     public function configurationFor(ApprovalTransactionType $type): ApprovalWorkflowConfiguration
     {
         return ApprovalWorkflowConfiguration::forType($type)
@@ -62,11 +88,78 @@ class CentralApprovalWorkflowService
     /** @param  array<string, mixed>  $payload @return array{configuration: ApprovalWorkflowConfiguration, reassignment: array<string, int>} */
     public function update(ApprovalTransactionType $type, User $actor, array $payload): array
     {
-        $config = $this->configurationFor($type);
+        $parsed = $this->parseUpdatePayload($payload);
+
+        return DB::transaction(fn () => $this->applyConfigurationUpdate($type, $actor, $parsed));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{configuration: ApprovalWorkflowConfiguration, reassignment: array<string, int>}
+     */
+    public function updateUnified(User $actor, array $payload): array
+    {
+        $parsed = $this->parseUpdatePayload($payload);
+
+        return DB::transaction(function () use ($actor, $parsed) {
+            $lastConfiguration = $this->canonicalConfiguration();
+            $aggregated = [
+                'endorsement_tasks' => 0,
+                'final_tasks' => 0,
+                'total' => 0,
+                'transactions' => 0,
+            ];
+
+            foreach (ApprovalTransactionType::cases() as $type) {
+                $result = $this->applyConfigurationUpdate(
+                    $type,
+                    $actor,
+                    $parsed,
+                    'Updated unified approval workflow for department #'.$parsed['department_id'].'.',
+                );
+
+                $lastConfiguration = $result['configuration'];
+                foreach (['endorsement_tasks', 'final_tasks', 'total', 'transactions'] as $key) {
+                    $aggregated[$key] += (int) ($result['reassignment'][$key] ?? 0);
+                }
+            }
+
+            return [
+                'configuration' => $lastConfiguration,
+                'reassignment' => $aggregated,
+            ];
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{
+     *     department_id: int,
+     *     endorsement_enabled: bool,
+     *     secondary_endorsement_enabled: bool,
+     *     final_approval_enabled: bool,
+     *     endorser_ids: Collection<int, int>,
+     *     secondary_endorser_ids: Collection<int, int>,
+     *     final_approver_id: ?int,
+     *     endorsement_mode: EndorsementMode,
+     *     endorsement_parallel_rule: LeaveParallelRule,
+     *     endorser_active: Collection<string|int, bool>,
+     *     secondary_endorser_active: Collection<string|int, bool>,
+     * }
+     */
+    private function parseUpdatePayload(array $payload): array
+    {
         $endorsementEnabled = (bool) ($payload['endorsement_enabled'] ?? false);
+        $secondaryEndorsementEnabled = (bool) ($payload['secondary_endorsement_enabled'] ?? false);
         $finalEnabled = (bool) ($payload['final_approval_enabled'] ?? false);
 
         $endorserIds = collect($payload['endorser_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $secondaryEndorserIds = collect($payload['secondary_endorser_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()
@@ -80,15 +173,28 @@ class CentralApprovalWorkflowService
             ]);
         }
 
+        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'secondary_endorser_ids' => 'Select at least one second endorser or disable second endorsement.',
+            ]);
+        }
+
         if ($finalEnabled && ! $finalId) {
             throw ValidationException::withMessages([
                 'final_approver_id' => 'Select a final approver or disable final approval.',
             ]);
         }
 
-        if ($finalId && $endorserIds->contains($finalId)) {
+        $allEndorsers = $endorserIds->merge($secondaryEndorserIds)->unique();
+        if ($finalId && $allEndorsers->contains($finalId)) {
             throw ValidationException::withMessages([
                 'final_approver_id' => 'Final approver must not also be listed as an endorser.',
+            ]);
+        }
+
+        if ($endorserIds->intersect($secondaryEndorserIds)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'secondary_endorser_ids' => 'Second endorsers must be different from the first endorsement list.',
             ]);
         }
 
@@ -108,12 +214,66 @@ class CentralApprovalWorkflowService
         $endorsementMode = EndorsementMode::tryFrom((string) ($payload['endorsement_mode'] ?? '')) ?? EndorsementMode::Parallel;
         $parallelRule = LeaveParallelRule::tryFrom((string) ($payload['endorsement_parallel_rule'] ?? '')) ?? LeaveParallelRule::All;
         $activeMap = collect($payload['endorser_active'] ?? [])->map(fn ($v) => (bool) $v);
+        $secondaryActiveMap = collect($payload['secondary_endorser_active'] ?? [])->map(fn ($v) => (bool) $v);
 
-        $this->assertActiveEmployees($endorserIds->all(), $finalId ? [$finalId] : []);
+        $this->assertActiveEmployees(
+            $allEndorsers->all(),
+            $finalId ? [$finalId] : [],
+        );
+
+        return [
+            'department_id' => $departmentId,
+            'endorsement_enabled' => $endorsementEnabled,
+            'secondary_endorsement_enabled' => $secondaryEndorsementEnabled,
+            'final_approval_enabled' => $finalEnabled,
+            'endorser_ids' => $endorserIds,
+            'secondary_endorser_ids' => $secondaryEndorserIds,
+            'final_approver_id' => $finalId,
+            'endorsement_mode' => $endorsementMode,
+            'endorsement_parallel_rule' => $parallelRule,
+            'endorser_active' => $activeMap,
+            'secondary_endorser_active' => $secondaryActiveMap,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     department_id: int,
+     *     endorsement_enabled: bool,
+     *     final_approval_enabled: bool,
+     *     endorser_ids: Collection<int, int>,
+     *     final_approver_id: ?int,
+     *     endorsement_mode: EndorsementMode,
+     *     endorsement_parallel_rule: LeaveParallelRule,
+     *     endorser_active: Collection<string|int, bool>,
+     * }  $parsed
+     * @return array{configuration: ApprovalWorkflowConfiguration, reassignment: array<string, int>}
+     */
+    private function applyConfigurationUpdate(
+        ApprovalTransactionType $type,
+        User $actor,
+        array $parsed,
+        ?string $historySummary = null,
+    ): array {
+        $config = $this->configurationFor($type);
+        $departmentId = $parsed['department_id'];
+        $endorserIds = $parsed['endorser_ids'];
+        $secondaryEndorserIds = $parsed['secondary_endorser_ids'];
+        $finalId = $parsed['final_approver_id'];
+        $activeMap = $parsed['endorser_active'];
+        $secondaryActiveMap = $parsed['secondary_endorser_active'];
 
         $oldEndorserIds = $config->assignees()
             ->where('department_id', $departmentId)
             ->where('approval_type', ApprovalAssigneeType::Endorser->value)
+            ->orderBy('sequence_order')
+            ->pluck('employee_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $oldSecondaryEndorserIds = $config->assignees()
+            ->where('department_id', $departmentId)
+            ->where('approval_type', ApprovalAssigneeType::SecondaryEndorser->value)
             ->orderBy('sequence_order')
             ->pluck('employee_id')
             ->map(fn ($id) => (int) $id)
@@ -133,69 +293,179 @@ class CentralApprovalWorkflowService
             $oldFinalId,
             $endorserIds->all(),
             $finalId,
+            $oldSecondaryEndorserIds,
+            $secondaryEndorserIds->all(),
         );
 
-        return DB::transaction(function () use ($config, $actor, $type, $endorsementEnabled, $finalEnabled, $endorserIds, $finalId, $departmentId, $endorsementMode, $parallelRule, $activeMap, $reassignmentPlan) {
-            $config->update([
-                'endorsement_enabled' => $endorsementEnabled,
-                'final_approval_enabled' => $finalEnabled,
-                'version' => $config->version + 1,
-                'updated_by' => $actor->id,
-            ]);
+        $config->update([
+            'endorsement_enabled' => $parsed['endorsement_enabled'],
+            'secondary_endorsement_enabled' => $parsed['secondary_endorsement_enabled'],
+            'final_approval_enabled' => $parsed['final_approval_enabled'],
+            'version' => $config->version + 1,
+            'updated_by' => $actor->id,
+        ]);
 
-            $config->assignees()->where('department_id', $departmentId)->delete();
+        $config->assignees()->where('department_id', $departmentId)->delete();
 
-            foreach ($endorserIds as $index => $employeeId) {
-                $isActive = $activeMap->has((string) $employeeId)
-                    ? (bool) $activeMap->get((string) $employeeId)
-                    : ($activeMap->has($employeeId) ? (bool) $activeMap->get($employeeId) : true);
+        foreach ($endorserIds as $index => $employeeId) {
+            $isActive = $activeMap->has((string) $employeeId)
+                ? (bool) $activeMap->get((string) $employeeId)
+                : ($activeMap->has($employeeId) ? (bool) $activeMap->get($employeeId) : true);
 
-                ApprovalWorkflowAssignee::query()->create([
-                    'workflow_configuration_id' => $config->id,
-                    'department_id' => $departmentId,
-                    'employee_id' => $employeeId,
-                    'approval_type' => ApprovalAssigneeType::Endorser,
-                    'sequence_order' => $index,
-                    'is_active' => $isActive,
-                ]);
-            }
-
-            $this->endorsement->syncDepartmentSettings($config, $departmentId, $endorsementMode, $parallelRule);
-
-            if ($finalId) {
-                ApprovalWorkflowAssignee::query()->create([
-                    'workflow_configuration_id' => $config->id,
-                    'department_id' => $departmentId,
-                    'employee_id' => $finalId,
-                    'approval_type' => ApprovalAssigneeType::FinalApprover,
-                    'sequence_order' => 0,
-                ]);
-            }
-
-            $config->refresh()->load(['assignees.employee.department', 'assignees.department']);
-
-            ApprovalWorkflowConfigurationHistory::query()->create([
+            ApprovalWorkflowAssignee::query()->create([
                 'workflow_configuration_id' => $config->id,
-                'version' => $config->version,
-                'snapshot' => $this->snapshot($config),
-                'summary' => 'Updated '.$config->transaction_type->label().' approval workflow for department #'.$departmentId.'.',
-                'updated_by' => $actor->id,
+                'department_id' => $departmentId,
+                'employee_id' => $employeeId,
+                'approval_type' => ApprovalAssigneeType::Endorser,
+                'sequence_order' => $index,
+                'is_active' => $isActive,
             ]);
+        }
 
-            $reassignmentResult = $this->reassignment->apply(
-                $type,
-                $departmentId,
-                $config,
-                $reassignmentPlan,
-                $actor,
-                'Approval workflow configuration update',
-            );
+        foreach ($secondaryEndorserIds as $index => $employeeId) {
+            $isActive = $secondaryActiveMap->has((string) $employeeId)
+                ? (bool) $secondaryActiveMap->get((string) $employeeId)
+                : ($secondaryActiveMap->has($employeeId) ? (bool) $secondaryActiveMap->get($employeeId) : true);
 
-            return [
-                'configuration' => $config,
-                'reassignment' => $reassignmentResult,
-            ];
+            ApprovalWorkflowAssignee::query()->create([
+                'workflow_configuration_id' => $config->id,
+                'department_id' => $departmentId,
+                'employee_id' => $employeeId,
+                'approval_type' => ApprovalAssigneeType::SecondaryEndorser,
+                'sequence_order' => $index,
+                'is_active' => $isActive,
+            ]);
+        }
+
+        $this->endorsement->syncDepartmentSettings(
+            $config,
+            $departmentId,
+            $parsed['endorsement_mode'],
+            $parsed['endorsement_parallel_rule'],
+        );
+
+        if ($finalId) {
+            ApprovalWorkflowAssignee::query()->create([
+                'workflow_configuration_id' => $config->id,
+                'department_id' => $departmentId,
+                'employee_id' => $finalId,
+                'approval_type' => ApprovalAssigneeType::FinalApprover,
+                'sequence_order' => 0,
+            ]);
+        }
+
+        $config->refresh()->load(['assignees.employee.department', 'assignees.department']);
+
+        ApprovalWorkflowConfigurationHistory::query()->create([
+            'workflow_configuration_id' => $config->id,
+            'version' => $config->version,
+            'snapshot' => $this->snapshot($config),
+            'summary' => $historySummary ?? 'Updated '.$config->transaction_type->label().' approval workflow for department #'.$departmentId.'.',
+            'updated_by' => $actor->id,
+        ]);
+
+        $reassignmentResult = $this->reassignment->apply(
+            $type,
+            $departmentId,
+            $config,
+            $reassignmentPlan,
+            $actor,
+            'Approval workflow configuration update',
+        );
+
+        return [
+            'configuration' => $config,
+            'reassignment' => $reassignmentResult,
+        ];
+    }
+
+    public function synchronizeAllTransactionTypesFromCanonical(): void
+    {
+        $canonical = $this->canonicalConfiguration();
+        $canonical->load(['assignees', 'departmentSettings']);
+
+        DB::transaction(function () use ($canonical) {
+            foreach (ApprovalTransactionType::cases() as $type) {
+                if ($type === ApprovalTransactionType::LeaveApplication) {
+                    continue;
+                }
+
+                $target = ApprovalWorkflowConfiguration::forType($type);
+
+                $target->update([
+                    'endorsement_enabled' => $canonical->endorsement_enabled,
+                    'secondary_endorsement_enabled' => $canonical->secondary_endorsement_enabled,
+                    'final_approval_enabled' => $canonical->final_approval_enabled,
+                ]);
+
+                $target->assignees()->delete();
+                foreach ($canonical->assignees as $assignee) {
+                    ApprovalWorkflowAssignee::query()->create([
+                        'workflow_configuration_id' => $target->id,
+                        'department_id' => $assignee->department_id,
+                        'employee_id' => $assignee->employee_id,
+                        'approval_type' => $assignee->approval_type,
+                        'sequence_order' => $assignee->sequence_order,
+                        'is_active' => $assignee->is_active,
+                    ]);
+                }
+
+                $target->departmentSettings()->delete();
+                foreach ($canonical->departmentSettings as $setting) {
+                    ApprovalWorkflowDepartmentSetting::query()->create([
+                        'workflow_configuration_id' => $target->id,
+                        'department_id' => $setting->department_id,
+                        'endorsement_mode' => $setting->endorsement_mode,
+                        'endorsement_parallel_rule' => $setting->endorsement_parallel_rule,
+                    ]);
+                }
+            }
         });
+    }
+
+    private function departmentWorkflowSignature(ApprovalWorkflowConfiguration $config, int $departmentId): string
+    {
+        $config->loadMissing(['assignees', 'departmentSettings']);
+
+        $deptSettings = $config->departmentSettingFor($departmentId);
+
+        $endorsers = $config->assignees
+            ->where('department_id', $departmentId)
+            ->where('approval_type', ApprovalAssigneeType::Endorser)
+            ->sortBy('sequence_order')
+            ->map(fn (ApprovalWorkflowAssignee $row) => [
+                'employee_id' => $row->employee_id,
+                'is_active' => $row->is_active,
+            ])
+            ->values()
+            ->all();
+
+        $secondaryEndorsers = $config->assignees
+            ->where('department_id', $departmentId)
+            ->where('approval_type', ApprovalAssigneeType::SecondaryEndorser)
+            ->sortBy('sequence_order')
+            ->map(fn (ApprovalWorkflowAssignee $row) => [
+                'employee_id' => $row->employee_id,
+                'is_active' => $row->is_active,
+            ])
+            ->values()
+            ->all();
+
+        $final = $config->assignees
+            ->where('department_id', $departmentId)
+            ->where('approval_type', ApprovalAssigneeType::FinalApprover)
+            ->first();
+
+        return json_encode([
+            'endorsement_enabled' => $config->endorsement_enabled,
+            'secondary_endorsement_enabled' => $config->secondary_endorsement_enabled,
+            'final_approval_enabled' => $config->final_approval_enabled,
+            'endorsement_mode' => $deptSettings?->endorsement_mode?->value,
+            'endorsement_parallel_rule' => $deptSettings?->endorsement_parallel_rule?->value,
+            'endorsers' => $endorsers,
+            'secondary_endorsers' => $secondaryEndorsers,
+            'final_approver_id' => $final?->employee_id,
+        ], JSON_THROW_ON_ERROR);
     }
 
     /** @param  array<string, mixed>  $payload @return array{endorser_map: array<int, int>, final_map: array<int, int>, endorsement_tasks: int, final_tasks: int, total: int} */
@@ -242,17 +512,24 @@ class CentralApprovalWorkflowService
 
         return [
             'endorsement_enabled' => $config->endorsement_enabled,
+            'secondary_endorsement_enabled' => $config->secondary_endorsement_enabled,
             'final_approval_enabled' => $config->final_approval_enabled,
             'version' => $config->version,
             'departments' => $config->assignees
                 ->groupBy('department_id')
                 ->map(function (Collection $rows, $departmentId) use ($config) {
                     $endorsers = $rows->where('approval_type', ApprovalAssigneeType::Endorser);
+                    $secondaryEndorsers = $rows->where('approval_type', ApprovalAssigneeType::SecondaryEndorser);
 
                     return [
                         'department_id' => (int) $departmentId,
                         'department' => $rows->first()?->department?->name,
                         'endorsers' => $endorsers->map(fn (ApprovalWorkflowAssignee $row) => [
+                            'employee_id' => $row->employee_id,
+                            'name' => $row->employee?->fullName(),
+                            'position' => $row->employee?->position,
+                        ])->values()->all(),
+                        'secondary_endorsers' => $secondaryEndorsers->map(fn (ApprovalWorkflowAssignee $row) => [
                             'employee_id' => $row->employee_id,
                             'name' => $row->employee?->fullName(),
                             'position' => $row->employee?->position,
@@ -285,15 +562,30 @@ class CentralApprovalWorkflowService
         return $config->activeEndorsers($departmentId)->count();
     }
 
+    public function secondaryEndorserCount(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): int
+    {
+        return $config->activeSecondaryEndorsers($departmentId)->count();
+    }
+
     /** @return array{stage: LeaveApprovalStage|null, parallel: LeaveParallelRule, skip_hr: bool} */
     public function initialStageMeta(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): array
     {
         $endorsers = $config->endorsement_enabled ? $this->endorserCount($config, $departmentId) : 0;
+        $secondaryEndorsers = $config->secondary_endorsement_enabled ? $this->secondaryEndorserCount($config, $departmentId) : 0;
         $final = $config->final_approval_enabled && $config->activeFinalApprover($departmentId);
 
         if ($endorsers > 0) {
             return [
                 'stage' => LeaveApprovalStage::ImmediateSupervisor,
+                'parallel' => $this->parallelRuleFor($config, $departmentId),
+                'endorsement_mode' => $this->endorsementModeFor($config, $departmentId),
+                'skip_hr' => false,
+            ];
+        }
+
+        if ($secondaryEndorsers > 0) {
+            return [
+                'stage' => LeaveApprovalStage::DepartmentHead,
                 'parallel' => $this->parallelRuleFor($config, $departmentId),
                 'endorsement_mode' => $this->endorsementModeFor($config, $departmentId),
                 'skip_hr' => false,
@@ -393,6 +685,10 @@ class CentralApprovalWorkflowService
             return OvertimeRequestStatus::PendingEndorsement;
         }
 
+        if ($meta['stage'] === LeaveApprovalStage::DepartmentHead) {
+            return OvertimeRequestStatus::PendingEndorsement;
+        }
+
         if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
             return OvertimeRequestStatus::PendingFinalApproval;
         }
@@ -406,6 +702,10 @@ class CentralApprovalWorkflowService
 
         if ($meta['stage'] === LeaveApprovalStage::ImmediateSupervisor) {
             return LeaveStatus::PendingSupervisor;
+        }
+
+        if ($meta['stage'] === LeaveApprovalStage::DepartmentHead) {
+            return LeaveStatus::PendingDepartmentHead;
         }
 
         if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
@@ -423,6 +723,10 @@ class CentralApprovalWorkflowService
             return TravelOrderStatus::PendingSupervisor;
         }
 
+        if ($meta['stage'] === LeaveApprovalStage::DepartmentHead) {
+            return TravelOrderStatus::PendingDepartmentHead;
+        }
+
         if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
             return TravelOrderStatus::PendingCeoFinalApproval;
         }
@@ -438,6 +742,10 @@ class CentralApprovalWorkflowService
             return OfficialTimeStatus::PendingSupervisor;
         }
 
+        if ($meta['stage'] === LeaveApprovalStage::DepartmentHead) {
+            return OfficialTimeStatus::PendingSupervisor;
+        }
+
         if ($meta['stage'] === LeaveApprovalStage::CeoFinalApproval) {
             return OfficialTimeStatus::PendingCeoFinalApproval;
         }
@@ -450,6 +758,10 @@ class CentralApprovalWorkflowService
         $meta = $this->initialStageMeta($config, $departmentId);
 
         if ($meta['stage'] === LeaveApprovalStage::ImmediateSupervisor) {
+            return AttendanceCorrectionStatus::PendingEndorsement;
+        }
+
+        if ($meta['stage'] === LeaveApprovalStage::DepartmentHead) {
             return AttendanceCorrectionStatus::PendingEndorsement;
         }
 
@@ -475,14 +787,14 @@ class CentralApprovalWorkflowService
 
         $config = $this->configurationFor($type);
 
-        if (! $config->endorsement_enabled && ! $config->final_approval_enabled) {
+        if (! $config->endorsement_enabled && ! $config->secondary_endorsement_enabled && ! $config->final_approval_enabled) {
             return;
         }
     }
 
     public function missingActionableApprovers(object $entity): bool
     {
-        foreach ([LeaveApprovalStage::ImmediateSupervisor, LeaveApprovalStage::CeoFinalApproval] as $stage) {
+        foreach ([LeaveApprovalStage::ImmediateSupervisor, LeaveApprovalStage::DepartmentHead, LeaveApprovalStage::CeoFinalApproval] as $stage) {
             if ($this->assignmentsForStage($entity, $stage)->isNotEmpty()) {
                 return false;
             }
@@ -559,6 +871,24 @@ class CentralApprovalWorkflowService
             }
         }
 
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createLeaveAssignment(
+                    $application,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                );
+                $sort++;
+            }
+        }
+
         if ($config->final_approval_enabled && $departmentId) {
             $final = $config->activeFinalApprover($departmentId);
             $user = $final?->employee?->user;
@@ -594,6 +924,24 @@ class CentralApprovalWorkflowService
             }
         }
 
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createTravelAssignment(
+                    $order,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                );
+                $sort++;
+            }
+        }
+
         if ($config->final_approval_enabled && $departmentId) {
             $final = $config->activeFinalApprover($departmentId);
             $user = $final?->employee?->user;
@@ -621,6 +969,24 @@ class CentralApprovalWorkflowService
                 $this->createPardonAssignment(
                     $correction,
                     LeaveApprovalStage::ImmediateSupervisor,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                );
+                $sort++;
+            }
+        }
+
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createPardonAssignment(
+                    $correction,
+                    LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
                     $this->endorsement->initialAssignmentStatus($mode, $sort),
@@ -719,6 +1085,24 @@ class CentralApprovalWorkflowService
             }
         }
 
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOfficialTimeAssignment(
+                    $request,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                );
+                $sort++;
+            }
+        }
+
         if ($config->final_approval_enabled && $departmentId) {
             $final = $config->activeFinalApprover($departmentId);
             $user = $final?->employee?->user;
@@ -793,6 +1177,24 @@ class CentralApprovalWorkflowService
             }
         }
 
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOvertimeAssignment(
+                    $request,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                );
+                $sort++;
+            }
+        }
+
         if ($config->final_approval_enabled && $departmentId) {
             $final = $config->activeFinalApprover($departmentId);
             $user = $final?->employee?->user;
@@ -850,10 +1252,7 @@ class CentralApprovalWorkflowService
         }
 
         return $application->assignments()
-            ->whereIn('stage', [
-                LeaveApprovalStage::DepartmentHead->value,
-                LeaveApprovalStage::AdministrativeHead->value,
-            ])
+            ->where('stage', LeaveApprovalStage::AdministrativeHead->value)
             ->exists();
     }
 
@@ -905,10 +1304,7 @@ class CentralApprovalWorkflowService
     private function removeLegacyDepartmentLeaveAssignments(LeaveApplication $application): void
     {
         $application->assignments()
-            ->whereIn('stage', [
-                LeaveApprovalStage::DepartmentHead->value,
-                LeaveApprovalStage::AdministrativeHead->value,
-            ])
+            ->where('stage', LeaveApprovalStage::AdministrativeHead->value)
             ->delete();
     }
 
@@ -929,6 +1325,18 @@ class CentralApprovalWorkflowService
         }
 
         $this->reconcileLeaveStageAssignees($application, LeaveApprovalStage::ImmediateSupervisor, $endorserUserIds, $requester);
+
+        $secondaryEndorserUserIds = [];
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            foreach ($config->activeSecondaryEndorsers($departmentId)->get() as $row) {
+                $userId = $row->employee?->user?->id;
+                if ($userId && $row->employee?->id !== $requester->id) {
+                    $secondaryEndorserUserIds[] = $userId;
+                }
+            }
+        }
+
+        $this->reconcileLeaveStageAssignees($application, LeaveApprovalStage::DepartmentHead, $secondaryEndorserUserIds, $requester);
 
         $finalUserIds = [];
         if ($config->final_approval_enabled && $departmentId) {

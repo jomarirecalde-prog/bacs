@@ -290,7 +290,7 @@ class TravelOrderService
 
             if ($outcome === 'pending') {
                 if (
-                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    $stage->usesCentralEndorsementRules()
                     && ($order->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
@@ -641,7 +641,7 @@ class TravelOrderService
             return 'approved';
         }
 
-        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+        if ($stage->usesCentralEndorsementRules()) {
             $mode = $order->endorsement_mode ?? EndorsementMode::Parallel;
             $rule = $order->parallel_rule ?? LeaveParallelRule::All;
 

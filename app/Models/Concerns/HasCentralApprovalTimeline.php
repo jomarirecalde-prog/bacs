@@ -80,6 +80,7 @@ trait HasCentralApprovalTimeline
     {
         $ordered = [
             LeaveApprovalStage::ImmediateSupervisor,
+            LeaveApprovalStage::DepartmentHead,
             LeaveApprovalStage::CeoFinalApproval,
         ];
 

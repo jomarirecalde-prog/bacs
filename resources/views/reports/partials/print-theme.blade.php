@@ -49,8 +49,8 @@
     tbody tr:nth-child(even) td { background: #f6f8f7; }
     td.num { text-align: right; }
 
-    .sign { margin-top: 36px; display: table; width: 100%; }
-    .sign div { display: table-cell; width: 50%; }
+    table.sign { margin-top: 36px; width: 100%; border-collapse: collapse; }
+    table.sign td { border: 0; width: 50%; vertical-align: top; padding: 0; }
     .line {
         margin-top: 40px;
         border-top: 1px solid #10201b;

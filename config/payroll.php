@@ -19,6 +19,12 @@ return [
     ),
 
     'overtime_multiplier' => 1.25,
+    'overtime_use_compensation_matrix' => true,
+
+    'night_shift' => [
+        'start' => '22:00:00',
+        'end' => '06:00:00',
+    ],
     'holiday_pay_mode' => 'premium_only',
     'overtime_requires_approval' => false,
     'working_days_basis' => 22,

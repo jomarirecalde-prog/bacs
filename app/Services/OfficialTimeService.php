@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ApprovalTransactionType;
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -686,24 +687,36 @@ class OfficialTimeService
             return 'approved';
         }
 
-        if (! $stage->isParallel()) {
-            if ($denied->isNotEmpty()) {
-                return 'denied';
-            }
-            if ($approved->isNotEmpty()) {
-                return 'approved';
+        if ($stage->usesCentralEndorsementRules()) {
+            $mode = $request->endorsement_mode ?? EndorsementMode::Parallel;
+            if ($mode === EndorsementMode::Sequential) {
+                if ($denied->isNotEmpty()) {
+                    return 'denied';
+                }
+                if ($approved->isNotEmpty()) {
+                    return 'approved';
+                }
+
+                return 'pending';
             }
 
-            return 'pending';
+            $rule = $request->parallel_rule ?? LeaveParallelRule::All;
+
+            return match ($rule) {
+                LeaveParallelRule::Any => $this->evalAny($approved, $denied, $pending, $total),
+                LeaveParallelRule::Majority => $this->evalMajority($approved, $denied, $pending, $total),
+                LeaveParallelRule::All => $this->evalAll($approved, $denied, $pending, $total),
+            };
         }
 
-        $rule = $request->parallel_rule ?? LeaveParallelRule::All;
+        if ($denied->isNotEmpty()) {
+            return 'denied';
+        }
+        if ($approved->isNotEmpty()) {
+            return 'approved';
+        }
 
-        return match ($rule) {
-            LeaveParallelRule::Any => $this->evalAny($approved, $denied, $pending, $total),
-            LeaveParallelRule::Majority => $this->evalMajority($approved, $denied, $pending, $total),
-            LeaveParallelRule::All => $this->evalAll($approved, $denied, $pending, $total),
-        };
+        return 'pending';
     }
 
     private function evalAll($approved, $denied, $pending, int $total): string

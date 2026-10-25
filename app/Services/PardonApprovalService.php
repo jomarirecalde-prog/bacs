@@ -130,7 +130,7 @@ class PardonApprovalService
 
             if ($outcome === 'pending') {
                 if (
-                    $stage === LeaveApprovalStage::ImmediateSupervisor
+                    $stage->usesCentralEndorsementRules()
                     && EndorsementMode::tryFrom((string) $request->endorsement_mode) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
@@ -174,7 +174,7 @@ class PardonApprovalService
             return 'denied';
         }
 
-        if ($stage === LeaveApprovalStage::ImmediateSupervisor) {
+        if ($stage->usesCentralEndorsementRules()) {
             $mode = EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel;
             $rule = LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All;
 
@@ -186,15 +186,7 @@ class PardonApprovalService
 
     private function nextStage(AttendanceCorrectionRequest $request, LeaveApprovalStage $from): ?LeaveApprovalStage
     {
-        if ($from === LeaveApprovalStage::ImmediateSupervisor) {
-            $hasFinal = $request->approvalAssignments
-                ->where('stage', LeaveApprovalStage::CeoFinalApproval->value)
-                ->isNotEmpty();
-
-            return $hasFinal ? LeaveApprovalStage::CeoFinalApproval : null;
-        }
-
-        return null;
+        return $request->nextApprovalStageAfter($from);
     }
 
     private function resolveCurrentStage(AttendanceCorrectionRequest $request): ?LeaveApprovalStage

@@ -30,7 +30,8 @@ class SettingController extends Controller
             'address' => Setting::get('company_address', ''),
             'holidays' => $holidays,
             'adminAccounts' => $adminAccounts,
-            'approvalConfigurations' => $approvalWorkflows->allConfigurations(),
+            'approvalWorkflowConfiguration' => $approvalWorkflows->canonicalConfiguration(),
+            'approvalTransactionTypes' => \App\Enums\ApprovalTransactionType::cases(),
             'approvalDepartments' => $departments,
             'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
         ]);

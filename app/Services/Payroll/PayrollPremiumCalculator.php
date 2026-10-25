@@ -40,14 +40,19 @@ class PayrollPremiumCalculator
             ->betweenDates($start, $end)
             ->get();
 
+        $useOtMatrix = PayrollSettings::useOvertimeCompensationMatrix();
+
         foreach ($records as $record) {
+            $otHours = max(0, ($record->overtime_minutes ?? 0) / 60);
             $hours = max(0, ($record->total_minutes ?? 0) / 60);
-            if ($hours <= 0 && ($record->overtime_minutes ?? 0) > 0) {
-                $hours = ($record->overtime_minutes ?? 0) / 60;
+            if ($hours <= 0 && $otHours > 0) {
+                $hours = $otHours;
             }
             if ($hours <= 0) {
                 continue;
             }
+
+            $regularHours = $useOtMatrix ? max(0, $hours - min($hours, $otHours)) : $hours;
 
             $date = $record->attendance_date->toDateString();
             $legacyHoliday = Holiday::forDate($date);
@@ -58,8 +63,8 @@ class PayrollPremiumCalculator
                 $code = $type === 'special' ? 'special_holiday_work' : 'regular_holiday_work';
                 /** @var PayrollPremiumRule|null $rule */
                 $rule = $rules->get($code);
-                if ($rule) {
-                    $amount = $this->amountForRule($hours, $hourlyRate, (float) $rule->multiplier, $premiumOnly);
+                if ($rule && $regularHours > 0) {
+                    $amount = $this->amountForRule($regularHours, $hourlyRate, (float) $rule->multiplier, $premiumOnly);
                     if ($rule->pay_component === 'premium_pay') {
                         $premiumPay += $amount;
                     } else {
@@ -68,24 +73,25 @@ class PayrollPremiumCalculator
                     $breakdown[] = [
                         'date' => $date,
                         'label' => $rule->name,
-                        'hours' => $hours,
+                        'hours' => $regularHours,
                         'multiplier' => (float) $rule->multiplier,
                         'amount' => $amount,
                     ];
                 }
 
-                $otHours = max(0, ($record->overtime_minutes ?? 0) / 60);
-                $otRule = $rules->get('holiday_overtime');
-                if ($otHours > 0 && $otRule) {
-                    $otAmount = $this->amountForRule($otHours, $hourlyRate, (float) $otRule->multiplier, $premiumOnly);
-                    $premiumPay += $otAmount;
-                    $breakdown[] = [
-                        'date' => $date,
-                        'label' => $otRule->name,
-                        'hours' => $otHours,
-                        'multiplier' => (float) $otRule->multiplier,
-                        'amount' => $otAmount,
-                    ];
+                if (! $useOtMatrix) {
+                    $otRule = $rules->get('holiday_overtime');
+                    if ($otHours > 0 && $otRule) {
+                        $otAmount = $this->amountForRule($otHours, $hourlyRate, (float) $otRule->multiplier, $premiumOnly);
+                        $premiumPay += $otAmount;
+                        $breakdown[] = [
+                            'date' => $date,
+                            'label' => $otRule->name,
+                            'hours' => $otHours,
+                            'multiplier' => (float) $otRule->multiplier,
+                            'amount' => $otAmount,
+                        ];
+                    }
                 }
 
                 continue;
@@ -93,13 +99,14 @@ class PayrollPremiumCalculator
 
             if ($record->status === AttendanceStatus::RestDay) {
                 $rule = $rules->get('rest_day_work');
-                if ($rule) {
-                    $amount = $this->amountForRule($hours, $hourlyRate, (float) $rule->multiplier, $premiumOnly);
+                if ($rule && ($useOtMatrix ? $regularHours : $hours) > 0) {
+                    $premiumHours = $useOtMatrix ? $regularHours : $hours;
+                    $amount = $this->amountForRule($premiumHours, $hourlyRate, (float) $rule->multiplier, $premiumOnly);
                     $premiumPay += $amount;
                     $breakdown[] = [
                         'date' => $date,
                         'label' => $rule->name,
-                        'hours' => $hours,
+                        'hours' => $premiumHours,
                         'multiplier' => (float) $rule->multiplier,
                         'amount' => $amount,
                     ];

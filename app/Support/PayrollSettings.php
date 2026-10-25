@@ -86,4 +86,33 @@ final class PayrollSettings
 
         return filter_var($value, FILTER_VALIDATE_BOOL);
     }
+
+    public static function useOvertimeCompensationMatrix(): bool
+    {
+        $value = Setting::get('payroll_ot_use_compensation_matrix', config('payroll.overtime_use_compensation_matrix', true));
+
+        if (! filter_var($value, FILTER_VALIDATE_BOOL)) {
+            return false;
+        }
+
+        // Avoid blocking payroll when the matrix is enabled but no rates have been configured yet.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('payroll_overtime_compensation_rates')) {
+            return false;
+        }
+
+        return \App\Models\PayrollOvertimeCompensationRate::query()
+            ->active()
+            ->where('is_overtime', true)
+            ->exists();
+    }
+
+    public static function nightShiftStart(): string
+    {
+        return (string) Setting::get('payroll_night_shift_start', config('payroll.night_shift.start', '22:00:00'));
+    }
+
+    public static function nightShiftEnd(): string
+    {
+        return (string) Setting::get('payroll_night_shift_end', config('payroll.night_shift.end', '06:00:00'));
+    }
 }

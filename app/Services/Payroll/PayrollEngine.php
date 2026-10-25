@@ -26,6 +26,7 @@ class PayrollEngine
     public function __construct(
         private readonly EmployeeSalaryService $salaries,
         private readonly PayrollPremiumCalculator $premiums,
+        private readonly PayrollOvertimeCompensationCalculator $overtimeCompensation,
         private readonly SssContributionService $sss,
         private readonly WithholdingTaxService $withholdingTax,
         private readonly AttendanceDeductionService $attendanceDeductions,
@@ -77,6 +78,64 @@ class PayrollEngine
         PayrollAttendanceSummary $summary,
         ?string $effectiveDate = null
     ): PayrollEmployee {
+        $data = $this->computeEmployeeData($period, $employee, $summary, $effectiveDate, useExistingPayrollRow: true);
+
+        $payrollEmployee = PayrollEmployee::query()->updateOrCreate(
+            [
+                'payroll_period_id' => $period->id,
+                'employee_id' => $employee->id,
+            ],
+            $data['payroll_employee_attributes'],
+        );
+
+        $this->syncLineItems(
+            $payrollEmployee,
+            $data['earning_lines'],
+            $data['compensation']['statutory_and_loans'],
+            $summary,
+            $data['minute_rate'],
+            $data['ot_multiplier'],
+            $data['premium'],
+            $data['attendance_meta'],
+            $data['ot_result'],
+        );
+
+        return $payrollEmployee->fresh(['earnings', 'deductions']);
+    }
+
+    /**
+     * Compute payroll figures without persisting payroll_employees (manual salary module).
+     *
+     * @return array<string, mixed>
+     */
+    public function computeEmployeeSnapshot(
+        PayrollPeriod $period,
+        Employee $employee,
+        PayrollAttendanceSummary $summary,
+        ?string $effectiveDate = null,
+        ?float $manualTotalBasicPay = null,
+    ): array {
+        return $this->computeEmployeeData(
+            $period,
+            $employee,
+            $summary,
+            $effectiveDate,
+            useExistingPayrollRow: false,
+            manualTotalBasicPayOverride: $manualTotalBasicPay,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function computeEmployeeData(
+        PayrollPeriod $period,
+        Employee $employee,
+        PayrollAttendanceSummary $summary,
+        ?string $effectiveDate = null,
+        bool $useExistingPayrollRow = true,
+        ?float $manualTotalBasicPayOverride = null,
+    ): array {
         $effectiveDate ??= $period->end_date->toDateString();
         $warnings = $summary->warnings ?? [];
         $salary = $this->salaries->effectiveForDate($employee, $effectiveDate);
@@ -111,20 +170,36 @@ class PayrollEngine
 
         $computedTotalBasicPay = max(0, Money::toFloat(Money::round($basicPay - $attendanceDed)));
 
-        $existing = PayrollEmployee::query()
-            ->where('payroll_period_id', $period->id)
-            ->where('employee_id', $employee->id)
-            ->first();
+        $existing = $useExistingPayrollRow
+            ? PayrollEmployee::query()
+                ->where('payroll_period_id', $period->id)
+                ->where('employee_id', $employee->id)
+                ->first()
+            : null;
 
-        $totalBasicPay = $this->resolveTotalBasicPayForCompute($existing, $computedTotalBasicPay, $warnings, $status);
-        $totalBasicForGross = $this->totalBasicForGrossTotals(
-            $totalBasicPay,
-            $computedTotalBasicPay,
-            $existing,
-        );
+        if ($manualTotalBasicPayOverride !== null) {
+            $totalBasicPay = max(0, Money::toFloat(Money::round($manualTotalBasicPayOverride)));
+        } else {
+            $totalBasicPay = $this->resolveTotalBasicPayForCompute($existing, $computedTotalBasicPay, $warnings, $status);
+        }
 
-        $otMultiplier = PayrollSettings::overtimeMultiplier();
-        $overtimePay = Money::toFloat(Money::round((float) $summary->approved_ot_hours * $rates['hourly_rate'] * $otMultiplier));
+        $totalBasicForGross = $manualTotalBasicPayOverride !== null
+            ? $totalBasicPay
+            : $this->totalBasicForGrossTotals(
+                $totalBasicPay,
+                $computedTotalBasicPay,
+                $existing,
+            );
+
+        $otResult = $this->overtimeCompensation->calculate($employee, $period, $rates['hourly_rate']);
+        $overtimePay = $otResult['overtime_pay'];
+        $otMultiplier = $otResult['effective_multiplier'] ?? PayrollSettings::overtimeMultiplier();
+        foreach ($otResult['errors'] as $message) {
+            $warnings[] = $message;
+        }
+        if ($otResult['errors'] !== [] && $status !== PayrollComputationStatus::Error) {
+            $status = PayrollComputationStatus::Error;
+        }
         $premium = $this->premiums->calculate($employee, $period, $rates['hourly_rate'], $rates['daily_rate']);
         $holidayPay = $premium['holiday_pay'];
         $premiumPay = $premium['premium_pay'];
@@ -141,12 +216,40 @@ class PayrollEngine
             $attendanceDed,
         );
 
-        $payrollEmployee = PayrollEmployee::query()->updateOrCreate(
-            [
-                'payroll_period_id' => $period->id,
-                'employee_id' => $employee->id,
-            ],
-            [
+        $earningLines = [
+            'basic_pay' => $basicPay,
+            'overtime' => $overtimePay,
+            'de_minimis' => $compensation['de_minimis'],
+            'absence' => $absenceDed,
+            'late' => $lateDed,
+            'undertime' => $undertimeDed,
+        ];
+        if ($compensation['other_earnings'] > 0) {
+            $earningLines['other_earnings'] = $compensation['other_earnings'];
+        }
+
+        return [
+            'rates' => $rates,
+            'salary' => $salary,
+            'basic_pay' => $basicPay,
+            'absence_deduction' => $absenceDed,
+            'late_deduction' => $lateDed,
+            'undertime_deduction' => $undertimeDed,
+            'computed_total_basic_pay' => $computedTotalBasicPay,
+            'total_basic_pay' => $totalBasicPay,
+            'overtime_pay' => $overtimePay,
+            'holiday_pay' => $holidayPay,
+            'premium_pay' => $premiumPay,
+            'compensation' => $compensation,
+            'earning_lines' => $earningLines,
+            'minute_rate' => $minuteRate,
+            'attendance_meta' => $attendanceMeta,
+            'ot_multiplier' => $otMultiplier,
+            'premium' => $premium,
+            'ot_result' => $otResult,
+            'computation_status' => $status,
+            'computation_warnings' => $warnings,
+            'payroll_employee_attributes' => [
                 'employee_number' => $employee->employee_number,
                 'employee_name' => $employee->fullName(),
                 'department_id' => $employee->department_id,
@@ -167,7 +270,7 @@ class PayrollEngine
                 'total_basic_pay' => $totalBasicPay,
                 'computed_total_basic_pay' => $computedTotalBasicPay,
                 'total_basic_pay_manually_set' => PayrollSettings::manualTotalBasicPay()
-                    ? (bool) ($existing?->total_basic_pay_manually_set)
+                    ? ($manualTotalBasicPayOverride !== null || (bool) ($existing?->total_basic_pay_manually_set))
                     : false,
                 'overtime_pay' => $overtimePay,
                 'holiday_pay' => $holidayPay,
@@ -181,24 +284,8 @@ class PayrollEngine
                 'computation_status' => $status,
                 'computation_warnings' => $warnings === [] ? null : $warnings,
                 'computed_at' => now(),
-            ]
-        );
-
-        $earningLines = [
-            'basic_pay' => $basicPay,
-            'overtime' => $overtimePay,
-            'de_minimis' => $compensation['de_minimis'],
-            'absence' => $absenceDed,
-            'late' => $lateDed,
-            'undertime' => $undertimeDed,
+            ],
         ];
-        if ($compensation['other_earnings'] > 0) {
-            $earningLines['other_earnings'] = $compensation['other_earnings'];
-        }
-
-        $this->syncLineItems($payrollEmployee, $earningLines, $compensation['statutory_and_loans'], $summary, $minuteRate, $otMultiplier, $premium, $attendanceMeta);
-
-        return $payrollEmployee->fresh(['earnings', 'deductions']);
     }
 
     /**
@@ -372,6 +459,7 @@ class PayrollEngine
             $otMultiplier,
             $premium,
             $attendanceMeta,
+            ['breakdown' => [], 'errors' => []],
         );
 
         return $payrollEmployee->fresh(['earnings', 'deductions']);
@@ -677,6 +765,7 @@ class PayrollEngine
         float $otMultiplier,
         array $premium = ['holiday_pay' => 0, 'premium_pay' => 0, 'breakdown' => []],
         array $attendanceMeta = [],
+        array $otResult = ['breakdown' => [], 'errors' => []],
     ): void {
         $payrollEmployee->earnings()->delete();
         $payrollEmployee->deductions()->delete();
@@ -694,15 +783,26 @@ class PayrollEngine
             ]);
         }
 
-        if ($earnings['overtime'] > 0) {
+        if ($earnings['overtime'] > 0 || ($otResult['breakdown'] ?? []) !== []) {
+            $breakdown = $otResult['breakdown'] ?? [];
+            $qualifiedOtHours = $breakdown === []
+                ? (float) $summary->approved_ot_hours
+                : round(array_sum(array_column($breakdown, 'qualified_ot_hours')), 4);
+
             $payrollEmployee->earnings()->create([
                 'earning_type_id' => $earningTypes['overtime'] ?? null,
                 'code' => 'overtime',
                 'label' => 'Overtime',
                 'amount' => $earnings['overtime'],
                 'meta' => [
-                    'hours' => $summary->approved_ot_hours,
+                    'hours' => $qualifiedOtHours,
+                    'summary_approved_ot_hours' => (float) $summary->approved_ot_hours,
                     'multiplier' => $otMultiplier,
+                    'computation_method' => PayrollSettings::useOvertimeCompensationMatrix()
+                        ? 'overtime_compensation_matrix'
+                        : 'legacy_flat_multiplier',
+                    'breakdown' => $breakdown,
+                    'configuration_errors' => $otResult['errors'] ?? [],
                 ],
             ]);
         }
