@@ -39,7 +39,7 @@ enum LeaveApprovalStage: string
         }
 
         return match ($this) {
-            self::ImmediateSupervisor => 'Endorsement',
+            self::ImmediateSupervisor => 'First endorsement',
             self::DepartmentHead => 'Second endorsement',
             self::CeoFinalApproval => 'Final approval',
             self::HrOfficer => 'HR processing',

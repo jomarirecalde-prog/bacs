@@ -2,7 +2,9 @@
 
 namespace App\Models\Concerns;
 
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
+use App\Enums\LeaveParallelRule;
 
 trait HasCentralApprovalTimeline
 {
@@ -32,6 +34,26 @@ trait HasCentralApprovalTimeline
         }
 
         return ! $this->usesLegacyDepartmentApprovalStages();
+    }
+
+    public function snapshotEndorsementMode(): EndorsementMode
+    {
+        $value = $this->getAttribute('endorsement_mode');
+        if ($value instanceof EndorsementMode) {
+            return $value;
+        }
+
+        return EndorsementMode::tryFrom((string) $value) ?? EndorsementMode::Parallel;
+    }
+
+    public function snapshotParallelRule(): LeaveParallelRule
+    {
+        $value = $this->getAttribute('parallel_rule') ?? $this->getAttribute('endorsement_parallel_rule');
+        if ($value instanceof LeaveParallelRule) {
+            return $value;
+        }
+
+        return LeaveParallelRule::tryFrom((string) $value) ?? LeaveParallelRule::All;
     }
 
     /** @return list<LeaveApprovalStage> */

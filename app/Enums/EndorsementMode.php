@@ -27,4 +27,12 @@ enum EndorsementMode: string
     {
         return $this === self::Parallel;
     }
+
+    public function timelineBadge(): string
+    {
+        return match ($this) {
+            self::Sequential => 'Sequential',
+            self::Parallel => 'Parallel',
+        };
+    }
 }

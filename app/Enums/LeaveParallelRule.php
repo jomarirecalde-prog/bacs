@@ -25,4 +25,13 @@ enum LeaveParallelRule: string
             self::Majority => 'More than half of the assigned Immediate Supervisors/Superiors must approve.',
         };
     }
+
+    public function timelineHint(): string
+    {
+        return match ($this) {
+            self::All => 'All assigned endorsers must act',
+            self::Any => 'Any one endorser can complete the stage',
+            self::Majority => 'Majority of endorsers must act',
+        };
+    }
 }

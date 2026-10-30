@@ -57,8 +57,8 @@
         </div>
     </div>
     <div class="space-y-6">
-        <div class="card">
-            <div class="card-header"><h2 class="card-title">Parallel endorsement</h2></div>
+        <div class="card card-accent-gold">
+            <div class="card-header"><h2 class="card-title">Approval progress</h2></div>
             <div class="card-body">@include('travel-order.partials.timeline', ['order' => $order])</div>
         </div>
     </div>
