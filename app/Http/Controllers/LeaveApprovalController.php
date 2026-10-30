@@ -44,8 +44,10 @@ class LeaveApprovalController extends Controller
         }
 
         if ($scope === 'endorsement') {
-            $query->where('status', \App\Enums\LeaveStatus::PendingSupervisor)
-                ->where('current_stage', \App\Enums\LeaveApprovalStage::ImmediateSupervisor);
+            $query->whereIn('current_stage', [
+                \App\Enums\LeaveApprovalStage::ImmediateSupervisor,
+                \App\Enums\LeaveApprovalStage::DepartmentHead,
+            ]);
         } elseif ($scope === 'final') {
             $query->where('status', \App\Enums\LeaveStatus::PendingCeoFinalApproval)
                 ->where('current_stage', \App\Enums\LeaveApprovalStage::CeoFinalApproval);

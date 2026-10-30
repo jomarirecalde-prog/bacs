@@ -24,7 +24,10 @@ class TravelOrderApprovalController extends Controller
         $query = $this->travelOrders->pendingFor($request->user());
 
         if ($scope === 'endorsement') {
-            $query->where('status', \App\Enums\TravelOrderStatus::PendingSupervisor);
+            $query->whereIn('status', [
+                \App\Enums\TravelOrderStatus::PendingSupervisor,
+                \App\Enums\TravelOrderStatus::PendingDepartmentHead,
+            ]);
         } elseif ($scope === 'final') {
             $query->where('status', \App\Enums\TravelOrderStatus::PendingCeoFinalApproval);
         }

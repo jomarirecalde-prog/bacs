@@ -240,10 +240,17 @@ class LeaveApplicationService
                     'decision' => 'You are not an authorized pending approver for the current stage.',
                 ]);
             }
+            $employee = $application->employee;
+            if (! $employee) {
+                throw ValidationException::withMessages([
+                    'decision' => 'This leave application is missing employee data. Contact HR or system admin.',
+                ]);
+            }
+
             $assignment->update([
                 'status' => $decision->value,
                 'reason' => $reason !== '' ? $reason : null,
-                'signature' => $this->storeSignature($signature, $application->employee, $assignment->id),
+                'signature' => $this->storeSignature($signature, $employee, $assignment->id, 'signature'),
                 'acted_at' => ManilaTime::now(),
             ]);
 
@@ -997,8 +1004,12 @@ class LeaveApplicationService
         return $prefix.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 
-    private function storeSignature(?string $payload, Employee $employee, string|int|null $suffix = null): ?string
-    {
+    private function storeSignature(
+        ?string $payload,
+        Employee $employee,
+        string|int|null $suffix = null,
+        string $validationKey = 'employee_signature',
+    ): ?string {
         if (! is_string($payload) || ! str_starts_with($payload, 'data:image/')) {
             return $payload ?: null;
         }
@@ -1010,12 +1021,20 @@ class LeaveApplicationService
         $binary = base64_decode($matches[2], true);
         if ($binary === false || strlen($binary) > 400_000) {
             throw ValidationException::withMessages([
-                'employee_signature' => 'The signature image is invalid or too large.',
+                $validationKey => 'The signature image is invalid or too large.',
             ]);
         }
 
         $name = 'leave-signatures/'.$employee->id.'-'.($suffix ?: uniqid('', true)).'.png';
-        \Illuminate\Support\Facades\Storage::disk(\App\Support\PrivateStorage::DISK)->put($name, $binary);
+
+        try {
+            \Illuminate\Support\Facades\Storage::disk(\App\Support\PrivateStorage::DISK)->put($name, $binary);
+        } catch (\Throwable $e) {
+            report($e);
+            throw ValidationException::withMessages([
+                $validationKey => 'Could not save the signature. Ask your administrator to check storage permissions.',
+            ]);
+        }
 
         return $name;
     }

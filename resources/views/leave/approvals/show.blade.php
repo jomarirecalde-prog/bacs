@@ -34,7 +34,7 @@
                             <p class="text-xs text-gold-700 font-semibold">FINAL APPROVAL</p>
                         @endif
                     </div>
-                    <form method="POST" action="{{ route('leave.approvals.decide', $application) }}" class="card-body space-y-4" @submit="beforeSubmit">
+                    <form method="POST" action="{{ route('leave.approvals.decide', $application) }}" class="card-body space-y-4">
                         @csrf
                         <label class="flex items-center gap-2">
                             <input type="radio" name="decision" value="approved" class="radio" x-model="decision">
@@ -48,6 +48,8 @@
                             <label class="label" for="reason">Reason <span x-show="decision === 'denied'" class="text-critical-600">*</span></label>
                             <textarea id="reason" name="reason" rows="3" class="textarea" :required="decision === 'denied'"></textarea>
                             @error('reason') <p class="error-text">{{ $message }}</p> @enderror
+                            @error('decision') <p class="error-text">{{ $message }}</p> @enderror
+                            @error('signature') <p class="error-text">{{ $message }}</p> @enderror
                         </div>
                         <div x-data="signaturePad()">
                             <div class="label">Name &amp; signature</div>

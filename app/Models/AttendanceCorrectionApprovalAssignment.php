@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
+use App\Models\Concerns\InteractsWithApprovalAssignmentStatus;
 use App\Support\ManilaTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceCorrectionApprovalAssignment extends Model
 {
+    use InteractsWithApprovalAssignmentStatus;
+
     protected $fillable = [
         'attendance_correction_request_id',
         'stage',
@@ -40,21 +43,6 @@ class AttendanceCorrectionApprovalAssignment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function isPending(): bool
-    {
-        return $this->status === 'pending';
-    }
-
-    public function isApproved(): bool
-    {
-        return $this->status === LeaveDecision::Approved->value;
-    }
-
-    public function isDenied(): bool
-    {
-        return $this->status === LeaveDecision::Denied->value;
     }
 
     public function decisionLabel(): string
