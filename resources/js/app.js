@@ -616,6 +616,7 @@ document.addEventListener('alpine:init', () => {
         dialog: false,
         dialogTitle: '',
         dialogBody: '',
+        submitting: false,
         pendingUrl: null,
         timeInUrl: payload.timeInUrl,
         timeOutUrl: payload.timeOutUrl,
@@ -647,7 +648,10 @@ document.addEventListener('alpine:init', () => {
             this.confirmIn();
         },
         async submitPending() {
-            this.dialog = false;
+            if (this.submitting) {
+                return;
+            }
+            this.submitting = true;
             const token = document.querySelector('meta[name="csrf-token"]').content;
             try {
                 const res = await fetch(this.pendingUrl, {
@@ -659,10 +663,13 @@ document.addEventListener('alpine:init', () => {
                     window.dtrToast(data.message || Object.values(data.errors || { e: ['Unable to save'] })[0][0], 'error');
                     return;
                 }
+                this.dialog = false;
                 window.dtrToast(data.message, 'success');
                 this.applyAttendance(data.attendance);
             } catch {
                 window.dtrToast('Unable to record attendance.', 'error');
+            } finally {
+                this.submitting = false;
             }
         },
         applyAttendance(attendance) {

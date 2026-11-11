@@ -4,166 +4,203 @@
 @section('page-title', 'Today\'s Attendance')
 @section('page-subtitle', 'Clock in and out using Philippine Standard Time')
 
-@section('content')
-<div class="space-y-6" x-data="clockPanel({
-    timeInUrl: @js(route('attendance.time-in')),
-    timeOutUrl: @js(route('attendance.time-out')),
-    canTimeIn: @js($canRecord),
-    canTimeOut: @js($canRecord),
-    nextActionLabel: @js($nextAction?->label()),
-})">
-    @if ($pendingCorrection)
-        <div class="alert-warn">
-            <svg class="mt-0.5 h-4 w-4 shrink-0 text-warn-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            <span>{{ $pendingCorrection }} <a class="link font-semibold" href="{{ route('employee.attendance-corrections.index') }}">View correction</a></span>
-        </div>
-    @endif
+@php
+    use App\Enums\AttendancePunchType;
+    use App\Support\ManilaTime;
 
-    @if ($todayHoliday)
-        <div class="alert-success">
-            <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118L2.58 9.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-            <span>
-                <strong class="font-bold">{{ $todayHoliday->name }}</strong> — {{ $todayHoliday->effectLabel() }}.
-                You will not be marked absent today.
+    $punchCards = [
+        [
+            'key' => AttendancePunchType::AmTimeIn->value,
+            'label' => 'AM Time In',
+            'value' => $today?->am_time_in,
+            'icon' => 'M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v4',
+        ],
+        [
+            'key' => AttendancePunchType::AmTimeOut->value,
+            'label' => 'AM Time Out',
+            'value' => $today?->am_time_out,
+            'icon' => 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v4',
+        ],
+        [
+            'key' => AttendancePunchType::PmTimeIn->value,
+            'label' => 'PM Time In',
+            'value' => $today?->pm_time_in,
+            'icon' => 'M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v4',
+        ],
+        [
+            'key' => AttendancePunchType::PmTimeOut->value,
+            'label' => 'PM Time Out',
+            'value' => $today?->pm_time_out,
+            'icon' => 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v4',
+        ],
+        [
+            'key' => AttendancePunchType::Overtime->value,
+            'label' => 'Overtime',
+            'value' => $today?->overtime_in,
+            'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+        ],
+    ];
+
+    $monthLabel = ManilaTime::parse(sprintf('%04d-%02d-01', $year, $month))->format('F Y');
+    $lateMinutes = (int) ($today?->late_minutes ?? 0);
+    $undertimeMinutes = (int) ($today?->undertime_minutes ?? 0);
+    $overtimeMinutes = (int) ($today?->overtime_minutes ?? 0);
+@endphp
+
+@section('content')
+<div class="w-full min-w-0 space-y-3 sm:space-y-4"
+     x-data="clockPanel({
+        timeInUrl: @js(route('attendance.time-in')),
+        timeOutUrl: @js(route('attendance.time-out')),
+        canTimeIn: @js($canRecord),
+        canTimeOut: @js($canRecord),
+        nextActionLabel: @js($nextAction?->label()),
+    })">
+
+    @if ($pendingCorrection)
+        <div class="alert-warning shadow-soft" role="status">
+            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warn-100 text-warn-800" aria-hidden="true">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            </span>
+            <span class="min-w-0 flex-1">
+                <span class="block text-sm font-bold text-warn-900">Pending attendance correction</span>
+                <span class="mt-0.5 block text-sm text-warn-900/90">{{ $pendingCorrection }}</span>
+                <a class="link mt-2 inline-flex min-h-11 items-center text-sm font-semibold" href="{{ route('employee.attendance-corrections.index') }}">View correction</a>
             </span>
         </div>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-3">
-        <div class="card card-accent-brand overflow-hidden lg:col-span-2">
-            <div class="flex flex-wrap items-start justify-between gap-4 p-6">
-                <div>
-                    <div class="stat-label">Today's Attendance</div>
-                    <div class="mt-1 text-2xl font-extrabold tracking-tight text-ink" x-text="dateLabel">{{ now()->toFormattedDateString() }}</div>
-                    <div class="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Current time (PST)</div>
-                    <div class="text-4xl font-extrabold text-brand-700 tabular-nums" x-text="timeLabel">{{ now()->format('h:i:s A') }}</div>
-                </div>
-                <x-status-badge :status="$today?->status" />
-            </div>
+    @if ($todayHoliday)
+        <div class="alert-success shadow-soft" role="status">
+            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700" aria-hidden="true">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118L2.58 9.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </span>
+            <span class="min-w-0 flex-1 text-sm">
+                <strong class="font-bold text-brand-900">{{ $todayHoliday->name }}</strong>
+                <span class="text-brand-900/90"> — {{ $todayHoliday->effectLabel() }}. You will not be marked absent today.</span>
+            </span>
+        </div>
+    @endif
 
-            <div class="grid gap-4 px-6 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ([
-                    'AM Time In' => $today?->am_time_in,
-                    'AM Time Out' => $today?->am_time_out,
-                    'PM Time In' => $today?->pm_time_in,
-                    'PM Time Out' => $today?->pm_time_out,
-                    'Overtime' => $today?->overtime_in,
-                ] as $label => $value)
-                    <div class="rounded-2xl border border-line bg-surface-50 p-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-muted">{{ $label }}</div>
-                        <div class="mt-2 text-xl font-extrabold text-ink tabular-nums punch-label" data-punch="{{ str($label)->slug('_') }}">{{ $value?->format('h:i A') ?? '—' }}</div>
+    <div class="flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+        <div class="w-full min-w-0 flex-1 space-y-4">
+            <section class="card card-accent-brand w-full min-w-0 overflow-hidden shadow-soft" aria-labelledby="attendance-heading">
+                <div class="flex flex-col gap-2 border-b border-line bg-brand-50/30 px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4 sm:gap-y-2 sm:px-4">
+                    <p class="min-w-0 text-sm font-semibold text-muted" x-text="dateLabel" aria-live="polite">{{ now()->timezone('Asia/Manila')->format('l, F j, Y') }}</p>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <h2 id="attendance-heading" class="sr-only">Today's Attendance</h2>
+                        <span class="text-xl font-extrabold tabular-nums text-brand-700 sm:text-2xl" x-text="timeLabel" aria-live="polite">{{ now()->timezone('Asia/Manila')->format('h:i:s A') }}</span>
+                        <span class="badge-brand text-[10px]">PST</span>
+                        <x-status-badge :status="$today?->status" />
                     </div>
-                @endforeach
-            </div>
-
-            <div class="px-6 pb-2">
-                @if ($nextAction)
-                    <div class="rounded-2xl border border-gold-200 bg-gold-50/70 p-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-gold-800">Next Expected Action</div>
-                        <div class="mt-1 text-lg font-extrabold text-gold-900" id="next-action-label">{{ $nextAction->label() }}</div>
-                    </div>
-                @endif
-            </div>
-
-            <div class="px-6 pb-6 hidden">
-                <div class="grid gap-4 sm:grid-cols-2">
-                <div class="rounded-2xl border border-brand-200 bg-brand-50/50 p-5">
-                    <div class="flex items-center gap-2">
-                        <div class="stat-icon-brand h-8 w-8">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    @if ($nextAction)
+                        <div class="flex w-full min-w-0 items-center gap-2 rounded-xl border border-gold-200 bg-gold-50/90 px-2.5 py-1.5 sm:ml-auto sm:w-auto" role="status">
+                            <span class="shrink-0 text-[10px] font-bold uppercase tracking-wide text-gold-800">Next</span>
+                            <span class="min-w-0 text-sm font-extrabold text-gold-900" id="next-action-label">{{ $nextAction->label() }}</span>
                         </div>
-                        <div class="text-xs font-bold uppercase tracking-wide text-brand-800">Legacy Time In</div>
-                    </div>
-                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-in-label">{{ $today?->am_time_in?->format('h:i A') ?? '—' }}</div>
+                    @endif
                 </div>
-                <div class="rounded-2xl border border-info-200 bg-info-50/50 p-5">
-                    <div class="flex items-center gap-2">
-                        <div class="stat-icon-info h-8 w-8">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                        </div>
-                        <div class="text-xs font-bold uppercase tracking-wide text-info-800">Legacy Time Out</div>
-                    </div>
-                    <div class="mt-3 text-2xl font-extrabold text-ink tabular-nums" id="time-out-label">{{ $today?->pm_time_out?->format('h:i A') ?? '—' }}</div>
-                </div>
-                </div>
-            </div>
 
-            <div class="p-6">
-                <div class="alert-info">
-                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-info-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-xs">The server timestamp is used, not your device clock. Attendance follows the official sequence: AM Time In → AM Time Out → PM Time In → PM Time Out → Overtime.</span>
+                <div class="w-full min-w-0 p-3 sm:p-4">
+                    <ul class="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5" role="list">
+                        @foreach ($punchCards as $punch)
+                            @php
+                                $recorded = $punch['value'] !== null;
+                                $isNext = $nextAction && $nextAction->value === $punch['key'];
+                                $state = $recorded ? 'recorded' : ($isNext ? 'pending' : 'empty');
+                                $surface = match ($state) {
+                                    'recorded' => 'border-brand-200 bg-brand-50/70',
+                                    'pending' => 'border-gold-300 bg-gold-50/80 ring-1 ring-gold-200/70',
+                                    default => 'border-line bg-canvas/60',
+                                };
+                                $statusLabel = match ($state) {
+                                    'recorded' => 'Recorded',
+                                    'pending' => 'Up next',
+                                    default => 'Not recorded',
+                                };
+                            @endphp
+                            <li class="min-w-0">
+                                <div class="flex h-full min-w-0 flex-col gap-1.5 rounded-xl border p-2.5 {{ $surface }}">
+                                    <div class="flex items-start justify-between gap-1">
+                                        <span class="text-[10px] font-bold uppercase leading-tight text-muted">{{ $punch['label'] }}</span>
+                                        <span @class([
+                                            'h-2 w-2 shrink-0 rounded-full',
+                                            'bg-brand-500' => $state === 'recorded',
+                                            'bg-gold-500' => $state === 'pending',
+                                            'bg-line-strong' => $state === 'empty',
+                                        ]) title="{{ $statusLabel }}" aria-label="{{ $statusLabel }}"></span>
+                                    </div>
+                                    <p class="text-base font-extrabold leading-tight text-ink tabular-nums punch-label sm:text-lg" data-punch="{{ $punch['key'] }}">
+                                        {{ $punch['value']?->format('h:i A') ?? '—' }}
+                                    </p>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <p class="mt-2.5 text-[11px] leading-snug text-muted sm:mt-3">
+                        Server timestamp (PST), not device time · AM In → AM Out → PM In → PM Out → OT
+                    </p>
                 </div>
-            </div>
+            </section>
+
+            @include('employee.partials.dashboard-totals', [
+                'today' => $today,
+                'lateMinutes' => $lateMinutes,
+                'undertimeMinutes' => $undertimeMinutes,
+                'overtimeMinutes' => $overtimeMinutes,
+            ])
         </div>
 
-        <div class="space-y-4">
-            <div class="card overflow-hidden">
-                <div class="card-header">
-                    <h3 class="card-title">Today's Totals</h3>
+        <aside class="w-full min-w-0 shrink-0 space-y-4 lg:w-72 xl:w-80">
+            <section class="card w-full min-w-0 overflow-hidden shadow-soft" aria-labelledby="profile-heading">
+                <div class="flex items-center gap-3 p-3">
+                    @if ($employee->photo)
+                        <img src="{{ $employee->photoUrl() }}" alt="" loading="lazy" decoding="async" class="h-11 w-11 shrink-0 rounded-xl object-cover ring-2 ring-brand-100">
+                    @else
+                        <div class="brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm" aria-hidden="true">
+                            {{ strtoupper(mb_substr($employee->fullName(), 0, 2)) }}
+                        </div>
+                    @endif
+                    <div class="min-w-0 flex-1">
+                        <h3 id="profile-heading" class="truncate text-sm font-bold text-ink">{{ $employee->fullName() }}</h3>
+                        <p class="truncate text-xs text-muted">{{ $employee->department?->name ?? '—' }} · {{ $employee->position ?? '—' }}</p>
+                        <span class="badge-gold mt-1 inline-block text-[10px]">{{ $employee->schedule()->name }}</span>
+                    </div>
                 </div>
-                <dl class="divide-y divide-line px-5 text-sm">
-                    <div class="flex justify-between gap-4 py-2.5">
-                        <dt class="text-muted">Total hours</dt>
-                        <dd class="font-bold text-ink tabular-nums">{{ $today?->totalHoursLabel() ?? '0:00' }}</dd>
-                    </div>
-                    <div class="flex justify-between gap-4 py-2.5">
-                        <dt class="text-muted">Late</dt>
-                        <dd class="tabular-nums {{ ($today?->late_minutes ?? 0) > 0 ? 'font-bold text-warn-700' : 'text-ink' }}">{{ $today?->late_minutes ?? 0 }} min</dd>
-                    </div>
-                    <div class="flex justify-between gap-4 py-2.5">
-                        <dt class="text-muted">Undertime</dt>
-                        <dd class="tabular-nums {{ ($today?->undertime_minutes ?? 0) > 0 ? 'font-bold text-warn-700' : 'text-ink' }}">{{ $today?->undertime_minutes ?? 0 }} min</dd>
-                    </div>
-                    <div class="flex justify-between gap-4 py-2.5">
-                        <dt class="text-muted">Overtime</dt>
-                        <dd class="tabular-nums {{ ($today?->overtime_minutes ?? 0) > 0 ? 'font-bold text-gold-700' : 'text-ink' }}">{{ $today?->overtimeHoursLabel() ?? '0:00' }}</dd>
-                    </div>
-                    <div class="flex items-center justify-between gap-4 py-2.5">
-                        <dt class="text-muted">Status</dt>
-                        <dd><x-status-badge :status="$today?->status" /></dd>
-                    </div>
-                </dl>
-            </div>
+            </section>
 
-            <div class="card card-accent-gold p-5">
-                <div class="flex items-center gap-3">
-                    <div class="brand-mark h-10 w-10 text-sm">{{ strtoupper(substr($employee->fullName(), 0, 1)) }}</div>
-                    <div class="min-w-0">
-                        <div class="truncate font-bold text-ink">{{ $employee->fullName() }}</div>
-                        <div class="truncate text-sm text-muted">{{ $employee->department?->name }} · {{ $employee->position }}</div>
-                    </div>
-                </div>
-                <div class="mt-4 flex items-center gap-2 border-t border-line pt-3 text-xs">
-                    <span class="text-muted">Schedule</span>
-                    <span class="badge-gold">{{ $employee->schedule()->name }}</span>
-                </div>
+            <div class="w-full min-w-0 [&_.card]:w-full">
+                <x-calendar.upcoming
+                    :events="$upcomingEvents"
+                    :calendar-url="route('employee.calendar')"
+                    title="Upcoming for You"
+                    empty-message="You have no upcoming holidays, meetings, or announcements." />
             </div>
-
-            <x-calendar.upcoming
-                :events="$upcomingEvents"
-                :calendar-url="route('employee.calendar')"
-                title="Upcoming for You"
-                empty-message="You have no upcoming holidays, meetings, or announcements." />
-        </div>
+        </aside>
     </div>
 
-    <div class="card overflow-hidden">
-        <div class="card-header">
-            <h2 class="card-title">This month's DTR</h2>
-            <a class="link text-xs" href="{{ route('employee.dtr') }}">Full monthly DTR</a>
+    <section class="card overflow-hidden shadow-soft" aria-labelledby="dtr-heading">
+        <div class="flex items-center justify-between gap-2 border-b border-line px-3 py-2 sm:px-4">
+            <div>
+                <h2 id="dtr-heading" class="text-sm font-extrabold text-ink">This month's DTR</h2>
+                <p class="text-[11px] text-muted">{{ $monthLabel }}</p>
+            </div>
+            <a class="link shrink-0 text-xs font-semibold" href="{{ route('employee.dtr') }}">Full DTR</a>
         </div>
-        <div class="table-wrap">
+
+        <div class="table-wrap hidden md:block">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Time In</th>
-                        <th>Time Out</th>
-                        <th class="text-right">Hours</th>
-                        <th class="text-right">Late</th>
-                        <th class="text-right">UT</th>
-                        <th class="text-right">OT</th>
-                        <th>Status</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Time In</th>
+                        <th scope="col">Time Out</th>
+                        <th scope="col" class="text-right">Hours</th>
+                        <th scope="col" class="text-right">Late</th>
+                        <th scope="col" class="text-right">UT</th>
+                        <th scope="col" class="text-right">OT</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -173,12 +210,12 @@
                                 {{ optional($row->attendance_date)->format('M d, Y') }}
                                 <x-holiday-tag :date="optional($row->attendance_date)->toDateString()" :employee="$employee" compact />
                             </td>
-                            <td class="font-medium text-brand-700 tabular-nums">{{ $row->time_in?->format('h:i A') ?? '—' }}</td>
-                            <td class="font-medium text-info-700 tabular-nums">{{ $row->time_out?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-semibold text-brand-700 tabular-nums">{{ $row->time_in?->format('h:i A') ?? '—' }}</td>
+                            <td class="font-semibold text-info-700 tabular-nums">{{ $row->time_out?->format('h:i A') ?? '—' }}</td>
                             <td class="text-right font-semibold text-ink tabular-nums">{{ $row->totalHoursLabel() }}</td>
-                            <td class="text-right tabular-nums {{ $row->late_minutes > 0 ? 'font-bold text-warn-700' : 'text-muted' }}">{{ $row->late_minutes }}</td>
-                            <td class="text-right tabular-nums {{ $row->undertime_minutes > 0 ? 'font-bold text-warn-700' : 'text-muted' }}">{{ $row->undertime_minutes }}</td>
-                            <td class="text-right tabular-nums {{ $row->overtime_minutes > 0 ? 'font-bold text-gold-700' : 'text-muted' }}">{{ $row->overtime_minutes }}</td>
+                            <td @class(['text-right tabular-nums', 'font-bold text-warn-700' => $row->late_minutes > 0, 'text-muted' => $row->late_minutes <= 0])>{{ $row->late_minutes }}</td>
+                            <td @class(['text-right tabular-nums', 'font-bold text-warn-700' => $row->undertime_minutes > 0, 'text-muted' => $row->undertime_minutes <= 0])>{{ $row->undertime_minutes }}</td>
+                            <td @class(['text-right tabular-nums', 'font-bold text-gold-700' => $row->overtime_minutes > 0, 'text-muted' => $row->overtime_minutes <= 0])>{{ $row->overtime_minutes }}</td>
                             <td><x-status-badge :status="$row->status" /></td>
                         </tr>
                     @empty
@@ -187,18 +224,74 @@
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <div x-show="dialog" x-cloak class="modal-backdrop" @click.self="dialog = false">
-        <div class="modal-panel max-w-sm">
-            <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+        <div class="space-y-3 p-4 md:hidden">
+            @forelse ($monthly as $row)
+                <article class="rounded-2xl border border-line bg-surface p-4 shadow-soft">
+                    <div class="flex items-start justify-between gap-2">
+                        <h3 class="text-sm font-bold text-ink">{{ optional($row->attendance_date)->format('M d, Y') }}</h3>
+                        <x-status-badge :status="$row->status" />
+                    </div>
+                    <x-holiday-tag :date="optional($row->attendance_date)->toDateString()" :employee="$employee" compact class="mt-1" />
+                    <dl class="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div class="rounded-xl bg-canvas/80 px-2 py-2">
+                            <dt class="text-[10px] font-bold uppercase tracking-wide text-muted">In</dt>
+                            <dd class="mt-0.5 text-sm font-bold text-brand-700 tabular-nums">{{ $row->time_in?->format('h:i A') ?? '—' }}</dd>
+                        </div>
+                        <div class="rounded-xl bg-canvas/80 px-2 py-2">
+                            <dt class="text-[10px] font-bold uppercase tracking-wide text-muted">Out</dt>
+                            <dd class="mt-0.5 text-sm font-bold text-info-700 tabular-nums">{{ $row->time_out?->format('h:i A') ?? '—' }}</dd>
+                        </div>
+                        <div class="rounded-xl bg-brand-50/80 px-2 py-2">
+                            <dt class="text-[10px] font-bold uppercase tracking-wide text-muted">Hours</dt>
+                            <dd class="mt-0.5 text-sm font-bold text-ink tabular-nums">{{ $row->totalHoursLabel() }}</dd>
+                        </div>
+                    </dl>
+                    <dl class="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div>
+                            <dt class="font-semibold text-muted">Late</dt>
+                            <dd @class(['mt-0.5 tabular-nums font-bold', 'text-warn-700' => $row->late_minutes > 0, 'text-faint' => $row->late_minutes <= 0])>{{ $row->late_minutes }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-semibold text-muted">UT</dt>
+                            <dd @class(['mt-0.5 tabular-nums font-bold', 'text-warn-700' => $row->undertime_minutes > 0, 'text-faint' => $row->undertime_minutes <= 0])>{{ $row->undertime_minutes }}</dd>
+                        </div>
+                        <div>
+                            <dt class="font-semibold text-muted">OT</dt>
+                            <dd @class(['mt-0.5 tabular-nums font-bold', 'text-gold-700' => $row->overtime_minutes > 0, 'text-faint' => $row->overtime_minutes <= 0])>{{ $row->overtime_minutes }}</dd>
+                        </div>
+                    </dl>
+                </article>
+            @empty
+                <x-empty-state title="No records yet this month" message="Your attendance will appear here after your first Time In." icon="clock" />
+            @endforelse
+        </div>
+    </section>
+
+    <div x-show="dialog"
+         x-cloak
+         class="modal-backdrop"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="clock-dialog-title"
+         @keydown.escape.window="dialog = false"
+         @click.self="dialog && !submitting ? dialog = false : null">
+        <div class="modal-panel max-w-md" @click.stop>
+            <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-100 text-brand-700" aria-hidden="true">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
-            <h3 class="modal-title" x-text="dialogTitle"></h3>
+            <h3 id="clock-dialog-title" class="modal-title" x-text="dialogTitle"></h3>
             <p class="mt-2 text-sm text-muted" x-text="dialogBody"></p>
             <div class="modal-actions">
-                <button type="button" class="btn-outline flex-1" @click="dialog = false">Cancel</button>
-                <button type="button" class="btn-primary flex-1" @click="submitPending">Confirm</button>
+                <button type="button" class="btn-outline flex-1" @click="dialog = false" x-bind:disabled="submitting">Cancel</button>
+                <button type="button"
+                        class="btn-primary flex-1"
+                        @click="submitPending"
+                        x-bind:disabled="submitting"
+                        x-bind:aria-busy="submitting">
+                    <span x-show="!submitting">Confirm</span>
+                    <span x-show="submitting" x-cloak>Recording…</span>
+                </button>
             </div>
         </div>
     </div>
