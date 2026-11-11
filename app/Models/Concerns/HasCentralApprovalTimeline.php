@@ -56,6 +56,37 @@ trait HasCentralApprovalTimeline
         return LeaveParallelRule::tryFrom((string) $value) ?? LeaveParallelRule::All;
     }
 
+    public function snapshotEndorsementModeForStage(LeaveApprovalStage $stage): EndorsementMode
+    {
+        if ($stage === LeaveApprovalStage::DepartmentHead) {
+            $value = $this->getAttribute('secondary_endorsement_mode');
+            if ($value instanceof EndorsementMode) {
+                return $value;
+            }
+            if (filled($value)) {
+                return EndorsementMode::tryFrom((string) $value) ?? $this->snapshotEndorsementMode();
+            }
+        }
+
+        return $this->snapshotEndorsementMode();
+    }
+
+    public function snapshotParallelRuleForStage(LeaveApprovalStage $stage): LeaveParallelRule
+    {
+        if ($stage === LeaveApprovalStage::DepartmentHead) {
+            $value = $this->getAttribute('secondary_parallel_rule')
+                ?? $this->getAttribute('secondary_endorsement_parallel_rule');
+            if ($value instanceof LeaveParallelRule) {
+                return $value;
+            }
+            if (filled($value)) {
+                return LeaveParallelRule::tryFrom((string) $value) ?? $this->snapshotParallelRule();
+            }
+        }
+
+        return $this->snapshotParallelRule();
+    }
+
     /** @return list<LeaveApprovalStage> */
     public function activeApprovalStageSequence(): array
     {

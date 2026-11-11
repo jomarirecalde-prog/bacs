@@ -173,8 +173,16 @@ class OvertimeApprovalService
         }
 
         if ($stage->usesCentralEndorsementRules()) {
-            $mode = EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel;
-            $rule = LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All;
+            $mode = $stage === LeaveApprovalStage::DepartmentHead
+                ? (EndorsementMode::tryFrom((string) $request->secondary_endorsement_mode)
+                    ?? EndorsementMode::tryFrom((string) $request->endorsement_mode)
+                    ?? EndorsementMode::Parallel)
+                : (EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel);
+            $rule = $stage === LeaveApprovalStage::DepartmentHead
+                ? (LeaveParallelRule::tryFrom((string) $request->secondary_endorsement_parallel_rule)
+                    ?? LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule)
+                    ?? LeaveParallelRule::All)
+                : (LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All);
 
             return app(EndorsementWorkflowCoordinator::class)->evaluateEndorsementStage($rows, $mode, $rule);
         }

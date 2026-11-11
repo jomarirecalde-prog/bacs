@@ -143,6 +143,8 @@ class CentralApprovalWorkflowService
      *     final_approver_id: ?int,
      *     endorsement_mode: EndorsementMode,
      *     endorsement_parallel_rule: LeaveParallelRule,
+     *     secondary_endorsement_mode: EndorsementMode,
+     *     secondary_endorsement_parallel_rule: LeaveParallelRule,
      *     endorser_active: Collection<string|int, bool>,
      *     secondary_endorser_active: Collection<string|int, bool>,
      * }
@@ -226,6 +228,8 @@ class CentralApprovalWorkflowService
 
         $endorsementMode = EndorsementMode::tryFrom((string) ($payload['endorsement_mode'] ?? '')) ?? EndorsementMode::Parallel;
         $parallelRule = LeaveParallelRule::tryFrom((string) ($payload['endorsement_parallel_rule'] ?? '')) ?? LeaveParallelRule::All;
+        $secondaryEndorsementMode = EndorsementMode::tryFrom((string) ($payload['secondary_endorsement_mode'] ?? '')) ?? $endorsementMode;
+        $secondaryParallelRule = LeaveParallelRule::tryFrom((string) ($payload['secondary_endorsement_parallel_rule'] ?? '')) ?? $parallelRule;
         $activeMap = collect($payload['endorser_active'] ?? [])->map(fn ($v) => (bool) $v);
         $secondaryActiveMap = collect($payload['secondary_endorser_active'] ?? [])->map(fn ($v) => (bool) $v);
 
@@ -244,6 +248,8 @@ class CentralApprovalWorkflowService
             'final_approver_id' => $finalId,
             'endorsement_mode' => $endorsementMode,
             'endorsement_parallel_rule' => $parallelRule,
+            'secondary_endorsement_mode' => $secondaryEndorsementMode,
+            'secondary_endorsement_parallel_rule' => $secondaryParallelRule,
             'endorser_active' => $activeMap,
             'secondary_endorser_active' => $secondaryActiveMap,
         ];
@@ -402,6 +408,8 @@ class CentralApprovalWorkflowService
             $departmentId,
             $parsed['endorsement_mode'],
             $parsed['endorsement_parallel_rule'],
+            $parsed['secondary_endorsement_mode'],
+            $parsed['secondary_endorsement_parallel_rule'],
         );
 
         if ($finalId) {
@@ -477,6 +485,8 @@ class CentralApprovalWorkflowService
                         'department_id' => $setting->department_id,
                         'endorsement_mode' => $setting->endorsement_mode,
                         'endorsement_parallel_rule' => $setting->endorsement_parallel_rule,
+                        'secondary_endorsement_mode' => $setting->secondary_endorsement_mode,
+                        'secondary_endorsement_parallel_rule' => $setting->secondary_endorsement_parallel_rule,
                     ]);
                 }
             }
@@ -522,6 +532,8 @@ class CentralApprovalWorkflowService
             'final_approval_enabled' => $config->final_approval_enabled,
             'endorsement_mode' => $deptSettings?->endorsement_mode?->value,
             'endorsement_parallel_rule' => $deptSettings?->endorsement_parallel_rule?->value,
+            'secondary_endorsement_mode' => $deptSettings?->secondary_endorsement_mode?->value,
+            'secondary_endorsement_parallel_rule' => $deptSettings?->secondary_endorsement_parallel_rule?->value,
             'endorsers' => $endorsers,
             'secondary_endorsers' => $secondaryEndorsers,
             'final_approver_id' => $final?->employee_id,
@@ -602,6 +614,8 @@ class CentralApprovalWorkflowService
                             ])->first(),
                         'endorsement_mode' => $config->departmentSettingFor((int) $departmentId)?->endorsement_mode?->value,
                         'endorsement_parallel_rule' => $config->departmentSettingFor((int) $departmentId)?->endorsement_parallel_rule?->value,
+                        'secondary_endorsement_mode' => $config->departmentSettingFor((int) $departmentId)?->secondary_endorsement_mode?->value,
+                        'secondary_endorsement_parallel_rule' => $config->departmentSettingFor((int) $departmentId)?->secondary_endorsement_parallel_rule?->value,
                     ];
                 })->values()->all(),
         ];
@@ -615,6 +629,24 @@ class CentralApprovalWorkflowService
     public function endorsementModeFor(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): EndorsementMode
     {
         return $this->endorsement->settingsFor($config, $departmentId)->endorsement_mode ?? EndorsementMode::Parallel;
+    }
+
+    public function secondaryParallelRuleFor(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): LeaveParallelRule
+    {
+        $settings = $this->endorsement->settingsFor($config, $departmentId);
+
+        return $settings->secondary_endorsement_parallel_rule
+            ?? $settings->endorsement_parallel_rule
+            ?? LeaveParallelRule::All;
+    }
+
+    public function secondaryEndorsementModeFor(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): EndorsementMode
+    {
+        $settings = $this->endorsement->settingsFor($config, $departmentId);
+
+        return $settings->secondary_endorsement_mode
+            ?? $settings->endorsement_mode
+            ?? EndorsementMode::Parallel;
     }
 
     public function endorserCount(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): int
@@ -646,8 +678,8 @@ class CentralApprovalWorkflowService
         if ($secondaryEndorsers > 0) {
             return [
                 'stage' => LeaveApprovalStage::DepartmentHead,
-                'parallel' => $this->parallelRuleFor($config, $departmentId),
-                'endorsement_mode' => $this->endorsementModeFor($config, $departmentId),
+                'parallel' => $this->secondaryParallelRuleFor($config, $departmentId),
+                'endorsement_mode' => $this->secondaryEndorsementModeFor($config, $departmentId),
                 'skip_hr' => false,
             ];
         }
@@ -676,9 +708,11 @@ class CentralApprovalWorkflowService
             'central_approval_config_version' => $config->version,
             'parallel_rule' => $snapshot['parallel_rule'],
             'endorsement_mode' => $snapshot['endorsement_mode'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_parallel_rule' => $snapshot['secondary_parallel_rule'],
         ]);
 
-        $this->createLeaveAssignments($application, $config, $requester, $snapshot['endorsement_mode']);
+        $this->createLeaveAssignments($application, $config, $requester, $snapshot);
     }
 
     public function bootstrapTravelOrder(TravelOrder $order, Employee $requester): void
@@ -690,9 +724,11 @@ class CentralApprovalWorkflowService
             'central_approval_config_version' => $config->version,
             'parallel_rule' => $snapshot['parallel_rule'],
             'endorsement_mode' => $snapshot['endorsement_mode'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_parallel_rule' => $snapshot['secondary_parallel_rule'],
         ]);
 
-        $this->createTravelAssignments($order, $config, $requester, $snapshot['endorsement_mode']);
+        $this->createTravelAssignments($order, $config, $requester, $snapshot);
     }
 
     public function bootstrapPardon(AttendanceCorrectionRequest $request, Employee $requester): void
@@ -704,9 +740,11 @@ class CentralApprovalWorkflowService
             'central_approval_config_version' => $config->version,
             'endorsement_mode' => $snapshot['endorsement_mode'],
             'endorsement_parallel_rule' => $snapshot['parallel_rule'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_endorsement_parallel_rule' => $snapshot['secondary_parallel_rule'],
         ]);
 
-        $this->createPardonAssignments($request, $config, $requester, $snapshot['endorsement_mode']);
+        $this->createPardonAssignments($request, $config, $requester, $snapshot);
     }
 
     public function bootstrapOvertime(OvertimeRequest $request, Employee $requester): void
@@ -718,9 +756,11 @@ class CentralApprovalWorkflowService
             'central_approval_config_version' => $config->version,
             'endorsement_mode' => $snapshot['endorsement_mode'],
             'endorsement_parallel_rule' => $snapshot['parallel_rule'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_endorsement_parallel_rule' => $snapshot['secondary_parallel_rule'],
         ]);
 
-        $this->createOvertimeAssignments($request, $config, $requester, $snapshot['endorsement_mode']);
+        $this->createOvertimeAssignments($request, $config, $requester, $snapshot);
     }
 
     public function bootstrapOfficialTime(OfficialTimeRequest $request, Employee $requester): void
@@ -732,9 +772,11 @@ class CentralApprovalWorkflowService
             'central_approval_config_version' => $config->version,
             'parallel_rule' => $snapshot['parallel_rule'],
             'endorsement_mode' => $snapshot['endorsement_mode'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_parallel_rule' => $snapshot['secondary_parallel_rule'],
         ]);
 
-        $this->createOfficialTimeAssignments($request, $config, $requester, $snapshot['endorsement_mode']);
+        $this->createOfficialTimeAssignments($request, $config, $requester, $snapshot);
     }
 
     public function overtimeStatusAfterBootstrap(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): OvertimeRequestStatus
@@ -905,13 +947,18 @@ class CentralApprovalWorkflowService
         return collect();
     }
 
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
     private function createLeaveAssignments(
         LeaveApplication $application,
         ApprovalWorkflowConfiguration $config,
         Employee $requester,
-        EndorsementMode $mode,
+        array $snapshot,
     ): void {
         $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
 
         if ($config->endorsement_enabled && $departmentId) {
             $sort = 0;
@@ -925,7 +972,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::ImmediateSupervisor,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
                 );
                 $sort++;
             }
@@ -943,7 +990,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
                 );
                 $sort++;
             }
@@ -958,13 +1005,18 @@ class CentralApprovalWorkflowService
         }
     }
 
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
     private function createTravelAssignments(
         TravelOrder $order,
         ApprovalWorkflowConfiguration $config,
         Employee $requester,
-        EndorsementMode $mode,
+        array $snapshot,
     ): void {
         $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
 
         if ($config->endorsement_enabled && $departmentId) {
             $sort = 0;
@@ -978,7 +1030,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::ImmediateSupervisor,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
                 );
                 $sort++;
             }
@@ -996,7 +1048,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1011,13 +1063,18 @@ class CentralApprovalWorkflowService
         }
     }
 
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
     private function createPardonAssignments(
         AttendanceCorrectionRequest $correction,
         ApprovalWorkflowConfiguration $config,
         Employee $requester,
-        EndorsementMode $mode,
+        array $snapshot,
     ): void {
         $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
 
         if ($config->endorsement_enabled && $departmentId) {
             $sort = 0;
@@ -1031,7 +1088,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::ImmediateSupervisor,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1049,7 +1106,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1119,13 +1176,18 @@ class CentralApprovalWorkflowService
         ]);
     }
 
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
     private function createOfficialTimeAssignments(
         OfficialTimeRequest $request,
         ApprovalWorkflowConfiguration $config,
         Employee $requester,
-        EndorsementMode $mode,
+        array $snapshot,
     ): void {
         $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
 
         if ($config->endorsement_enabled && $departmentId) {
             $sort = 0;
@@ -1139,7 +1201,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::ImmediateSupervisor,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1157,7 +1219,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1211,13 +1273,18 @@ class CentralApprovalWorkflowService
         ]);
     }
 
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
     private function createOvertimeAssignments(
         OvertimeRequest $request,
         ApprovalWorkflowConfiguration $config,
         Employee $requester,
-        EndorsementMode $mode,
+        array $snapshot,
     ): void {
         $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
 
         if ($config->endorsement_enabled && $departmentId) {
             $sort = 0;
@@ -1231,7 +1298,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::ImmediateSupervisor,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
                 );
                 $sort++;
             }
@@ -1249,7 +1316,7 @@ class CentralApprovalWorkflowService
                     LeaveApprovalStage::DepartmentHead,
                     $user,
                     $sort,
-                    $this->endorsement->initialAssignmentStatus($mode, $sort),
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
                 );
                 $sort++;
             }

@@ -17,8 +17,6 @@
     $subject = $subject ?? null;
     $centralLabels = $subject->approvalTimelineUsesCentralLabels();
     $stages = $subject->approvalTimelineStages();
-    $endorsementMode = $subject->snapshotEndorsementMode();
-    $parallelRule = $subject->snapshotParallelRule();
     $stageCount = count($stages);
 @endphp
 
@@ -56,6 +54,8 @@
             $isLastStage = $index === $stageCount - 1;
             $tone = $decision === 'denied' ? 'critical' : ($decision === 'approved' || $decision === 'mixed' || $decision === 'skipped' ? 'brand' : ($isCurrent ? 'warn' : 'info'));
             $showEndorsementMeta = $centralLabels && $stage->usesCentralEndorsementRules();
+            $endorsementMode = $showEndorsementMeta ? $subject->snapshotEndorsementModeForStage($stage) : null;
+            $parallelRule = $showEndorsementMeta ? $subject->snapshotParallelRuleForStage($stage) : null;
         @endphp
         <li class="relative flex gap-3 {{ $isLastStage ? 'pb-0' : 'pb-6' }}">
             @if (! $isLastStage)

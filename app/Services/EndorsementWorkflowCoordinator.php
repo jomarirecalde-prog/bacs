@@ -18,6 +18,8 @@ class EndorsementWorkflowCoordinator
             return new ApprovalWorkflowDepartmentSetting([
                 'endorsement_mode' => EndorsementMode::Parallel,
                 'endorsement_parallel_rule' => LeaveParallelRule::All,
+                'secondary_endorsement_mode' => EndorsementMode::Parallel,
+                'secondary_endorsement_parallel_rule' => LeaveParallelRule::All,
             ]);
         }
 
@@ -29,6 +31,8 @@ class EndorsementWorkflowCoordinator
             [
                 'endorsement_mode' => EndorsementMode::Parallel,
                 'endorsement_parallel_rule' => LeaveParallelRule::All,
+                'secondary_endorsement_mode' => EndorsementMode::Parallel,
+                'secondary_endorsement_parallel_rule' => LeaveParallelRule::All,
             ]
         );
     }
@@ -150,6 +154,8 @@ class EndorsementWorkflowCoordinator
         int $departmentId,
         EndorsementMode $mode,
         LeaveParallelRule $parallelRule,
+        ?EndorsementMode $secondaryMode = null,
+        ?LeaveParallelRule $secondaryParallelRule = null,
     ): ApprovalWorkflowDepartmentSetting {
         return ApprovalWorkflowDepartmentSetting::query()->updateOrCreate(
             [
@@ -159,18 +165,25 @@ class EndorsementWorkflowCoordinator
             [
                 'endorsement_mode' => $mode,
                 'endorsement_parallel_rule' => $parallelRule,
+                'secondary_endorsement_mode' => $secondaryMode ?? $mode,
+                'secondary_endorsement_parallel_rule' => $secondaryParallelRule ?? $parallelRule,
             ]
         );
     }
 
-    /** @return array{endorsement_mode: EndorsementMode, parallel_rule: LeaveParallelRule} */
+    /** @return array{endorsement_mode: EndorsementMode, parallel_rule: LeaveParallelRule, secondary_endorsement_mode: EndorsementMode, secondary_parallel_rule: LeaveParallelRule} */
     public function snapshotForRequest(ApprovalWorkflowConfiguration $config, ?int $departmentId): array
     {
         $settings = $this->settingsFor($config, $departmentId);
 
+        $primaryMode = $settings->endorsement_mode ?? EndorsementMode::Parallel;
+        $primaryRule = $settings->endorsement_parallel_rule ?? LeaveParallelRule::All;
+
         return [
-            'endorsement_mode' => $settings->endorsement_mode ?? EndorsementMode::Parallel,
-            'parallel_rule' => $settings->endorsement_parallel_rule ?? LeaveParallelRule::All,
+            'endorsement_mode' => $primaryMode,
+            'parallel_rule' => $primaryRule,
+            'secondary_endorsement_mode' => $settings->secondary_endorsement_mode ?? $primaryMode,
+            'secondary_parallel_rule' => $settings->secondary_endorsement_parallel_rule ?? $primaryRule,
         ];
     }
 }

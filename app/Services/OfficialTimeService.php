@@ -688,7 +688,7 @@ class OfficialTimeService
         }
 
         if ($stage->usesCentralEndorsementRules()) {
-            $mode = $request->endorsement_mode ?? EndorsementMode::Parallel;
+            $mode = $request->snapshotEndorsementModeForStage($stage);
             if ($mode === EndorsementMode::Sequential) {
                 if ($denied->isNotEmpty()) {
                     return 'denied';
@@ -700,7 +700,7 @@ class OfficialTimeService
                 return 'pending';
             }
 
-            $rule = $request->parallel_rule ?? LeaveParallelRule::All;
+            $rule = $request->snapshotParallelRuleForStage($stage);
 
             return match ($rule) {
                 LeaveParallelRule::Any => $this->evalAny($approved, $denied, $pending, $total),

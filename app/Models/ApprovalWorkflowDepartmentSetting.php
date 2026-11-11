@@ -14,6 +14,8 @@ class ApprovalWorkflowDepartmentSetting extends Model
         'department_id',
         'endorsement_mode',
         'endorsement_parallel_rule',
+        'secondary_endorsement_mode',
+        'secondary_endorsement_parallel_rule',
     ];
 
     protected function casts(): array
@@ -21,6 +23,8 @@ class ApprovalWorkflowDepartmentSetting extends Model
         return [
             'endorsement_mode' => EndorsementMode::class,
             'endorsement_parallel_rule' => LeaveParallelRule::class,
+            'secondary_endorsement_mode' => EndorsementMode::class,
+            'secondary_endorsement_parallel_rule' => LeaveParallelRule::class,
         ];
     }
 

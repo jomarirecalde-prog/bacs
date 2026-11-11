@@ -291,7 +291,7 @@ class TravelOrderService
             if ($outcome === 'pending') {
                 if (
                     $stage->usesCentralEndorsementRules()
-                    && ($order->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
+                    && $order->snapshotEndorsementModeForStage($stage) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
                     $this->endorsement->promoteNextSequentialEndorser($order->assignments, $stage);
@@ -642,10 +642,11 @@ class TravelOrderService
         }
 
         if ($stage->usesCentralEndorsementRules()) {
-            $mode = $order->endorsement_mode ?? EndorsementMode::Parallel;
-            $rule = $order->parallel_rule ?? LeaveParallelRule::All;
-
-            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
+            return $this->endorsement->evaluateEndorsementStage(
+                $rows,
+                $order->snapshotEndorsementModeForStage($stage),
+                $order->snapshotParallelRuleForStage($stage),
+            );
         }
 
         if ($denied->isNotEmpty()) {

@@ -32,6 +32,8 @@ class ApprovalWorkflowController extends Controller
             'final_approver_id' => ['nullable', 'integer', 'exists:employees,id'],
             'endorsement_mode' => ['required', 'in:sequential,parallel'],
             'endorsement_parallel_rule' => ['required', 'in:all,any,majority'],
+            'secondary_endorsement_mode' => ['required', 'in:sequential,parallel'],
+            'secondary_endorsement_parallel_rule' => ['required', 'in:all,any,majority'],
             'endorser_active' => ['nullable', 'array'],
             'endorser_active.*' => ['boolean'],
             'secondary_endorser_active' => ['nullable', 'array'],

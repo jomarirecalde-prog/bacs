@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuditLogger;
+use App\Services\DataPrivacyConsentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -11,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly DataPrivacyConsentService $consentService,
+    ) {}
 
     public function show()
     {
@@ -69,6 +73,10 @@ class LoginController extends Controller
 
         if ($user->must_change_password) {
             return redirect()->route('profile.password')->with('error', 'Please change your temporary password before continuing.');
+        }
+
+        if (! $this->consentService->hasCurrentConsent($user)) {
+            return redirect()->route('privacy.consent.show');
         }
 
         return redirect()->intended(route('home'));

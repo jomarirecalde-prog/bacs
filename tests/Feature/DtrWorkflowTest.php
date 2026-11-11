@@ -50,7 +50,7 @@ class DtrWorkflowTest extends TestCase
         $date = ManilaTime::todayDate();
 
         $this->post('/login', ['login' => 'juan', 'password' => 'password'])
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('privacy.consent.show'));
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
         $this->actingAs($employee->user)

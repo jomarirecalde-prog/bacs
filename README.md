@@ -57,3 +57,25 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## BACS — Data Privacy Consent (RA 10173)
+
+After each successful sign-in, employees must accept the current **Data Privacy Notice** before using the dashboard or APIs. Consent is enforced server-side via the `data.privacy.consent` middleware.
+
+### Flow
+
+1. User signs in (`LoginController`).
+2. If no **granted** consent exists for the active notice version, the user is sent to `/data-privacy-consent` (blocking modal UI).
+3. **Agree and Continue** → `POST /api/consent` with `action=granted` and `acknowledged=1` (session-authenticated, CSRF-protected).
+4. **Decline** → `POST /api/consent` with `action=declined`, audit record created, user signed out.
+5. Re-login with the same notice version skips the modal; bumping the version forces re-consent.
+
+### Editing the notice and DPO contacts
+
+| Item | Location |
+| --- | --- |
+| Notice version (`PRIVACY_NOTICE_VERSION`) and body text | `app/Support/PrivacyNotice.php` |
+| DPO email / phone / optional policy URL | `.env` keys `PRIVACY_DPO_EMAIL`, `PRIVACY_DPO_PHONE`, `PRIVACY_POLICY_URL` (defaults in `config/privacy_notice.php`) |
+| Audit records | `data_privacy_consents` table (never deleted) |
+
+When you materially change the notice, increment `PrivacyNotice::PRIVACY_NOTICE_VERSION` so all users must consent again.

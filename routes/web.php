@@ -32,6 +32,7 @@ use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\AccountPasswordSetupController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\DataPrivacyConsentController;
 use App\Http\Controllers\ClockController;
 use App\Http\Controllers\Employee\AttendanceCorrectionController as EmployeeAttendanceCorrectionController;
 use App\Http\Controllers\Employee\AttendanceController as EmployeeAttendanceController;
@@ -106,6 +107,11 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth', 'account.active', 'password.changed'])->group(function () {
+    Route::get('/data-privacy-consent', [DataPrivacyConsentController::class, 'show'])->name('privacy.consent.show');
+    Route::post('/api/consent', [DataPrivacyConsentController::class, 'store'])->name('privacy.consent.store');
+});
+
+Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.consent'])->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::get('/home', function () {

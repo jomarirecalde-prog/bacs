@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EndorsementMode;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveDecision;
 use App\Enums\LeaveParallelRule;
@@ -40,6 +41,8 @@ class OfficialTimeRequest extends Model
         'status',
         'current_stage',
         'parallel_rule',
+        'secondary_endorsement_mode',
+        'secondary_parallel_rule',
         'central_approval_config_id',
         'central_approval_config_version',
         'submitted_at',
@@ -60,6 +63,8 @@ class OfficialTimeRequest extends Model
             'status' => OfficialTimeStatus::class,
             'current_stage' => LeaveApprovalStage::class,
             'parallel_rule' => LeaveParallelRule::class,
+            'secondary_endorsement_mode' => EndorsementMode::class,
+            'secondary_parallel_rule' => LeaveParallelRule::class,
             'duration_minutes' => 'integer',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',

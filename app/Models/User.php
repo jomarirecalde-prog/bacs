@@ -61,6 +61,11 @@ class User extends Authenticatable
         return $this->hasMany(AppNotification::class);
     }
 
+    public function dataPrivacyConsents(): HasMany
+    {
+        return $this->hasMany(DataPrivacyConsent::class);
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;

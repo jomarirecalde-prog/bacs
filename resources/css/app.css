@@ -776,6 +776,41 @@
         @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center;
     }
 
+    /* ----------------------------------- Approval workflow (settings) */
+    .workflow-pipeline {
+        @apply grid gap-2 sm:grid-cols-3;
+    }
+    .workflow-pipeline-step {
+        @apply flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-surface px-3 py-3 text-left text-sm transition duration-150;
+    }
+    .workflow-pipeline-step-active {
+        @apply border-brand-400 bg-brand-50/50 ring-1 ring-brand-200;
+    }
+    .workflow-pipeline-step-done {
+        @apply border-brand-200 bg-brand-50/30;
+    }
+    .workflow-pipeline-step-warn {
+        @apply border-warn-300 bg-warn-50/80;
+    }
+    .workflow-pipeline-step-skip {
+        @apply border-line bg-canvas/60 opacity-90;
+    }
+    .workflow-stage-card {
+        @apply hidden space-y-4 rounded-2xl border border-line bg-surface p-4 shadow-soft sm:p-5 xl:block;
+    }
+    .workflow-stage-card-first {
+        @apply border-t-2 border-t-brand-500;
+    }
+    .workflow-stage-card-second {
+        @apply border-t-2 border-t-info-500;
+    }
+    .workflow-stage-card-final {
+        @apply border-t-2 border-t-gold-500;
+    }
+    .workflow-mode-option {
+        @apply flex cursor-pointer flex-col gap-1 rounded-xl border border-line bg-surface px-3 py-3 text-sm transition has-checked:border-brand-400 has-checked:bg-brand-50/40 has-checked:ring-1 has-checked:ring-brand-200;
+    }
+
     /* ---------------------------------------- Mobile card-style tables */
     @media (max-width: 767px) {
         .table-wrap:not(.table-scroll-mobile) {
@@ -839,10 +874,12 @@
         .table-wrap:not(.table-scroll-mobile) .data-table .badge-critical {
             @apply whitespace-normal;
         }
-        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Employee'] {
+        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Employee'],
+        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Name'] {
             @apply flex-col items-start border-b border-line bg-canvas/40 py-3 text-left;
         }
-        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Employee']::before {
+        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Employee']::before,
+        .table-wrap:not(.table-scroll-mobile) .data-table td[data-label='Name']::before {
             @apply mb-1;
         }
     }

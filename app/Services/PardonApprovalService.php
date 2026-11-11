@@ -131,7 +131,7 @@ class PardonApprovalService
             if ($outcome === 'pending') {
                 if (
                     $stage->usesCentralEndorsementRules()
-                    && EndorsementMode::tryFrom((string) $request->endorsement_mode) === EndorsementMode::Sequential
+                    && $request->snapshotEndorsementModeForStage($stage) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
                     $this->endorsement->promoteNextSequentialEndorser($request->approvalAssignments, $stage);
@@ -175,10 +175,11 @@ class PardonApprovalService
         }
 
         if ($stage->usesCentralEndorsementRules()) {
-            $mode = EndorsementMode::tryFrom((string) $request->endorsement_mode) ?? EndorsementMode::Parallel;
-            $rule = LeaveParallelRule::tryFrom((string) $request->endorsement_parallel_rule) ?? LeaveParallelRule::All;
-
-            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
+            return $this->endorsement->evaluateEndorsementStage(
+                $rows,
+                $request->snapshotEndorsementModeForStage($stage),
+                $request->snapshotParallelRuleForStage($stage),
+            );
         }
 
         return $approved->isNotEmpty() ? 'approved' : 'pending';

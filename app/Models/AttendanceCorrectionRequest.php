@@ -29,6 +29,10 @@ class AttendanceCorrectionRequest extends Model
         'central_approval_config_id',
         'central_approval_config_version',
         'current_approval_stage',
+        'endorsement_mode',
+        'endorsement_parallel_rule',
+        'secondary_endorsement_mode',
+        'secondary_endorsement_parallel_rule',
     ];
 
     protected function casts(): array

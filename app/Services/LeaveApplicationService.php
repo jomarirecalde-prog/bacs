@@ -260,7 +260,7 @@ class LeaveApplicationService
             if ($outcome === 'pending') {
                 if (
                     $stage->usesCentralEndorsementRules()
-                    && ($application->endorsement_mode ?? EndorsementMode::Parallel) === EndorsementMode::Sequential
+                    && $application->snapshotEndorsementModeForStage($stage) === EndorsementMode::Sequential
                     && $decision === LeaveDecision::Approved
                 ) {
                     $next = $this->endorsement->promoteNextSequentialEndorser($application->assignments, $stage);
@@ -853,10 +853,11 @@ class LeaveApplicationService
         }
 
         if ($stage->usesCentralEndorsementRules()) {
-            $mode = $application->endorsement_mode ?? EndorsementMode::Parallel;
-            $rule = $application->parallel_rule ?? LeaveParallelRule::All;
-
-            return $this->endorsement->evaluateEndorsementStage($rows, $mode, $rule);
+            return $this->endorsement->evaluateEndorsementStage(
+                $rows,
+                $application->snapshotEndorsementModeForStage($stage),
+                $application->snapshotParallelRuleForStage($stage),
+            );
         }
 
         if ($denied->isNotEmpty()) {

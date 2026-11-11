@@ -5,13 +5,26 @@
 @section('page-subtitle', 'Update login credentials and account status')
 
 @section('content')
-<div class="max-w-2xl">
+<div class="mx-auto max-w-2xl">
+    <div class="mb-4">
+        <a href="{{ route('admin.settings.index') }}#settings-admins" class="btn-outline btn-sm">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to settings
+        </a>
+    </div>
+
     <div class="card card-accent-brand overflow-hidden">
         <div class="card-header">
-            <h2 class="card-title">{{ $admin->name }}</h2>
-            <span class="chip">{{ $admin->username }}</span>
+            <div class="min-w-0">
+                <h2 class="card-title text-base">{{ $admin->name }}</h2>
+                <p class="mt-0.5 truncate font-mono text-sm text-muted">{{ $admin->username }}</p>
+            </div>
+            <span class="{{ $admin->status?->value === 'active' ? 'badge-brand' : 'badge-neutral' }} shrink-0">
+                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-80"></span>
+                {{ $admin->status?->label() }}
+            </span>
         </div>
-        <form method="POST" action="{{ route('admin.settings.admins.update', $admin) }}" class="space-y-4 p-5">
+        <form method="POST" action="{{ route('admin.settings.admins.update', $admin) }}" class="form-card-body">
             @csrf
             @method('PUT')
 
@@ -20,10 +33,10 @@
                 <input id="admin-name" class="input @error('name') input-error @enderror" name="name" value="{{ old('name', $admin->name) }}" required>
                 @error('name')<p class="error-text">{{ $message }}</p>@enderror
             </div>
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="form-grid">
                 <div>
                     <label class="label" for="admin-email">Email</label>
-                    <input id="admin-email" class="input @error('email') input-error @enderror" type="email" name="email" value="{{ old('email', $admin->email) }}" required>
+                    <input id="admin-email" class="input @error('email') input-error @enderror" type="email" name="email" value="{{ old('email', $admin->email) }}" inputmode="email" required>
                     @error('email')<p class="error-text">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -32,9 +45,9 @@
                     @error('username')<p class="error-text">{{ $message }}</p>@enderror
                 </div>
             </div>
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="form-grid">
                 <div>
-                    <label class="label" for="admin-password">New password (optional)</label>
+                    <label class="label" for="admin-password">New password <span class="font-normal normal-case text-muted">(optional)</span></label>
                     <input id="admin-password" class="input @error('password') input-error @enderror" type="password" name="password" minlength="8" autocomplete="new-password">
                     @error('password')<p class="error-text">{{ $message }}</p>@enderror
                 </div>
@@ -53,9 +66,9 @@
                 @error('status')<p class="error-text">{{ $message }}</p>@enderror
             </div>
 
-            <div class="flex flex-wrap gap-3 pt-2">
-                <button type="submit" class="btn-primary">Save changes</button>
-                <a class="btn-outline" href="{{ route('admin.settings.index') }}">Back to settings</a>
+            <div class="action-group-stacked border-t border-line pt-4">
+                <button type="submit" class="btn-primary w-full sm:w-auto">Save changes</button>
+                <a class="btn-outline w-full sm:w-auto" href="{{ route('admin.settings.index') }}#settings-admins">Cancel</a>
             </div>
         </form>
     </div>

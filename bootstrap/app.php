@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AppendCsrfTokenHeader;
 use App\Http\Middleware\EnsureAccountActive;
+use App\Http\Middleware\EnsureDataPrivacyConsent;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsurePhotoAccess;
 use App\Http\Middleware\EnsureStationDeviceBound;
@@ -37,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserRole::class,
             'account.active' => EnsureAccountActive::class,
             'password.changed' => EnsurePasswordChanged::class,
+            'data.privacy.consent' => EnsureDataPrivacyConsent::class,
             'station.device' => EnsureStationDeviceBound::class,
             'photo.access' => EnsurePhotoAccess::class,
         ]);
