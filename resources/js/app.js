@@ -4,6 +4,7 @@ import { bootNavigation } from './navigation';
 import { bootResponsive } from './responsive';
 import { bootPwa } from './pwa';
 import { bootSession } from './session';
+import { bootStationMapFromDom, teardownStationMap } from './station-map';
 
 window.Alpine = Alpine;
 
@@ -1061,17 +1062,11 @@ function bootStationMapPage() {
     if (!document.getElementById('station-location-map')) {
         return;
     }
-    import('./station-map.js')
-        .then((mod) => mod.bootStationMapFromDom())
-        .catch(() => {
-            // Map assets failed to load; leave the list/sidebar usable.
-        });
+    bootStationMapFromDom();
 }
 
 window.addEventListener('bacs:pagehide', () => {
-    import('./station-map.js')
-        .then((mod) => mod.teardownStationMap())
-        .catch(() => {});
+    teardownStationMap();
 });
 
 if (document.readyState === 'loading') {

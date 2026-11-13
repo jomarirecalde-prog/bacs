@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "build": "vite build && node scripts/sync-hostinger-dist.mjs",
+        "build:prod": "node scripts/vite-build-production.mjs",
         "dev": "vite"
     },
     "devDependencies": {

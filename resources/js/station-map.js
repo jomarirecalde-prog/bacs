@@ -192,7 +192,11 @@ function initStationMap(config) {
     const onResize = () => map.invalidateSize();
     window.addEventListener('resize', onResize);
 
-    const invalidateTimer = setTimeout(() => map.invalidateSize(), 100);
+    const invalidateLayout = () => map.invalidateSize();
+    const invalidateTimer = setTimeout(invalidateLayout, 100);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(invalidateLayout);
+    });
 
     destroyStationMap = () => {
         if (refreshTimer) {
