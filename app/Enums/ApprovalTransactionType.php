@@ -10,6 +10,15 @@ enum ApprovalTransactionType: string
     case OvertimeRequest = 'overtime_request';
     case OfficialTime = 'official_time';
 
+    /** @return list<self> Transaction types that share one workflow in Settings (excludes pardon). */
+    public static function unifiedTypes(): array
+    {
+        return array_values(array_filter(
+            self::cases(),
+            fn (self $type) => $type !== self::Pardon,
+        ));
+    }
+
     public function label(): string
     {
         return match ($this) {

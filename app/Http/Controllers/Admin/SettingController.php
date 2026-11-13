@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\ApprovalTransactionType;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
@@ -31,7 +32,8 @@ class SettingController extends Controller
             'holidays' => $holidays,
             'adminAccounts' => $adminAccounts,
             'approvalWorkflowConfiguration' => $approvalWorkflows->canonicalConfiguration(),
-            'approvalTransactionTypes' => \App\Enums\ApprovalTransactionType::cases(),
+            'approvalUnifiedTransactionTypes' => ApprovalTransactionType::unifiedTypes(),
+            'pardonApprovalWorkflowConfiguration' => $approvalWorkflows->configurationFor(ApprovalTransactionType::Pardon),
             'approvalDepartments' => $departments,
             'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
         ]);

@@ -47,7 +47,7 @@ class ApprovalWorkflowController extends Controller
 
         if ($transactionType === 'unified') {
             $result = $this->workflows->updateUnified($request->user(), $data);
-            $message = 'Unified approval workflow saved for all transaction types.';
+            $message = 'Unified approval workflow saved for leave, travel, official time, and overtime.';
         } else {
             $type = ApprovalTransactionType::from($transactionType);
             $result = $this->workflows->update($type, $request->user(), $data);
@@ -104,11 +104,12 @@ class ApprovalWorkflowController extends Controller
     public function history(string $transactionType)
     {
         if ($transactionType === 'unified') {
-            $configIds = $this->workflows->allConfigurations()->pluck('id');
+            $configIds = collect(ApprovalTransactionType::unifiedTypes())
+                ->map(fn (ApprovalTransactionType $type) => $this->workflows->configurationFor($type)->id);
 
             return view('admin.settings.approval-workflow-history', [
                 'type' => null,
-                'typeLabel' => 'All transactions',
+                'typeLabel' => 'Leave, travel, official time, and overtime',
                 'histories' => \App\Models\ApprovalWorkflowConfigurationHistory::query()
                     ->whereIn('workflow_configuration_id', $configIds)
                     ->with(['updater', 'configuration'])

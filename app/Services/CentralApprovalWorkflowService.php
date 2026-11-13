@@ -65,7 +65,7 @@ class CentralApprovalWorkflowService
         $signature = $this->departmentWorkflowSignature($canonical, $departmentId);
 
         $outOfSync = [];
-        foreach (ApprovalTransactionType::cases() as $type) {
+        foreach (ApprovalTransactionType::unifiedTypes() as $type) {
             if ($type === ApprovalTransactionType::LeaveApplication) {
                 continue;
             }
@@ -110,7 +110,7 @@ class CentralApprovalWorkflowService
                 'transactions' => 0,
             ];
 
-            foreach (ApprovalTransactionType::cases() as $type) {
+            foreach (ApprovalTransactionType::unifiedTypes() as $type) {
                 $result = $this->applyConfigurationUpdate(
                     $type,
                     $actor,
@@ -453,7 +453,7 @@ class CentralApprovalWorkflowService
         $canonical->load(['assignees', 'departmentSettings']);
 
         DB::transaction(function () use ($canonical) {
-            foreach (ApprovalTransactionType::cases() as $type) {
+            foreach (ApprovalTransactionType::unifiedTypes() as $type) {
                 if ($type === ApprovalTransactionType::LeaveApplication) {
                     continue;
                 }
@@ -913,11 +913,15 @@ class CentralApprovalWorkflowService
         $requester->loadMissing('department');
         $department = $requester->department?->name ?? 'Unknown department';
 
+        $settingsFragment = $type === ApprovalTransactionType::Pardon
+            ? '#pardon-approval-workflow'
+            : '#approval-workflow';
+
         $this->notifications->notifyAdmins(
             $type->label().' awaiting approver assignment',
             "{$reference} from {$requester->fullName()} ({$department}) has no department approver configured. Assign one under Settings → Approval Workflow.",
             'warn',
-            route('admin.settings.index').'#approval-workflow',
+            route('admin.settings.index').$settingsFragment,
         );
     }
 

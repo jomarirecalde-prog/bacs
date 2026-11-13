@@ -33,7 +33,10 @@
     <div class="card-footer">{{ $logs->links() }}</div>
 </div>
 <div class="mt-4 flex flex-wrap gap-3">
-    <a href="{{ route('admin.settings.index') }}#approval-workflow" class="btn-secondary">Back to workflow settings</a>
+    @php
+        $settingsFragment = $type === \App\Enums\ApprovalTransactionType::Pardon ? '#pardon-approval-workflow' : '#approval-workflow';
+    @endphp
+    <a href="{{ route('admin.settings.index') }}{{ $settingsFragment }}" class="btn-secondary">Back to workflow settings</a>
     <a href="{{ route('admin.settings.approval-workflow.history', $type->value) }}" class="btn-outline">Configuration history</a>
 </div>
 @endsection

@@ -50,6 +50,7 @@
                 <a href="#settings-holidays" class="pill-tab shrink-0 whitespace-nowrap">Holidays</a>
                 <a href="#settings-admins" class="pill-tab shrink-0 whitespace-nowrap">Super admins</a>
                 <a href="#approval-workflow" class="pill-tab shrink-0 whitespace-nowrap">Approvals</a>
+                <a href="#pardon-approval-workflow" class="pill-tab shrink-0 whitespace-nowrap">Pardon</a>
             </div>
         </nav>
     </div>

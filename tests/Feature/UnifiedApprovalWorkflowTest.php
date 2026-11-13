@@ -41,7 +41,7 @@ class UnifiedApprovalWorkflowTest extends TestCase
             'endorsement_parallel_rule' => 'all',
         ]);
 
-        foreach (ApprovalTransactionType::cases() as $type) {
+        foreach (ApprovalTransactionType::unifiedTypes() as $type) {
             $config = ApprovalWorkflowConfiguration::forType($type);
             $assignees = $config->assignees()->where('department_id', $department->id)->get();
 
@@ -56,6 +56,11 @@ class UnifiedApprovalWorkflowTest extends TestCase
                 $type->value.' final approver mismatch',
             );
         }
+
+        $pardonAssignees = ApprovalWorkflowConfiguration::forType(ApprovalTransactionType::Pardon)
+            ->assignees()
+            ->where('department_id', $department->id);
+        $this->assertFalse($pardonAssignees->where('approval_type', ApprovalAssigneeType::Endorser)->exists());
     }
 
     public function test_unified_update_preserves_first_endorsers_when_endorser_ids_array_is_empty(): void
@@ -152,6 +157,38 @@ class UnifiedApprovalWorkflowTest extends TestCase
             'endorsement_mode' => 'parallel',
             'endorsement_parallel_rule' => 'all',
         ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $pardon = ApprovalWorkflowConfiguration::forType(ApprovalTransactionType::Pardon);
+        $this->assertFalse(
+            $pardon->assignees()
+                ->where('department_id', $department->id)
+                ->where('approval_type', ApprovalAssigneeType::Endorser->value)
+                ->where('employee_id', $endorser->id)
+                ->exists(),
+            'Unified save must not change the pardon workflow.',
+        );
+    }
+
+    public function test_pardon_workflow_can_be_saved_independently(): void
+    {
+        [$department, , $endorser, , $final] = $this->fixtures();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $response = $this->actingAs($admin)->put(
+            route('admin.settings.approval-workflow.update', ApprovalTransactionType::Pardon->value),
+            [
+                'department_id' => $department->id,
+                'endorsement_enabled' => '1',
+                'final_approval_enabled' => '1',
+                'endorser_ids' => [$endorser->id],
+                'final_approver_id' => $final->id,
+                'endorsement_mode' => 'parallel',
+                'endorsement_parallel_rule' => 'all',
+            ],
+        );
 
         $response->assertRedirect();
         $response->assertSessionHas('success');

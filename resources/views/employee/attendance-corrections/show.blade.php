@@ -61,7 +61,7 @@
         <div class="card h-fit overflow-hidden">
             <div class="card-header"><h2 class="card-title">What happens next</h2></div>
             <div class="space-y-3 p-5 text-sm text-muted">
-                <p>Your request follows the same central approval workflow as leave and travel (Settings → Approval Workflow → Pardon / Time Correction).</p>
+                <p>Your request uses the Pardon (Time Correction) workflow under Settings → Approval Workflow → Pardon.</p>
                 <p>If approved, only the <strong class="text-ink">{{ $correction->punchLabel() }}</strong> field for this date is updated.</p>
                 <p>While this request is open for <strong class="text-ink">{{ $correction->attendance_date->toFormattedDateString() }}</strong>, you cannot record attendance for that date (dashboard clock and QR station) until it is approved, rejected, or cancelled.</p>
             </div>
