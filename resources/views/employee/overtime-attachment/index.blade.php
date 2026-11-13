@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title', 'OT Attachment Reports')
 @section('page-title', 'OT Attachment Reports')
-@section('page-subtitle', 'Document overtime activities for payroll OT rows from your DTR')
+@section('page-subtitle', 'File OT attachment reports for payroll—no Official Time application required')
 
 @section('content')
 <div class="space-y-6">
@@ -23,13 +23,13 @@
 
     <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <p class="text-sm text-muted max-w-2xl">
-            Step 1: <strong class="text-ink">Request Official Time</strong> (OT application).
-            Step 2: after payroll/DTR shows an overtime row, <strong class="text-ink">create the attachment report</strong> for that date.
+            Create an <strong class="text-ink">OT attachment report</strong> for the date you worked overtime and list your activities.
+            You can also start from an existing payroll OT row below if one is already on your DTR.
         </p>
         <div class="flex flex-wrap gap-2 shrink-0">
-            <a href="{{ route('employee.official-time.create') }}" class="btn btn-primary">Request Official Time (OT)</a>
+            <a href="{{ route('employee.overtime-attachment.create') }}" class="btn btn-primary">New OT attachment report</a>
             @if ($eligibleOvertime->isNotEmpty())
-                <a href="#eligible-ot" class="btn-outline">Create attachment report</a>
+                <a href="#eligible-ot" class="btn-outline">Use existing DTR OT row</a>
             @endif
         </div>
     </div>
@@ -63,7 +63,7 @@
         <div class="card">
             <div class="card-body text-sm text-muted">
                 No payroll overtime row is waiting for an attachment right now.
-                If you need OT for a new date, use <a class="font-semibold text-brand-700" href="{{ route('employee.official-time.create') }}">Request Official Time</a> first, then return here once that date appears under eligible rows (or clock OT on your DTR).
+                <a class="font-semibold text-brand-700" href="{{ route('employee.overtime-attachment.create') }}">Start a new OT attachment report</a> for the date you worked overtime.
             </div>
         </div>
     @endif

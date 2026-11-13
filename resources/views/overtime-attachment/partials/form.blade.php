@@ -40,7 +40,9 @@
         $linkedOtRecorded = $linkedOt ? sprintf('%d:%02d', intdiv($linkedOt->recorded_minutes, 60), $linkedOt->recorded_minutes % 60) : null;
     @endphp
     @unless(isset($report))
-        <input type="hidden" name="overtime_request_id" value="{{ old('overtime_request_id', $preselectedOvertimeRequestId ?? '') }}">
+        @if (! empty($preselectedOvertimeRequestId))
+            <input type="hidden" name="overtime_request_id" value="{{ old('overtime_request_id', $preselectedOvertimeRequestId) }}">
+        @endif
         @error('overtime_request_id')<p class="error-text">{{ $message }}</p>@enderror
     @endunless
     @if ($linkedOt)

@@ -82,6 +82,35 @@ class OvertimeRequestSyncService
             ]);
     }
 
+    public function ensureForAttachment(\App\Models\Employee $employee, string $date, int $declaredMinutes): OvertimeRequest
+    {
+        $attendance = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('attendance_date', $date)
+            ->first();
+
+        $request = OvertimeRequest::query()->firstOrNew([
+            'employee_id' => $employee->id,
+            'attendance_date' => $date,
+        ]);
+
+        if ($attendance) {
+            $request->attendance_id = $attendance->id;
+        }
+
+        $clockOvertime = (int) ($attendance?->overtime_minutes ?? 0);
+        $resolved = $this->resolveRecordedMinutes($employee->id, $date, $clockOvertime);
+        if ($declaredMinutes > 0) {
+            $resolved = max($resolved, $declaredMinutes);
+        }
+
+        $this->setRecordedMinutes($request, $resolved);
+        $request->save();
+        $this->workflow->bootstrapIfNeeded($request->fresh(['employee']));
+
+        return $request->fresh();
+    }
+
     public function upsertFromOfficialTime(OfficialTimeRequest $officialTime): ?OvertimeRequest
     {
         if (in_array($officialTime->status, [OfficialTimeStatus::Draft, OfficialTimeStatus::Cancelled], true)) {

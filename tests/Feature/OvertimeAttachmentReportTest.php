@@ -54,6 +54,30 @@ class OvertimeAttachmentReportTest extends TestCase
         ]);
     }
 
+    public function test_employee_can_submit_without_existing_overtime_row(): void
+    {
+        $employee = $this->makeEmployee('OAR-NEW');
+        $date = now()->toDateString();
+
+        $service = app(OvertimeAttachmentReportService::class);
+        $report = $service->submit($employee, $employee->user, [
+            'action' => 'submit',
+            'date_coverage_start' => $date,
+            'date_coverage_end' => $date,
+            'prepared_by' => $employee->fullName(),
+            'activities' => [[
+                'activity_description' => 'Inventory count',
+                'activity_date' => $date,
+                'time_from' => '17:00',
+                'time_to' => '19:00',
+            ]],
+        ]);
+
+        $this->assertSame(OvertimeAttachmentReportStatus::Submitted, $report->status);
+        $this->assertNotNull($report->overtime_request_id);
+        $this->assertSame(120, $report->overtimeRequest?->recorded_minutes);
+    }
+
     public function test_pdf_route_returns_success(): void
     {
         $employee = $this->makeEmployee('OAR-PDF');

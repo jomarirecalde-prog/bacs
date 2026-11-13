@@ -34,7 +34,7 @@ class OvertimeAttachmentReportService
         array $data,
         ?OvertimeAttachmentReport $existing = null,
     ): OvertimeAttachmentReport {
-        $overtimeRequest = $this->resolveOvertimeRequest($employee, $data, $existing);
+        $overtimeRequest = $this->resolveOvertimeRequest($employee, $data, $existing, false);
         $payload = $this->validatedPayload($data, false, $existing, $overtimeRequest);
 
         return DB::transaction(function () use ($employee, $actor, $payload, $data, $existing, $overtimeRequest) {
@@ -58,6 +58,7 @@ class OvertimeAttachmentReportService
             }
 
             $this->syncActivities($report, $data['activities'] ?? [], false);
+            $this->refreshLinkedOvertimeRecordedMinutes($overtimeRequest, $report->fresh());
             $this->audit->log($actor, 'overtime_attachment_report_saved', 'OvertimeAttachmentReport', $report->id, "Draft {$report->report_no} saved.");
 
             return $report->fresh(['employee.department', 'overtimeRequest', 'activities']);
@@ -70,7 +71,7 @@ class OvertimeAttachmentReportService
         array $data,
         ?OvertimeAttachmentReport $existing = null,
     ): OvertimeAttachmentReport {
-        $overtimeRequest = $this->resolveOvertimeRequest($employee, $data, $existing);
+        $overtimeRequest = $this->resolveOvertimeRequest($employee, $data, $existing, true);
         $payload = $this->validatedPayload($data, true, $existing, $overtimeRequest);
 
         return DB::transaction(function () use ($employee, $actor, $payload, $data, $existing, $overtimeRequest) {
@@ -108,6 +109,7 @@ class OvertimeAttachmentReportService
             }
 
             $this->syncActivities($report, $data['activities'] ?? [], true);
+            $this->refreshLinkedOvertimeRecordedMinutes($overtimeRequest, $report->fresh());
 
             $this->recordAction(
                 $report,
@@ -600,24 +602,117 @@ class OvertimeAttachmentReportService
         ];
     }
 
-    private function resolveOvertimeRequest(Employee $employee, array $data, ?OvertimeAttachmentReport $existing): OvertimeRequest
-    {
+    private function resolveOvertimeRequest(
+        Employee $employee,
+        array $data,
+        ?OvertimeAttachmentReport $existing,
+        bool $submitting,
+    ): OvertimeRequest {
         if ($existing) {
             $overtimeRequest = $existing->overtimeRequest;
-        } else {
-            $id = (int) ($data['overtime_request_id'] ?? 0);
+            if ($overtimeRequest) {
+                return $overtimeRequest;
+            }
+        }
+
+        $id = (int) ($data['overtime_request_id'] ?? 0);
+        if ($id > 0) {
             $overtimeRequest = OvertimeRequest::query()->find($id);
+            if (! $overtimeRequest || $overtimeRequest->employee_id !== $employee->id) {
+                throw ValidationException::withMessages(['overtime_request_id' => 'Select a valid payroll overtime (OT) row.']);
+            }
+            if ($submitting && $overtimeRequest->recorded_minutes <= 0 && $this->sumActivityMinutesFromData($data['activities'] ?? []) <= 0) {
+                throw ValidationException::withMessages(['activities' => 'Add activities with OT hours, or choose an existing payroll OT row.']);
+            }
+            if (! $existing) {
+                $this->assertNoDuplicateReport($overtimeRequest);
+            }
+
+            return $overtimeRequest;
         }
 
-        if (! $overtimeRequest || $overtimeRequest->employee_id !== $employee->id) {
-            throw ValidationException::withMessages(['overtime_request_id' => 'Select a valid payroll overtime (OT) row.']);
+        $date = $this->deriveAttendanceDate($data, $existing);
+        if (! $date) {
+            throw ValidationException::withMessages([
+                'date_coverage_start' => $submitting
+                    ? 'Coverage start date is required when filing a new OT attachment.'
+                    : 'Enter a coverage start date or activity date to save this report.',
+            ]);
         }
 
-        if ($overtimeRequest->recorded_minutes <= 0) {
-            throw ValidationException::withMessages(['overtime_request_id' => 'This OT row has no recorded overtime from DTR.']);
+        $declaredMinutes = $this->sumActivityMinutesFromData($data['activities'] ?? []);
+        if ($submitting && $declaredMinutes <= 0) {
+            throw ValidationException::withMessages(['activities' => 'Add at least one activity with OT hours.']);
+        }
+
+        $overtimeRequest = OvertimeRequest::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('attendance_date', $date)
+            ->first();
+
+        if ($overtimeRequest && ! $existing) {
+            $this->assertNoDuplicateReport($overtimeRequest);
+        }
+
+        if (! $overtimeRequest) {
+            $overtimeRequest = $this->overtimeSync->ensureForAttachment($employee, $date, $declaredMinutes);
+        } elseif ($declaredMinutes > 0 && (int) $overtimeRequest->recorded_minutes < $declaredMinutes) {
+            $overtimeRequest->update(['recorded_minutes' => $declaredMinutes]);
+            $overtimeRequest = $overtimeRequest->fresh();
         }
 
         return $overtimeRequest;
+    }
+
+    private function deriveAttendanceDate(array $data, ?OvertimeAttachmentReport $existing): ?string
+    {
+        $start = trim((string) ($data['date_coverage_start'] ?? ''));
+        if ($start !== '') {
+            return $start;
+        }
+
+        foreach (array_values($data['activities'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $date = trim((string) ($row['activity_date'] ?? ''));
+            if ($date !== '') {
+                return $date;
+            }
+        }
+
+        return $existing?->overtimeRequest?->attendance_date?->toDateString()
+            ?? $existing?->date_coverage_start?->toDateString();
+    }
+
+    /** @param  array<int, mixed>  $activities */
+    private function sumActivityMinutesFromData(array $activities): int
+    {
+        $total = 0;
+        foreach (array_values($activities) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $from = $this->normalizeTimeInput($row['time_from'] ?? null);
+            $to = $this->normalizeTimeInput($row['time_to'] ?? null);
+            if ($from && $to) {
+                $total += $this->durationMinutes($from, $to);
+            }
+        }
+
+        return $total;
+    }
+
+    private function refreshLinkedOvertimeRecordedMinutes(OvertimeRequest $overtimeRequest, OvertimeAttachmentReport $report): void
+    {
+        $total = (int) $report->total_activity_minutes;
+        if ($total <= 0) {
+            return;
+        }
+
+        if ((int) $overtimeRequest->recorded_minutes < $total) {
+            $overtimeRequest->update(['recorded_minutes' => $total]);
+        }
     }
 
     private function assertNoDuplicateReport(OvertimeRequest $overtimeRequest): void

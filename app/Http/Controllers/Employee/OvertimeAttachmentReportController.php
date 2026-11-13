@@ -47,7 +47,6 @@ class OvertimeAttachmentReportController extends Controller
 
         $eligibleOvertime = OvertimeRequest::query()
             ->where('employee_id', $employee->id)
-            ->where('recorded_minutes', '>', 0)
             ->whereDoesntHave('attachmentReport')
             ->orderByDesc('attendance_date')
             ->limit(20)
@@ -71,23 +70,19 @@ class OvertimeAttachmentReportController extends Controller
 
         $preselected = $request->integer('overtime_request_id') ?: null;
 
-        if (! $preselected) {
-            return redirect()
-                ->route('employee.overtime-attachment.index')
-                ->with('warning', 'Choose a DTR overtime row from the list below to attach a report.');
-        }
+        $linkedOvertimeRequest = null;
+        if ($preselected) {
+            $linkedOvertimeRequest = OvertimeRequest::query()
+                ->where('employee_id', $employee->id)
+                ->whereKey($preselected)
+                ->whereDoesntHave('attachmentReport')
+                ->first();
 
-        $linkedOvertimeRequest = OvertimeRequest::query()
-            ->where('employee_id', $employee->id)
-            ->whereKey($preselected)
-            ->where('recorded_minutes', '>', 0)
-            ->whereDoesntHave('attachmentReport')
-            ->first();
-
-        if (! $linkedOvertimeRequest) {
-            return redirect()
-                ->route('employee.overtime-attachment.index')
-                ->with('error', 'That overtime row is not available for a new attachment report.');
+            if (! $linkedOvertimeRequest) {
+                return redirect()
+                    ->route('employee.overtime-attachment.index')
+                    ->with('error', 'That overtime row is not available for a new attachment report.');
+            }
         }
 
         return view('employee.overtime-attachment.create', [
