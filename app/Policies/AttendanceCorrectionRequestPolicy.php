@@ -45,4 +45,9 @@ class AttendanceCorrectionRequestPolicy
     {
         return $user->canEditDtr();
     }
+
+    public function downloadAttachment(User $user, AttendanceCorrectionRequest $request): bool
+    {
+        return $this->view($user, $request) && filled($request->attachment_path);
+    }
 }

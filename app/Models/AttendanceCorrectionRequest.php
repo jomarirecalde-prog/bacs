@@ -22,6 +22,8 @@ class AttendanceCorrectionRequest extends Model
         'original_value',
         'requested_value',
         'reason',
+        'attachment_path',
+        'attachment_name',
         'status',
         'reviewed_by',
         'reviewed_at',

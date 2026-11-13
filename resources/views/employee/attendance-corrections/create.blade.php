@@ -27,6 +27,7 @@
         <form
             method="POST"
             action="{{ route('employee.attendance-corrections.store') }}"
+            enctype="multipart/form-data"
             class="space-y-5 p-5"
             @submit="beforeSubmit"
         >
@@ -144,6 +145,20 @@
                 <label class="label" for="reason">Reason for correction</label>
                 <textarea id="reason" class="textarea @error('reason') input-error @enderror" name="reason" rows="4" required placeholder="Explain why this entry needs to be corrected (e.g., forgot to scan, station error, meeting off-site).">{{ old('reason') }}</textarea>
                 @error('reason')<p class="error-text">{{ $message }}</p>@enderror
+            </div>
+
+            <div>
+                <label class="label" for="attachment">Supporting document <span class="text-critical-600">*</span></label>
+                <input
+                    id="attachment"
+                    type="file"
+                    name="attachment"
+                    class="input @error('attachment') input-error @enderror"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    required
+                >
+                <p class="mt-1 text-xs text-muted">Required. PDF or image, up to 5 MB (e.g. email approval, memo, or photo of the log).</p>
+                @error('attachment')<p class="error-text">{{ $message }}</p>@enderror
             </div>
 
             <div class="flex flex-wrap gap-2 pt-1">

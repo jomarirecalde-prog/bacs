@@ -40,6 +40,7 @@
                 <dt class="text-muted">Employee reason</dt>
                 <dd class="mt-1 text-ink">{{ $correction->reason }}</dd>
             </div>
+            @include('attendance-corrections.partials.attachment', ['correction' => $correction])
         </dl>
 
         @if ($correction->allowsAdminDirectReview() && auth()->user()->canEditDtr())

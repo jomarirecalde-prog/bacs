@@ -138,6 +138,9 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
     Route::get('/travel-orders/{travelOrder}/attachments/{attachment}', [TravelOrderAttachmentController::class, 'show'])
         ->name('travel-orders.attachments.download');
 
+    Route::get('/attendance-corrections/{correction}/attachment', [EmployeeAttendanceCorrectionController::class, 'attachment'])
+        ->name('attendance-corrections.attachment');
+
     Route::post('/attendance/time-in', [ClockController::class, 'timeIn'])->middleware('throttle:clock')->name('attendance.time-in');
     Route::post('/attendance/time-out', [ClockController::class, 'timeOut'])->middleware('throttle:clock')->name('attendance.time-out');
     Route::get('/attendance/today', [ClockController::class, 'today'])->name('attendance.today');

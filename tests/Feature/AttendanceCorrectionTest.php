@@ -18,6 +18,8 @@ use App\Services\EmployeeQrService;
 use App\Services\StationBindingService;
 use App\Support\ManilaTime;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\ConfiguresCentralApprovalWorkflow;
 use Tests\TestCase;
 
@@ -93,8 +95,44 @@ class AttendanceCorrectionTest extends TestCase
             ->assertJsonPath('punches.3.type', AttendancePunchType::PmTimeOut->value);
     }
 
+    public function test_employee_can_attach_supporting_document_to_correction_request(): void
+    {
+        Storage::fake('local');
+
+        $employee = $this->makeEmployee('attach');
+        $date = ManilaTime::todayDate();
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
+        $this->actingAs($employee->user)->postJson(route('attendance.time-in'))->assertOk();
+
+        $this->actingAs($employee->user)
+            ->post(route('employee.attendance-corrections.store'), [
+                'attendance_date' => $date,
+                'punch_type' => AttendancePunchType::AmTimeIn->value,
+                'requested_time' => '08:05',
+                'reason' => 'I scanned late because the station camera was restarting.',
+                'attachment' => UploadedFile::fake()->image('station-proof.jpg'),
+            ])
+            ->assertRedirect();
+
+        $correction = AttendanceCorrectionRequest::query()
+            ->where('employee_id', $employee->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($correction?->attachment_path);
+        $this->assertSame('station-proof.jpg', $correction->attachment_name);
+        Storage::disk('local')->assertExists($correction->attachment_path);
+
+        $this->actingAs($employee->user)
+            ->get(route('attendance-corrections.attachment', $correction))
+            ->assertOk();
+    }
+
     public function test_employee_can_submit_correction_for_specific_field(): void
     {
+        Storage::fake('local');
+
         $employee = $this->makeEmployee('correction');
         $date = ManilaTime::todayDate();
 
@@ -107,6 +145,7 @@ class AttendanceCorrectionTest extends TestCase
                 'punch_type' => AttendancePunchType::AmTimeIn->value,
                 'requested_time' => '08:05',
                 'reason' => 'I scanned late because the station camera was restarting.',
+                'attachment' => UploadedFile::fake()->image('proof.jpg'),
             ])
             ->assertRedirect();
 

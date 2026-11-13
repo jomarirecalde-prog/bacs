@@ -32,6 +32,7 @@
                 <dt class="text-muted">Reason</dt>
                 <dd class="mt-1 text-ink">{{ $correction->reason }}</dd>
             </div>
+            @include('attendance-corrections.partials.attachment', ['correction' => $correction])
             @if ($correction->review_notes)
                 <div class="py-3">
                     <dt class="text-muted">Review notes</dt>

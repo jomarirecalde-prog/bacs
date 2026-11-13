@@ -39,6 +39,7 @@
                     <dt class="text-muted">Reason</dt>
                     <dd class="mt-1 text-ink">{{ $correction->reason }}</dd>
                 </div>
+                @include('attendance-corrections.partials.attachment', ['correction' => $correction])
             </dl>
         </div>
 

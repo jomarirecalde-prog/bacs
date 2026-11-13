@@ -7,7 +7,9 @@ use App\Http\Requests\Attendance\StoreAttendanceCorrectionRequest;
 use App\Models\AttendanceCorrectionRequest;
 use App\Services\AttendanceCorrectionDayPreview;
 use App\Services\AttendanceCorrectionService;
+use App\Services\SensitiveAccessLogger;
 use App\Support\ManilaTime;
+use App\Support\PrivateStorage;
 use Illuminate\Http\Request;
 
 class AttendanceCorrectionController extends Controller
@@ -15,6 +17,7 @@ class AttendanceCorrectionController extends Controller
     public function __construct(
         private readonly AttendanceCorrectionService $corrections,
         private readonly AttendanceCorrectionDayPreview $dayPreview,
+        private readonly SensitiveAccessLogger $sensitiveAccess,
     ) {}
 
     public function index(Request $request)
@@ -73,6 +76,7 @@ class AttendanceCorrectionController extends Controller
             'punch_type' => $request->string('punch_type')->toString(),
             'requested_time' => $request->string('requested_time')->toString(),
             'reason' => $request->string('reason')->toString(),
+            'attachment' => $request->file('attachment'),
         ]);
 
         return redirect()
@@ -98,6 +102,26 @@ class AttendanceCorrectionController extends Controller
         return redirect()
             ->route('employee.attendance-corrections.index')
             ->with('success', 'Correction request cancelled.');
+    }
+
+    public function attachment(Request $request, AttendanceCorrectionRequest $correction)
+    {
+        $this->authorize('downloadAttachment', $correction);
+        abort_unless($correction->attachment_path && PrivateStorage::exists($correction->attachment_path), 404);
+
+        $this->sensitiveAccess->fileDownload(
+            $request->user(),
+            'AttendanceCorrectionRequest',
+            $correction->id,
+            "DTR correction attachment downloaded ({$correction->attendance_date->toDateString()} · {$correction->punchLabel()}).",
+            $request,
+            ['file_name' => $correction->attachment_name],
+        );
+
+        return PrivateStorage::downloadResponse(
+            $correction->attachment_path,
+            $correction->attachment_name ?: 'attachment',
+        );
     }
 
     private function employee(Request $request)

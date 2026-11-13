@@ -20,6 +20,7 @@ class StoreAttendanceCorrectionRequest extends FormRequest
             'punch_type' => ['required', Rule::enum(AttendancePunchType::class)],
             'requested_time' => ['required', 'date_format:H:i'],
             'reason' => ['required', 'string', 'min:10', 'max:1000'],
+            'attachment' => ['required', 'file', 'max:5120', 'mimes:pdf,jpg,jpeg,png,webp'],
         ];
     }
 
@@ -28,6 +29,7 @@ class StoreAttendanceCorrectionRequest extends FormRequest
         return [
             'attendance_date.before_or_equal' => 'Correction requests cannot be filed for future dates.',
             'reason.min' => 'Please provide a brief explanation (at least 10 characters).',
+            'attachment.required' => 'A supporting document is required for every correction request.',
         ];
     }
 }

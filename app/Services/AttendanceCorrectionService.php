@@ -11,7 +11,10 @@ use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\User;
 use App\Support\ManilaTime;
+use App\Support\PrivateStorage;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceCorrectionService
@@ -67,6 +70,8 @@ class AttendanceCorrectionService
                 'status' => $status->value,
                 'current_approval_stage' => $meta['stage']?->value,
             ]);
+
+            $this->storeAttachment($request, $data['attachment'] ?? null);
 
             $this->centralApproval->bootstrapPardon($request, $employee);
             $request->load('approvalAssignments');
@@ -227,9 +232,30 @@ class AttendanceCorrectionService
             ]);
         }
 
-        $request->update(['status' => AttendanceCorrectionStatus::Cancelled->value]);
+        if ($request->attachment_path) {
+            Storage::disk(PrivateStorage::DISK)->delete($request->attachment_path);
+        }
+
+        $request->update([
+            'status' => AttendanceCorrectionStatus::Cancelled->value,
+            'attachment_path' => null,
+            'attachment_name' => null,
+        ]);
 
         return $request->fresh();
+    }
+
+    private function storeAttachment(AttendanceCorrectionRequest $request, mixed $file): void
+    {
+        if (! $file instanceof UploadedFile || ! $file->isValid()) {
+            return;
+        }
+
+        $path = $file->store('attendance-correction-attachments/'.$request->id, PrivateStorage::DISK);
+        $request->update([
+            'attachment_path' => $path,
+            'attachment_name' => $file->getClientOriginalName(),
+        ]);
     }
 
     public function hasPendingFor(int $employeeId, string $date, AttendancePunchType $type): bool
