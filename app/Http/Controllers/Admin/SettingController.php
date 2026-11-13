@@ -10,8 +10,11 @@ use App\Models\Holiday;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CentralApprovalWorkflowService;
+use App\Support\MailSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Validation\Rule;
 
 class SettingController extends Controller
 {
@@ -38,6 +41,7 @@ class SettingController extends Controller
             'pardonApprovalWorkflowConfiguration' => $approvalWorkflows->configurationFor(ApprovalTransactionType::Pardon),
             'approvalDepartments' => $departments,
             'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
+            'mailSettings' => MailSettings::formState(),
         ]);
     }
 
@@ -53,6 +57,45 @@ class SettingController extends Controller
         Cache::forget('app_settings');
 
         return back()->with('success', 'Settings saved.');
+    }
+
+    public function updateSmtp(Request $request)
+    {
+        $data = $request->validate([
+            'mail_mailer' => ['required', Rule::in(['smtp', 'log', 'sendmail'])],
+            'mail_host' => ['required_if:mail_mailer,smtp', 'nullable', 'string', 'max:255'],
+            'mail_port' => ['required_if:mail_mailer,smtp', 'nullable', 'integer', 'min:1', 'max:65535'],
+            'mail_username' => ['nullable', 'string', 'max:255'],
+            'mail_password' => ['nullable', 'string', 'max:255'],
+            'mail_encryption' => ['nullable', Rule::in(['tls', 'ssl', 'none'])],
+            'mail_from_address' => ['required', 'email', 'max:255'],
+            'mail_from_name' => ['required', 'string', 'max:120'],
+        ]);
+
+        Setting::put('mail_mailer', $data['mail_mailer']);
+        Setting::put('mail_from_address', $data['mail_from_address']);
+        Setting::put('mail_from_name', $data['mail_from_name']);
+
+        if ($data['mail_mailer'] === 'smtp') {
+            Setting::put('mail_host', $data['mail_host'] ?? '');
+            Setting::put('mail_port', (string) ($data['mail_port'] ?? 587));
+            Setting::put('mail_username', $data['mail_username'] ?? '');
+            Setting::put('mail_encryption', $data['mail_encryption'] ?? 'tls');
+
+            if (filled($data['mail_password'] ?? null)) {
+                Setting::put('mail_password', Crypt::encryptString($data['mail_password']));
+            }
+        } else {
+            Setting::query()->whereIn('key', ['mail_host', 'mail_port', 'mail_username', 'mail_encryption'])->delete();
+        }
+
+        Cache::forget('app_settings');
+        MailSettings::applyToConfig();
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->withFragment('settings-smtp')
+            ->with('success', 'SMTP settings saved.');
     }
 
     public function storeHoliday(Request $request)

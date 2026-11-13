@@ -2,7 +2,7 @@
 
 @section('title', 'Settings')
 @section('page-title', 'Settings')
-@section('page-subtitle', 'Organization profile, holidays, admin accounts, and approval workflows')
+@section('page-subtitle', 'Organization profile, email, holidays, admin accounts, and approval workflows')
 
 @section('content')
 @php
@@ -47,6 +47,7 @@
         <nav class="sticky top-16 z-20 -mx-3 border-y border-line bg-surface/95 px-3 py-2.5 backdrop-blur-md sm:-mx-4 sm:px-4 lg:-mx-8 lg:px-8" aria-label="Settings sections">
             <div class="pill-tabs w-full min-w-0">
                 <a href="#settings-organization" class="pill-tab shrink-0 whitespace-nowrap">Organization</a>
+                <a href="#settings-smtp" class="pill-tab shrink-0 whitespace-nowrap">Email</a>
                 <a href="#settings-holidays" class="pill-tab shrink-0 whitespace-nowrap">Holidays</a>
                 <a href="#settings-admins" class="pill-tab shrink-0 whitespace-nowrap">Super admins</a>
                 <a href="#approval-workflow" class="pill-tab shrink-0 whitespace-nowrap">Approvals</a>
@@ -165,6 +166,8 @@
             </div>
         </section>
     </div>
+
+    @include('admin.settings.partials.smtp')
 
     <section id="settings-admins" class="card scroll-mt-28 overflow-hidden">
         <div class="card-header">

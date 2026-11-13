@@ -32,6 +32,7 @@ use App\Services\LeaveResolver;
 use App\Services\OfficialBusinessResolver;
 use App\Services\TravelOrderResolver;
 use App\Services\NotificationService;
+use App\Support\MailSettings;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -91,6 +92,12 @@ class AppServiceProvider extends ServiceProvider
             } catch (\Throwable) {
                 // Database may be unavailable during package discovery.
             }
+        }
+
+        try {
+            MailSettings::applyToConfig();
+        } catch (\Throwable) {
+            // Settings table may be unavailable during install or migrate.
         }
 
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));

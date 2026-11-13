@@ -28,6 +28,7 @@ class OfficialTimeService
         private readonly AuditLogger $audit,
         private readonly CentralApprovalWorkflowService $centralApproval,
         private readonly \App\Services\Payroll\OvertimeRequestSyncService $overtimeSync,
+        private readonly EmailNotificationService $emailNotifications,
     ) {}
 
     public function saveDraft(Employee $employee, User $actor, array $data, ?OfficialTimeRequest $existing = null): OfficialTimeRequest
@@ -161,6 +162,10 @@ class OfficialTimeService
 
         if ($request->status === OfficialTimeStatus::Approved) {
             $this->notifier->approved($request);
+            $approver = User::query()->find($request->finalized_by) ?? $request->submitter;
+            if ($approver) {
+                $this->emailNotifications->officialTimeApproved($request, $approver);
+            }
         } elseif ($request->current_stage && $request->current_stage !== LeaveApprovalStage::ImmediateSupervisor) {
             $this->notifier->stageReady($request, $request->current_stage);
         }
@@ -236,6 +241,11 @@ class OfficialTimeService
                 $this->recordAction($request, $actor, $stage, 'decision', $decision, $previous, OfficialTimeStatus::Denied, $reason);
                 $this->audit->log($actor, 'official_time_rejected', 'OfficialTimeRequest', $request->id, "{$request->request_no} was rejected.");
                 $this->notifier->decisionToRequester($request, 'Official Time rejected', "Official Time {$request->request_no} was rejected.", 'error');
+                $this->emailNotifications->officialTimeRejected(
+                    $request->fresh(['employee.user', 'officialTimeType']),
+                    $actor,
+                    $reason !== '' ? $reason : 'No reason was provided.',
+                );
 
                 return $request->fresh(['employee.user', 'assignments.user', 'actions.user', 'officialTimeType']);
             }
@@ -259,6 +269,14 @@ class OfficialTimeService
                     $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($request->fresh(['assignments.user', 'employee.user']), $next);
+                $this->emailNotifications->officialTimeWorkflowUpdate(
+                    $request->fresh(['employee.user', 'officialTimeType']),
+                    $actor,
+                    $mixed ? 'Official Time partially endorsed' : 'Official Time endorsement update',
+                    "{$stage->timelineLabel(true)} completed for {$request->request_no}. It is now with {$next->timelineLabel(true)}.",
+                    $status->label(),
+                    'official_time:'.$request->id.':stage:'.$stage->value.':advanced'
+                );
             } else {
                 $now = ManilaTime::now();
                 $request->update([
@@ -269,6 +287,7 @@ class OfficialTimeService
                 ]);
                 $this->recordAction($request, $actor, $stage, 'decision', $decision, $previous, OfficialTimeStatus::Approved, $reason);
                 $this->notifier->approved($request->fresh(['employee.user']));
+                $this->emailNotifications->officialTimeApproved($request->fresh(['employee.user', 'officialTimeType']), $actor);
             }
 
             $this->audit->log($actor, 'official_time_'.$decision->value, 'OfficialTimeRequest', $request->id, "{$actor->name} {$decision->value} {$request->request_no}.");
@@ -318,6 +337,7 @@ class OfficialTimeService
             $this->recordAction($request, $actor, $stage, 'returned', null, $previous, OfficialTimeStatus::Returned, $reason);
             $this->audit->log($actor, 'official_time_returned', 'OfficialTimeRequest', $request->id, "{$request->request_no} returned for revision.");
             $this->notifier->returned($request->fresh(['employee.user']), $reason);
+            $this->emailNotifications->officialTimeReturned($request->fresh(['employee.user', 'officialTimeType']), $actor, $reason);
 
             return $request->fresh(['employee.user', 'assignments.user', 'actions.user', 'officialTimeType']);
         });

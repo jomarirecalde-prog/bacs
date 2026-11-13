@@ -390,6 +390,7 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
 
         Route::get('/settings', [SettingController::class, 'index'])->middleware('role:admin')->name('settings.index');
         Route::put('/settings', [SettingController::class, 'update'])->middleware('role:admin')->name('settings.update');
+        Route::put('/settings/smtp', [SettingController::class, 'updateSmtp'])->middleware('role:admin')->name('settings.smtp.update');
         Route::post('/settings/holidays', [SettingController::class, 'storeHoliday'])->middleware('role:admin')->name('settings.holidays.store');
         Route::delete('/settings/holidays/{holiday}', [SettingController::class, 'destroyHoliday'])->middleware('role:admin')->name('settings.holidays.destroy');
         Route::post('/settings/admins', [AdminAccountController::class, 'store'])->middleware('role:admin')->name('settings.admins.store');

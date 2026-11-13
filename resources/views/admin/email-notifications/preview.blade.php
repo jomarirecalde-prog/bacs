@@ -30,7 +30,8 @@
         </form>
 
         <p class="mt-4 text-sm text-muted">
-            Configure SMTP in your <code class="text-xs">.env</code> file. With <code class="text-xs">MAIL_MAILER=log</code>, messages are written to the Laravel log instead of being delivered.
+            Configure outgoing mail under <a href="{{ route('admin.settings.index') }}#settings-smtp" class="font-semibold underline">Settings → Email (SMTP)</a>.
+            With delivery set to <strong class="font-semibold">Log only</strong>, messages are written to the Laravel log instead of being delivered.
         </p>
     </div>
 @endsection

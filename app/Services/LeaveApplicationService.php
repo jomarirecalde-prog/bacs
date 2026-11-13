@@ -279,11 +279,13 @@ class LeaveApplicationService
                 );
 
                 if ($decision === LeaveDecision::Approved) {
-                    $this->emailNotifications->leaveApproved(
+                    $this->emailNotifications->leaveWorkflowUpdate(
                         $application,
                         $actor,
-                        'Pending Approval',
-                        'leave:'.$application->id.':assignment:'.$assignment->id.':approved'
+                        'Leave approval update',
+                        "{$actor->name} endorsed your application {$application->application_number}. Additional approvers at this stage are still pending.",
+                        $application->status?->label() ?? 'Pending Approval',
+                        'leave:'.$application->id.':assignment:'.$assignment->id.':progress'
                     );
                 }
 
@@ -334,9 +336,11 @@ class LeaveApplicationService
                     $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($application->fresh(['assignments.user', 'employee.user']), $next);
-                $this->emailNotifications->leaveApproved(
+                $this->emailNotifications->leaveWorkflowUpdate(
                     $application->fresh(['employee.user']),
                     $actor,
+                    $employeeTitle,
+                    $employeeMessage,
                     $status->label(),
                     'leave:'.$application->id.':stage:'.$stage->value.':advanced'
                 );

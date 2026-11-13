@@ -340,6 +340,14 @@ class TravelOrderService
                     $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($order->fresh(['assignments.user', 'requester.user']), $next);
+                $this->emailNotifications->travelOrderWorkflowUpdate(
+                    $order->fresh(['requester.user']),
+                    $actor,
+                    $mixed ? 'Travel order partially endorsed' : 'Travel order endorsement update',
+                    "{$stage->shortLabel()} completed for {$order->travel_order_number}. It is now with {$next->shortLabel()}.",
+                    $status->label(),
+                    'travel:'.$order->id.':stage:'.$stage->value.':advanced'
+                );
             } else {
                 $now = ManilaTime::now();
                 $order->update([

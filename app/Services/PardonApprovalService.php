@@ -20,6 +20,7 @@ class PardonApprovalService
     public function __construct(
         private readonly AttendanceCorrectionService $corrections,
         private readonly EndorsementWorkflowCoordinator $endorsement,
+        private readonly EmailNotificationService $emailNotifications,
     ) {}
 
     public function pendingFor(User $user, ?string $scope = null)
@@ -123,6 +124,12 @@ class PardonApprovalService
                     'review_notes' => $reason,
                 ]);
 
+                $this->emailNotifications->correctionRejected(
+                    $request->fresh(['employee.user']),
+                    $actor,
+                    $reason,
+                );
+
                 return $request->fresh(['employee', 'approvalAssignments']);
             }
 
@@ -143,14 +150,26 @@ class PardonApprovalService
             $next = $this->nextStage($request, $stage);
 
             if ($next) {
+                $status = $next === LeaveApprovalStage::CeoFinalApproval
+                    ? AttendanceCorrectionStatus::PendingFinalApproval
+                    : AttendanceCorrectionStatus::PendingEndorsement;
                 $request->update([
-                    'status' => $next === LeaveApprovalStage::CeoFinalApproval
-                        ? AttendanceCorrectionStatus::PendingFinalApproval
-                        : AttendanceCorrectionStatus::PendingEndorsement,
+                    'status' => $status,
                     'current_approval_stage' => $next->value,
                 ]);
 
-                return $request->fresh(['employee', 'approvalAssignments']);
+                $fresh = $request->fresh(['employee.user', 'approvalAssignments']);
+                $reference = 'DTR-CR-'.str_pad((string) $request->id, 5, '0', STR_PAD_LEFT);
+                $this->emailNotifications->correctionWorkflowUpdate(
+                    $fresh,
+                    $actor,
+                    'Pardon request endorsement update',
+                    "{$stage->shortLabel()} completed for {$reference}. It is now with {$next->shortLabel()}.",
+                    $status->label(),
+                    'correction:'.$request->id.':stage:'.$stage->value.':advanced'
+                );
+
+                return $fresh;
             }
 
             return $this->corrections->approve($actor, $request, 'Approved via configured workflow.');

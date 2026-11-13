@@ -12,12 +12,14 @@ use App\Models\OvertimeRequest;
 use App\Models\User;
 use App\Enums\ApprovalTransactionType;
 use App\Support\DepartmentApprovalScope;
+use App\Services\EmailNotificationService;
 use App\Support\ManilaTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class OvertimeApprovalService
 {
+    public function __construct(private readonly EmailNotificationService $emailNotifications) {}
     public function pendingFor(User $user, ?string $scope = null)
     {
         $query = OvertimeRequest::query()
@@ -113,14 +115,25 @@ class OvertimeApprovalService
             $next = $this->nextStage($request, $stage);
 
             if ($next) {
+                $status = $next === LeaveApprovalStage::CeoFinalApproval
+                    ? OvertimeRequestStatus::PendingFinalApproval
+                    : OvertimeRequestStatus::PendingEndorsement;
                 $request->update([
-                    'status' => $next === LeaveApprovalStage::CeoFinalApproval
-                        ? OvertimeRequestStatus::PendingFinalApproval
-                        : OvertimeRequestStatus::PendingEndorsement,
+                    'status' => $status,
                     'current_approval_stage' => $next->value,
                 ]);
 
-                return $request->fresh(['employee', 'approvalAssignments']);
+                $fresh = $request->fresh(['employee.user', 'approvalAssignments']);
+                $this->emailNotifications->overtimeRequestWorkflowUpdate(
+                    $fresh,
+                    $actor,
+                    'Overtime request endorsement update',
+                    "{$stage->shortLabel()} completed for ".$fresh->attendance_date?->format('M j, Y').". It is now with {$next->shortLabel()}.",
+                    $status->label(),
+                    'overtime_request:'.$request->id.':stage:'.$stage->value.':advanced'
+                );
+
+                return $fresh;
             }
 
             return $this->approve($request, $actor, $approvedMinutes, $reason);
@@ -139,7 +152,10 @@ class OvertimeApprovalService
             'review_notes' => $notes,
         ]);
 
-        return $request->fresh(['employee', 'approvalAssignments']);
+        $fresh = $request->fresh(['employee.user', 'approvalAssignments']);
+        $this->emailNotifications->overtimeRequestApproved($fresh, $actor);
+
+        return $fresh;
     }
 
     public function deny(OvertimeRequest $request, User $actor, string $reason): OvertimeRequest
@@ -152,7 +168,14 @@ class OvertimeApprovalService
             'review_notes' => $reason,
         ]);
 
-        return $request->fresh(['employee', 'approvalAssignments']);
+        $fresh = $request->fresh(['employee.user', 'approvalAssignments']);
+        $this->emailNotifications->overtimeRequestRejected(
+            $fresh,
+            $actor,
+            $reason !== '' ? $reason : 'No reason was provided.',
+        );
+
+        return $fresh;
     }
 
     /** @return 'pending'|'approved'|'denied' */

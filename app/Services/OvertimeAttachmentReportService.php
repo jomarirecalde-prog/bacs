@@ -26,6 +26,7 @@ class OvertimeAttachmentReportService
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly OvertimeRequestSyncService $overtimeSync,
+        private readonly EmailNotificationService $emailNotifications,
     ) {}
 
     public function saveDraft(
@@ -173,7 +174,20 @@ class OvertimeAttachmentReportService
             $this->recordAction($report, $actor, LeaveApprovalStage::CeoFinalApproval, 'payroll_'.$decision, null, $previous, $new, $notes);
             $this->audit->log($actor, 'overtime_attachment_report_payroll_'.$decision, 'OvertimeAttachmentReport', $report->id, "{$report->report_no} {$decision} by payroll.");
 
-            return $report->fresh(['employee', 'overtimeRequest', 'activities']);
+            $fresh = $report->fresh(['employee.user', 'overtimeRequest', 'activities']);
+            if ($decision === 'approve') {
+                $this->emailNotifications->overtimeAttachmentReportApproved($fresh, $actor);
+            } elseif ($decision === 'reject') {
+                $this->emailNotifications->overtimeAttachmentReportRejected(
+                    $fresh,
+                    $actor,
+                    $notes !== '' ? $notes : 'No reason was provided.',
+                );
+            } elseif ($decision === 'return') {
+                $this->emailNotifications->overtimeAttachmentReportReturned($fresh, $actor, $notes);
+            }
+
+            return $fresh;
         });
     }
 
@@ -324,6 +338,11 @@ class OvertimeAttachmentReportService
                 ]);
                 $this->recordAction($report, $actor, $stage, 'decision', $decision, $previous, OvertimeAttachmentReportStatus::Rejected, $reason);
                 $this->audit->log($actor, 'overtime_attachment_report_rejected', 'OvertimeAttachmentReport', $report->id, "{$report->report_no} was rejected.");
+                $this->emailNotifications->overtimeAttachmentReportRejected(
+                    $report->fresh(['employee.user']),
+                    $actor,
+                    $reason !== '' ? $reason : 'No reason was provided.',
+                );
 
                 return $report->fresh(['employee.user', 'assignments.user', 'actions.user', 'activities', 'officialTimeRequest']);
             }
@@ -340,6 +359,14 @@ class OvertimeAttachmentReportService
                     'current_stage' => $next,
                 ]);
                 $this->recordAction($report, $actor, $stage, 'decision', $decision, $previous, $status, $reason);
+                $this->emailNotifications->overtimeAttachmentReportWorkflowUpdate(
+                    $report->fresh(['employee.user']),
+                    $actor,
+                    $mixed ? 'OT Attachment report partially endorsed' : 'OT Attachment report endorsement update',
+                    "{$stage->timelineLabel(true)} completed for {$report->report_no}. It is now with {$next->timelineLabel(true)}.",
+                    $status->label(),
+                    'overtime_attachment_report:'.$report->id.':stage:'.$stage->value.':advanced'
+                );
             } else {
                 $now = ManilaTime::now();
                 $report->update([
@@ -350,6 +377,7 @@ class OvertimeAttachmentReportService
                     'approved_by' => $report->approved_by ?: $actor->employee?->fullName() ?: $actor->name,
                 ]);
                 $this->recordAction($report, $actor, $stage, 'decision', $decision, $previous, OvertimeAttachmentReportStatus::Approved, $reason);
+                $this->emailNotifications->overtimeAttachmentReportApproved($report->fresh(['employee.user']), $actor);
             }
 
             $this->audit->log($actor, 'overtime_attachment_report_'.$decision->value, 'OvertimeAttachmentReport', $report->id, "{$actor->name} {$decision->value} {$report->report_no}.");
@@ -396,6 +424,7 @@ class OvertimeAttachmentReportService
 
             $this->recordAction($report, $actor, $stage, 'returned', null, $previous, OvertimeAttachmentReportStatus::Returned, $reason);
             $this->audit->log($actor, 'overtime_attachment_report_returned', 'OvertimeAttachmentReport', $report->id, "{$report->report_no} returned for revision.");
+            $this->emailNotifications->overtimeAttachmentReportReturned($report->fresh(['employee.user']), $actor, $reason);
 
             return $report->fresh(['employee.user', 'assignments.user', 'actions.user', 'activities', 'officialTimeRequest']);
         });

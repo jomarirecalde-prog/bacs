@@ -8,4 +8,5 @@ enum EmailNotificationType: string
     case AccountUpdated = 'account_updated';
     case TransactionApproved = 'transaction_approved';
     case TransactionRejected = 'transaction_rejected';
+    case TransactionUpdate = 'transaction_update';
 }

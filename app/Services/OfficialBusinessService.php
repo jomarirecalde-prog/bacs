@@ -207,6 +207,13 @@ class OfficialBusinessService
             $this->notifier->stageReady($request, $request->current_stage);
         }
 
+        if ($request->status === OfficialBusinessStatus::Approved) {
+            $approver = User::query()->find($request->approved_by) ?? $request->submitter;
+            if ($approver) {
+                $this->emailNotifications->officialBusinessApproved($request, $approver);
+            }
+        }
+
         $this->syncAttendanceIfApproved($request->fresh(['participants']));
     }
 
@@ -326,6 +333,14 @@ class OfficialBusinessService
                     $mixed ? 'warning' : 'success'
                 );
                 $this->notifier->stageReady($request->fresh(['assignments.user', 'employee.user']), $next);
+                $this->emailNotifications->officialBusinessWorkflowUpdate(
+                    $request->fresh(['employee.user']),
+                    $actor,
+                    $mixed ? 'Official business partially endorsed' : 'Official business endorsement update',
+                    "{$stage->shortLabel()} completed for {$request->reference_number}. It is now with {$next->shortLabel()}.",
+                    $status->label(),
+                    'official_business:'.$request->id.':stage:'.$stage->value.':advanced'
+                );
             } else {
                 $now = ManilaTime::now();
                 $request->update([
