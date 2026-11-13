@@ -93,6 +93,14 @@ enum LeaveApprovalStage: string
         };
     }
 
+    public function pendingStatusForOvertimeAttachmentReport(): OvertimeAttachmentReportStatus
+    {
+        return match ($this) {
+            self::ImmediateSupervisor, self::DepartmentHead, self::CeoFinalApproval => OvertimeAttachmentReportStatus::UnderReview,
+            default => OvertimeAttachmentReportStatus::Approved,
+        };
+    }
+
     public function next(): ?self
     {
         return match ($this) {

@@ -22,6 +22,9 @@ use App\Models\Employee;
 use App\Models\LeaveApplication;
 use App\Models\OfficialTimeApprovalAssignment;
 use App\Models\OfficialTimeRequest;
+use App\Models\OvertimeAttachmentApprovalAssignment;
+use App\Models\OvertimeAttachmentReport;
+use App\Enums\OvertimeAttachmentReportStatus;
 use App\Models\OvertimeApprovalAssignment;
 use App\Models\OvertimeRequest;
 use App\Enums\OfficialTimeStatus;
@@ -791,6 +794,35 @@ class CentralApprovalWorkflowService
         $this->createOfficialTimeAssignments($request, $config, $requester, $snapshot);
     }
 
+    public function bootstrapOvertimeAttachmentReport(OvertimeAttachmentReport $report, Employee $requester): void
+    {
+        $config = $this->configurationFor(ApprovalTransactionType::OvertimeAttachmentReport);
+        $snapshot = $this->endorsement->snapshotForRequest($config, $requester->department_id);
+        $report->update([
+            'central_approval_config_id' => $config->id,
+            'central_approval_config_version' => $config->version,
+            'parallel_rule' => $snapshot['parallel_rule'],
+            'endorsement_mode' => $snapshot['endorsement_mode'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_parallel_rule' => $snapshot['secondary_parallel_rule'],
+        ]);
+
+        $this->createOvertimeAttachmentReportAssignments($report, $config, $requester, $snapshot);
+    }
+
+    public function overtimeAttachmentReportStatusAfterBootstrap(
+        ApprovalWorkflowConfiguration $config,
+        ?int $departmentId = null,
+    ): OvertimeAttachmentReportStatus {
+        $meta = $this->initialStageMeta($config, $departmentId);
+
+        if ($meta['stage'] === null) {
+            return OvertimeAttachmentReportStatus::Approved;
+        }
+
+        return OvertimeAttachmentReportStatus::UnderReview;
+    }
+
     public function overtimeStatusAfterBootstrap(ApprovalWorkflowConfiguration $config, ?int $departmentId = null): OvertimeRequestStatus
     {
         $meta = $this->initialStageMeta($config, $departmentId);
@@ -957,6 +989,10 @@ class CentralApprovalWorkflowService
         }
 
         if ($entity instanceof OfficialTimeRequest) {
+            return $entity->assignments()->where('stage', $stage->value)->get();
+        }
+
+        if ($entity instanceof OvertimeAttachmentReport) {
             return $entity->assignments()->where('stage', $stage->value)->get();
         }
 
@@ -1259,6 +1295,84 @@ class CentralApprovalWorkflowService
     ): void {
         OfficialTimeApprovalAssignment::query()->create([
             'official_time_request_id' => $request->id,
+            'stage' => $stage,
+            'user_id' => $user->id,
+            'employee_id' => $user->employee?->id,
+            'approver_name' => $user->employee?->fullName() ?: $user->name,
+            'approver_position' => $user->employee?->position,
+            'approver_role' => $user->role?->value,
+            'status' => $status,
+            'sort_order' => $sort,
+        ]);
+    }
+
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
+    private function createOvertimeAttachmentReportAssignments(
+        OvertimeAttachmentReport $report,
+        ApprovalWorkflowConfiguration $config,
+        Employee $requester,
+        array $snapshot,
+    ): void {
+        $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
+
+        if ($config->endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOvertimeAttachmentReportAssignment(
+                    $report,
+                    LeaveApprovalStage::ImmediateSupervisor,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
+                );
+                $sort++;
+            }
+        }
+
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOvertimeAttachmentReportAssignment(
+                    $report,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
+                );
+                $sort++;
+            }
+        }
+
+        if ($config->final_approval_enabled && $departmentId) {
+            $final = $config->activeFinalApprover($departmentId);
+            $user = $final?->employee?->user;
+            if ($user && $user->employee?->id !== $requester->id) {
+                $this->createOvertimeAttachmentReportAssignment($report, LeaveApprovalStage::CeoFinalApproval, $user, 0);
+            }
+        }
+    }
+
+    private function createOvertimeAttachmentReportAssignment(
+        OvertimeAttachmentReport $report,
+        LeaveApprovalStage $stage,
+        User $user,
+        int $sort,
+        string $status = 'pending',
+    ): void {
+        OvertimeAttachmentApprovalAssignment::query()->create([
+            'overtime_attachment_report_id' => $report->id,
             'stage' => $stage,
             'user_id' => $user->id,
             'employee_id' => $user->employee?->id,

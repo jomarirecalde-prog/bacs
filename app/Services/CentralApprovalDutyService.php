@@ -16,6 +16,8 @@ use App\Models\LeaveApplication;
 use App\Models\LeaveApprovalAssignment;
 use App\Models\OfficialTimeRequest;
 use App\Enums\OfficialTimeStatus;
+use App\Enums\OvertimeAttachmentReportStatus;
+use App\Models\OvertimeAttachmentReport;
 use App\Models\TravelOrder;
 use App\Models\TravelOrderApprovalAssignment;
 use App\Models\User;
@@ -216,6 +218,24 @@ class CentralApprovalDutyService
     {
         return OfficialTimeRequest::query()
             ->where('status', OfficialTimeStatus::PendingCeoFinalApproval)
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOvertimeAttachmentEndorsement(User $user): int
+    {
+        return OvertimeAttachmentReport::query()
+            ->whereIn('status', [OvertimeAttachmentReportStatus::UnderReview, OvertimeAttachmentReportStatus::Verified])
+            ->whereIn('current_stage', [LeaveApprovalStage::ImmediateSupervisor, LeaveApprovalStage::DepartmentHead])
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOvertimeAttachmentFinal(User $user): int
+    {
+        return OvertimeAttachmentReport::query()
+            ->where('status', OvertimeAttachmentReportStatus::UnderReview)
+            ->where('current_stage', LeaveApprovalStage::CeoFinalApproval)
             ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
             ->count();
     }

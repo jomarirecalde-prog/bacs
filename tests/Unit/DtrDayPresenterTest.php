@@ -50,7 +50,7 @@ class DtrDayPresenterTest extends TestCase
         $this->assertSame('1:00 PM', $day->pmIn);
         $this->assertSame('6:00 PM', $day->pmOut);
         $this->assertSame('9', $day->totalHours);
-        $this->assertSame('1', $day->overtime);
+        $this->assertSame('1 hour', $day->overtime);
     }
 
     public function test_morning_only_does_not_fill_pm_columns(): void

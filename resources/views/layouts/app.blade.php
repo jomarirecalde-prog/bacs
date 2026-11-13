@@ -178,6 +178,7 @@
                                 ['employee.travel-orders.index', 'Travel Orders', $icons['document'], 'employee.travel-orders.*'],
                                 ['employee.official-time.index', 'My Official Time', $icons['clock'], 'employee.official-time.index'],
                                 ['employee.official-time.create', 'Request Official Time', $icons['document'], 'employee.official-time.create'],
+                                ['employee.overtime-attachment.index', 'OT Attachment Reports', $icons['list'], 'employee.overtime-attachment.*'],
                                 ['employee.calendar', 'My Calendar', $icons['calendar']],
                                 ['employee.qr', 'My QR Code', $icons['qr']],
                             ]];
@@ -232,6 +233,7 @@
                             ['label' => 'Official Time', 'items' => [
                                 ['employee.official-time.index', 'My Official Time', $icons['list'], 'employee.official-time.index'],
                                 ['employee.official-time.create', 'Request Official Time', $icons['clock'], 'employee.official-time.create'],
+                                ['employee.overtime-attachment.index', 'OT Attachment Reports', $icons['document'], 'employee.overtime-attachment.*'],
                             ]],
                         ];
 

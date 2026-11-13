@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Employee;
 
+use App\Enums\OvertimeAttachmentReportStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\OvertimeAttachmentReport;
 use App\Services\OfficialDtrPdfService;
 use App\Services\OfficialDtrService;
 use App\Support\DtrPeriod;
@@ -22,12 +24,36 @@ class DtrController extends Controller
         $period = DtrPeriod::fromRequest($request);
         $sheet = $this->dtr->sheet($employee, $period);
 
+        $otAttachmentSummaries = OvertimeAttachmentReport::query()
+            ->ownedByEmployee($employee)
+            ->where('status', OvertimeAttachmentReportStatus::Approved)
+            ->whereDate('date_coverage_end', '>=', $period->start)
+            ->whereDate('date_coverage_start', '<=', $period->end)
+            ->with(['overtimeRequest', 'activities'])
+            ->orderBy('date_coverage_start')
+            ->get()
+            ->map(function (OvertimeAttachmentReport $report): array {
+                $declared = (int) $report->total_activity_minutes;
+                $payrollApproved = (int) ($report->overtimeRequest?->approved_minutes ?? 0);
+                $approvedApp = $declared > 0
+                    ? ($payrollApproved > 0 ? min($declared, $payrollApproved) : $declared)
+                    : 0;
+
+                return [
+                    'report' => $report,
+                    'requested_minutes' => $declared,
+                    'reported_minutes' => $declared,
+                    'approved_minutes' => $approvedApp,
+                ];
+            });
+
         return view('employee.dtr', [
             'employee' => $sheet['employee'],
             'period' => $sheet['period'],
             'days' => $sheet['days'],
             'totals' => $sheet['totals'],
             'periods' => DtrPeriod::options(),
+            'otAttachmentSummaries' => $otAttachmentSummaries,
         ]);
     }
 

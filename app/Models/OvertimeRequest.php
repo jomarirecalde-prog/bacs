@@ -6,6 +6,7 @@ use App\Enums\OvertimeRequestStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OvertimeRequest extends Model
 {
@@ -57,6 +58,11 @@ class OvertimeRequest extends Model
     public function approvalAssignments(): HasMany
     {
         return $this->hasMany(OvertimeApprovalAssignment::class);
+    }
+
+    public function attachmentReport(): HasOne
+    {
+        return $this->hasOne(OvertimeAttachmentReport::class);
     }
 
     public function approvedHours(): float

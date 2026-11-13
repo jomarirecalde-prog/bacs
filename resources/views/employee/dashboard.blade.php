@@ -150,6 +150,15 @@
                 'undertimeMinutes' => $undertimeMinutes,
                 'overtimeMinutes' => $overtimeMinutes,
             ])
+
+            <a href="{{ route('employee.overtime-attachment.index') }}" class="card flex items-center justify-between gap-3 p-4 shadow-soft transition hover:border-brand-200">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wide text-muted">Overtime</p>
+                    <p class="mt-0.5 text-sm font-bold text-ink">OT Attachment Reports</p>
+                    <p class="mt-0.5 text-xs text-muted">Document activities for DTR overtime; payroll reviews on the period OT page.</p>
+                </div>
+                <span class="btn-outline btn-sm shrink-0">Open</span>
+            </a>
         </div>
 
         <aside class="w-full min-w-0 shrink-0 space-y-4 lg:w-72 xl:w-80">

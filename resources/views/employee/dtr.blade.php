@@ -131,5 +131,47 @@
             </table>
         </div>
     </div>
+
+    @if ($otAttachmentSummaries->isNotEmpty())
+        <div class="card overflow-hidden">
+            <div class="card-header">
+                <h2 class="card-title">Approved OT attachment reports</h2>
+                <p class="text-xs text-muted">Declared and approved OT here come from your attachment report activities, not Official Time duration or DTR clock math.</p>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table text-sm">
+                    <thead>
+                        <tr>
+                            <th>Report</th>
+                            <th>DTR OT date</th>
+                            <th>Coverage</th>
+                            <th class="text-right">Declared OT</th>
+                            <th class="text-right">Reported activity</th>
+                            <th class="text-right">Approved OT (app)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($otAttachmentSummaries as $row)
+                            @php
+                                $fmt = fn (int $mins) => intdiv($mins, 60).':'.str_pad((string) ($mins % 60), 2, '0', STR_PAD_LEFT);
+                            @endphp
+                            <tr>
+                                <td class="font-mono font-semibold">{{ $row['report']->report_no }}</td>
+                                <td>{{ $row['report']->overtimeRequest?->attendance_date?->format('M j, Y') ?? '—' }}</td>
+                                <td>{{ $row['report']->coverageLabel() }}</td>
+                                <td class="text-right tabular-nums">{{ $fmt($row['requested_minutes']) }}</td>
+                                <td class="text-right tabular-nums text-gold-700">{{ $fmt($row['reported_minutes']) }}</td>
+                                <td class="text-right tabular-nums">{{ $fmt($row['approved_minutes']) }}</td>
+                                <td class="text-right">
+                                    <a class="btn-outline btn-sm" href="{{ route('employee.overtime-attachment.show', $row['report']) }}">View</a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 </div>
 @endsection

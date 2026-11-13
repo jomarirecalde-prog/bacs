@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\OvertimeRequestStatus;
 use App\Models\Employee;
+use App\Models\OvertimeRequest;
+use App\Support\DeclaredOvertimeDuration;
 use App\Support\DtrDayRow;
 use App\Support\DtrPeriod;
 use Illuminate\Support\Collection;
@@ -26,9 +29,28 @@ class OfficialDtrService
         $schedule = $employee->schedule();
         $records = $this->attendance->rangeDtr($employee, $period->start, $period->end);
 
+        $payrollOvertimeByDate = OvertimeRequest::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('attendance_date', '>=', $period->start)
+            ->whereDate('attendance_date', '<=', $period->end)
+            ->get()
+            ->keyBy(fn (OvertimeRequest $row) => $row->attendance_date->toDateString());
+
+        $declaredApplicationByDate = DeclaredOvertimeDuration::minutesByDateBetween(
+            $employee->id,
+            $period->start,
+            $period->end,
+        );
+
         $days = [];
         foreach ($records as $record) {
-            $days[] = $this->presenter->present($record, $schedule);
+            $date = $record->attendance_date->toDateString();
+            $day = $this->presenter->present($record, $schedule);
+            $days[] = $this->applyDisplayOvertime(
+                $day,
+                $payrollOvertimeByDate->get($date),
+                (int) ($declaredApplicationByDate[$date] ?? 0),
+            );
         }
 
         return [
@@ -37,6 +59,64 @@ class OfficialDtrService
             'days' => $days,
             'totals' => $this->totals($days),
         ];
+    }
+
+    /**
+     * Overtime column: payroll decision when final, else OT Attachment Report (declared activities),
+     * else clock-recorded OT (punches can over-state OT on rest days/holidays).
+     */
+    private function applyDisplayOvertime(DtrDayRow $day, ?OvertimeRequest $payroll, int $declaredApplicationMinutes): DtrDayRow
+    {
+        $minutes = $this->resolveOvertimeDisplayMinutes($day, $payroll, $declaredApplicationMinutes);
+
+        if ($minutes === $day->overtimeMinutes) {
+            return $day;
+        }
+
+        return new DtrDayRow(
+            date: $day->date,
+            dateLabel: $day->dateLabel,
+            dayName: $day->dayName,
+            amIn: $day->amIn,
+            amOut: $day->amOut,
+            pmIn: $day->pmIn,
+            pmOut: $day->pmOut,
+            overtime: $this->presenter->formatDuration($minutes),
+            totalHours: $day->totalHours,
+            overtimeMinutes: $minutes,
+            totalMinutes: $day->totalMinutes,
+            status: $day->status,
+            incomplete: $day->incomplete,
+            isFuture: $day->isFuture,
+            source: $day->source,
+        );
+    }
+
+    private function resolveOvertimeDisplayMinutes(
+        DtrDayRow $day,
+        ?OvertimeRequest $payroll,
+        int $declaredApplicationMinutes,
+    ): int {
+        if ($payroll?->status === OvertimeRequestStatus::Denied) {
+            return 0;
+        }
+
+        if ($payroll?->status === OvertimeRequestStatus::Approved) {
+            $approved = (int) $payroll->approved_minutes;
+            if ($declaredApplicationMinutes > 0
+                && $approved === (int) $payroll->recorded_minutes
+                && $approved > $declaredApplicationMinutes) {
+                return $declaredApplicationMinutes;
+            }
+
+            return $approved;
+        }
+
+        if ($declaredApplicationMinutes > 0) {
+            return $declaredApplicationMinutes;
+        }
+
+        return $day->overtimeMinutes;
     }
 
     /**
@@ -64,7 +144,7 @@ class OfficialDtrService
             'incomplete' => $incomplete,
             'present' => $present,
             'worked_label' => $this->presenter->formatHours($worked) ?? '0',
-            'overtime_label' => $this->presenter->formatHours($overtime) ?? '—',
+            'overtime_label' => $this->presenter->formatDuration($overtime) ?? '—',
         ];
     }
 

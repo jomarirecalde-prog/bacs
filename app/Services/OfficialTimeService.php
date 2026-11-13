@@ -27,6 +27,7 @@ class OfficialTimeService
         private readonly OfficialTimeNotificationService $notifier,
         private readonly AuditLogger $audit,
         private readonly CentralApprovalWorkflowService $centralApproval,
+        private readonly \App\Services\Payroll\OvertimeRequestSyncService $overtimeSync,
     ) {}
 
     public function saveDraft(Employee $employee, User $actor, array $data, ?OfficialTimeRequest $existing = null): OfficialTimeRequest
@@ -155,6 +156,7 @@ class OfficialTimeService
     public function afterSubmit(OfficialTimeRequest $request): void
     {
         $request->loadMissing(['employee.user', 'assignments.user']);
+        $this->overtimeSync->upsertFromOfficialTime($request);
         $this->notifier->submitted($request);
 
         if ($request->status === OfficialTimeStatus::Approved) {
@@ -271,7 +273,10 @@ class OfficialTimeService
 
             $this->audit->log($actor, 'official_time_'.$decision->value, 'OfficialTimeRequest', $request->id, "{$actor->name} {$decision->value} {$request->request_no}.");
 
-            return $request->fresh(['employee.user', 'assignments.user', 'actions.user', 'officialTimeType']);
+            $fresh = $request->fresh(['employee.user', 'assignments.user', 'actions.user', 'officialTimeType']);
+            $this->overtimeSync->upsertFromOfficialTime($fresh);
+
+            return $fresh;
         });
     }
 

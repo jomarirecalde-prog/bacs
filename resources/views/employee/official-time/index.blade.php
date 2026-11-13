@@ -60,7 +60,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="p-0"><x-empty-state title="No Official Time requests" message="Create your first Official Time request." icon="document" /></td></tr>
+                        <tr><td colspan="10" class="p-0"><x-empty-state title="No Official Time requests" message="Create your first Official Time request." icon="document" /></td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -5,9 +5,13 @@ namespace Tests\Feature;
 use App\Enums\AccountStatus;
 use App\Enums\AttendanceStatus;
 use App\Enums\EmploymentStatus;
+use App\Enums\OvertimeAttachmentReportStatus;
+use App\Enums\OvertimeRequestStatus;
 use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\OvertimeAttachmentReport;
+use App\Models\OvertimeRequest;
 use App\Models\User;
 use App\Models\WorkSchedule;
 use App\Support\ManilaTime;
@@ -125,6 +129,75 @@ class EmployeeOfficialDtrTest extends TestCase
         $response->assertOk();
         $this->assertStringStartsWith('application/pdf', (string) $response->headers->get('content-type'));
         $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    public function test_employee_dtr_uses_ot_attachment_declared_duration_not_inflated_clock_ot(): void
+    {
+        $employee = $this->makeEmployee('otoff');
+
+        Attendance::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => '2026-08-11',
+            'time_in' => ManilaTime::combineDateAndTime('2026-08-11', '08:00'),
+            'time_out' => ManilaTime::combineDateAndTime('2026-08-11', '17:00'),
+            'total_minutes' => 480,
+            'overtime_minutes' => 480,
+            'status' => AttendanceStatus::Overtime,
+        ]);
+
+        $ot = OvertimeRequest::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => '2026-08-11',
+            'recorded_minutes' => 480,
+            'approved_minutes' => 0,
+            'status' => OvertimeRequestStatus::Pending,
+        ]);
+
+        OvertimeAttachmentReport::query()->create([
+            'overtime_request_id' => $ot->id,
+            'employee_id' => $employee->id,
+            'department_id' => $this->department->id,
+            'report_no' => 'OT-DTR-001',
+            'date_coverage_start' => '2026-08-11',
+            'date_coverage_end' => '2026-08-11',
+            'status' => OvertimeAttachmentReportStatus::Submitted->value,
+            'total_activity_minutes' => 120,
+            'prepared_by' => $employee->fullName(),
+        ]);
+
+        $this->actingAs($employee->user)
+            ->get(route('employee.dtr', ['period' => 'c:2026-08-11_2026-08-25']))
+            ->assertOk()
+            ->assertSee('2 hours', false);
+    }
+
+    public function test_employee_dtr_shows_payroll_approved_overtime_not_only_recorded(): void
+    {
+        $employee = $this->makeEmployee('otpay');
+
+        $attendance = Attendance::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_date' => '2026-08-11',
+            'time_in' => ManilaTime::combineDateAndTime('2026-08-11', '08:00'),
+            'time_out' => ManilaTime::combineDateAndTime('2026-08-11', '19:00'),
+            'total_minutes' => 600,
+            'overtime_minutes' => 120,
+            'status' => AttendanceStatus::Overtime,
+        ]);
+
+        OvertimeRequest::query()->create([
+            'employee_id' => $employee->id,
+            'attendance_id' => $attendance->id,
+            'attendance_date' => '2026-08-11',
+            'recorded_minutes' => 120,
+            'approved_minutes' => 90,
+            'status' => OvertimeRequestStatus::Approved,
+        ]);
+
+        $this->actingAs($employee->user)
+            ->get(route('employee.dtr', ['period' => 'c:2026-08-11_2026-08-25']))
+            ->assertOk()
+            ->assertSee('1 hr 30 min', false);
     }
 
     public function test_month_and_year_query_still_renders_the_full_month(): void

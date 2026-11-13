@@ -9,6 +9,7 @@ enum ApprovalTransactionType: string
     case TravelOrder = 'travel_order';
     case OvertimeRequest = 'overtime_request';
     case OfficialTime = 'official_time';
+    case OvertimeAttachmentReport = 'overtime_attachment_report';
 
     /** @return list<self> Transaction types that share one workflow in Settings (excludes pardon). */
     public static function unifiedTypes(): array
@@ -27,6 +28,7 @@ enum ApprovalTransactionType: string
             self::TravelOrder => 'Travel Order',
             self::OvertimeRequest => 'Overtime Request',
             self::OfficialTime => 'Official Time',
+            self::OvertimeAttachmentReport => 'OT Attachment Report',
         };
     }
 }

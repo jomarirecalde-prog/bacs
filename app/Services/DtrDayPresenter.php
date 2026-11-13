@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\WorkSchedule;
 use App\Support\DtrDayRow;
 use App\Support\ManilaTime;
+use App\Support\MinuteDuration;
 use Carbon\Carbon;
 
 class DtrDayPresenter
@@ -92,7 +93,7 @@ class DtrDayPresenter
             amOut: $this->formatPunch($amOut),
             pmIn: $this->formatPunch($pmIn),
             pmOut: $this->formatPunch($pmOut),
-            overtime: $this->formatHours($overtimeMinutes) ?? $this->formatPunch($row->overtime_in),
+            overtime: $this->formatDuration($overtimeMinutes) ?? $this->formatPunch($row->overtime_in),
             totalHours: $this->formatHours($totalMinutes),
             overtimeMinutes: $overtimeMinutes,
             totalMinutes: $totalMinutes,
@@ -149,6 +150,12 @@ class DtrDayPresenter
         }
 
         return [$timeIn, $timeOut, null, null, $this->minutesBetween($timeIn, $timeOut)];
+    }
+
+    /** Human-readable duration (matches Official Time / OT attachment tables). */
+    public function formatDuration(int $minutes): ?string
+    {
+        return MinuteDuration::labelOrNull($minutes);
     }
 
     public function formatHours(int $minutes): ?string

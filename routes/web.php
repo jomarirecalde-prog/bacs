@@ -52,7 +52,9 @@ use App\Http\Controllers\Employee\TravelOrderController as EmployeeTravelOrderCo
 use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\TravelOrderApprovalController;
 use App\Http\Controllers\OfficialTimeApprovalController;
+use App\Http\Controllers\OvertimeAttachmentReportApprovalController;
 use App\Http\Controllers\Employee\OfficialTimeController as EmployeeOfficialTimeController;
+use App\Http\Controllers\Employee\OvertimeAttachmentReportController as EmployeeOvertimeAttachmentReportController;
 use App\Http\Controllers\Admin\OfficialTimeController as AdminOfficialTimeController;
 use App\Http\Controllers\Admin\OfficialTimeTypeController;
 use App\Http\Controllers\NotificationController;
@@ -197,6 +199,17 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::post('/official-time/{officialTimeRequest}/cancel', [EmployeeOfficialTimeController::class, 'cancel'])->name('official-time.cancel');
         Route::get('/official-time/{officialTimeRequest}/attachment', [EmployeeOfficialTimeController::class, 'attachment'])->name('official-time.attachment');
 
+        Route::get('/overtime-attachment', [EmployeeOvertimeAttachmentReportController::class, 'index'])->name('overtime-attachment.index');
+        Route::get('/overtime-attachment/create', [EmployeeOvertimeAttachmentReportController::class, 'create'])->name('overtime-attachment.create');
+        Route::post('/overtime-attachment', [EmployeeOvertimeAttachmentReportController::class, 'store'])->name('overtime-attachment.store');
+        Route::get('/overtime-attachment/{overtimeAttachmentReport}', [EmployeeOvertimeAttachmentReportController::class, 'show'])->name('overtime-attachment.show');
+        Route::get('/overtime-attachment/{overtimeAttachmentReport}/edit', [EmployeeOvertimeAttachmentReportController::class, 'edit'])->name('overtime-attachment.edit');
+        Route::put('/overtime-attachment/{overtimeAttachmentReport}', [EmployeeOvertimeAttachmentReportController::class, 'update'])->name('overtime-attachment.update');
+        Route::post('/overtime-attachment/{overtimeAttachmentReport}/submit', [EmployeeOvertimeAttachmentReportController::class, 'submit'])->name('overtime-attachment.submit');
+        Route::post('/overtime-attachment/{overtimeAttachmentReport}/cancel', [EmployeeOvertimeAttachmentReportController::class, 'cancel'])->name('overtime-attachment.cancel');
+        Route::get('/overtime-attachment/{overtimeAttachmentReport}/pdf', [EmployeeOvertimeAttachmentReportController::class, 'pdf'])->name('overtime-attachment.pdf');
+        Route::get('/overtime-attachment/{overtimeAttachmentReport}/preview', [EmployeeOvertimeAttachmentReportController::class, 'preview'])->name('overtime-attachment.preview');
+
         Route::get('/salary', [EmployeeSalaryController::class, 'index'])->name('salary.index');
         Route::get('/salary/{payrollEmployee}', [EmployeeSalaryController::class, 'show'])->name('salary.show');
 
@@ -224,6 +237,14 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::get('/{officialTimeRequest}', [OfficialTimeApprovalController::class, 'show'])->name('show');
         Route::post('/{officialTimeRequest}/decide', [OfficialTimeApprovalController::class, 'decide'])->name('decide');
         Route::post('/{officialTimeRequest}/return', [OfficialTimeApprovalController::class, 'returnForRevision'])->name('return');
+    });
+
+    Route::prefix('overtime-attachment/approvals')->name('overtime-attachment.approvals.')->group(function () {
+        Route::get('/', [OvertimeAttachmentReportApprovalController::class, 'index'])->name('index');
+        Route::get('/history', [OvertimeAttachmentReportApprovalController::class, 'history'])->name('history');
+        Route::get('/{overtimeAttachmentReport}', [OvertimeAttachmentReportApprovalController::class, 'show'])->name('show');
+        Route::post('/{overtimeAttachmentReport}/decide', [OvertimeAttachmentReportApprovalController::class, 'decide'])->name('decide');
+        Route::post('/{overtimeAttachmentReport}/return', [OvertimeAttachmentReportApprovalController::class, 'returnForRevision'])->name('return');
     });
 
     Route::prefix('travel-order/approvals')->name('travel-order.approvals.')->group(function () {
@@ -420,6 +441,8 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
                 Route::post('/settings/overtime-rates', [PayrollSettingsController::class, 'storeOtRate'])->name('settings.overtime-rates.store');
                 Route::put('/settings/overtime-rates/{otRate}', [PayrollSettingsController::class, 'updateOtRate'])->name('settings.overtime-rates.update');
                 Route::post('/overtime/{overtimeRequest}/decide', [PayrollOvertimeRequestController::class, 'decide'])->name('overtime.decide');
+                Route::post('/periods/{period}/overtime/{overtimeRequest}/attachment/decide', [PayrollOvertimeRequestController::class, 'decideAttachment'])->name('overtime.attachment.decide');
+                Route::get('/periods/{period}/overtime-attachment/{overtimeAttachmentReport}/pdf', [PayrollOvertimeRequestController::class, 'attachmentPdf'])->name('overtime.attachment.pdf');
                 Route::get('/periods/{period}/adjustments', [PayrollAdjustmentController::class, 'index'])->name('adjustments.index');
                 Route::get('/periods/{period}/adjustments/create', [PayrollAdjustmentController::class, 'create'])->name('adjustments.create');
                 Route::post('/periods/{period}/adjustments', [PayrollAdjustmentController::class, 'store'])->name('adjustments.store');

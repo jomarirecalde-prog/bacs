@@ -14,11 +14,15 @@
 
     <div>
         <label class="label" for="official_time_type_id">Official Time Type</label>
-        <select id="official_time_type_id" name="official_time_type_id" class="select" required>
+        <select id="official_time_type_id" name="official_time_type_id" class="select" required @disabled($types->isEmpty())>
+            <option value="" disabled @selected(! old('official_time_type_id', $otModel?->official_time_type_id))>Select type…</option>
             @foreach ($types as $type)
                 <option value="{{ $type->id }}" @selected(old('official_time_type_id', $otModel?->official_time_type_id) == $type->id)>{{ $type->name }}</option>
             @endforeach
         </select>
+        @if ($types->isEmpty())
+            <p class="error-text">No Official Time types are available yet. Contact your administrator.</p>
+        @endif
     </div>
     <div>
         <label class="label" for="date">Official Time Date</label>
