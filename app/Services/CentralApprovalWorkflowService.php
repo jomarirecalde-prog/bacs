@@ -172,11 +172,11 @@ class CentralApprovalWorkflowService
         $secondaryEndorserIds = $this->normalizeEmployeeIds($payload['secondary_endorser_ids'] ?? []);
         $finalId = filled($payload['final_approver_id'] ?? null) ? (int) $payload['final_approver_id'] : null;
 
-        if ($endorsementEnabled && $endorserIds->isEmpty()) {
+        if ($endorsementEnabled && $endorserIds->isEmpty() && ! $this->endorserListExplicitlySubmitted($payload)) {
             $endorserIds = $this->existingAssigneeIdsForDepartment($departmentId, ApprovalAssigneeType::Endorser);
         }
 
-        if ($endorsementEnabled && $endorserIds->isEmpty()) {
+        if ($endorsementEnabled && $endorserIds->isEmpty() && ! $this->endorserListExplicitlySubmitted($payload)) {
             $endorserIds = $this->employeeIdsFromActiveMap($payload['endorser_active'] ?? []);
         }
 
@@ -187,11 +187,11 @@ class CentralApprovalWorkflowService
             ]);
         }
 
-        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty() && ! $this->secondaryEndorserListExplicitlySubmitted($payload)) {
             $secondaryEndorserIds = $this->existingAssigneeIdsForDepartment($departmentId, ApprovalAssigneeType::SecondaryEndorser);
         }
 
-        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty()) {
+        if ($secondaryEndorsementEnabled && $secondaryEndorserIds->isEmpty() && ! $this->secondaryEndorserListExplicitlySubmitted($payload)) {
             $secondaryEndorserIds = $this->employeeIdsFromActiveMap($payload['secondary_endorser_active'] ?? []);
         }
 
@@ -253,6 +253,18 @@ class CentralApprovalWorkflowService
             'endorser_active' => $activeMap,
             'secondary_endorser_active' => $secondaryActiveMap,
         ];
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function endorserListExplicitlySubmitted(array $payload): bool
+    {
+        return filter_var($payload['endorser_list_submitted'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function secondaryEndorserListExplicitlySubmitted(array $payload): bool
+    {
+        return filter_var($payload['secondary_endorser_list_submitted'] ?? false, FILTER_VALIDATE_BOOL);
     }
 
     /** @param  mixed  $ids @return Collection<int, int> */

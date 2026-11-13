@@ -193,6 +193,7 @@
                         </div>
 
                         <div x-data="travelEmployeePicker({ selected: @js($selectedEndorsers), searchUrl: @js($employeeSearchUrl), inputName: 'endorser_ids' })">
+                            <input type="hidden" name="endorser_list_submitted" value="1">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <label class="label mb-0">Department endorsers</label>
                                 <button type="button" class="btn-outline btn-sm" @click="$refs.endorserSearch.focus()">Add endorser</button>
@@ -224,8 +225,11 @@
                                                     <td>{{ $row->employee?->department?->name ?? $department->name }}</td>
                                                     <td>{{ $row->employee?->position ?? '—' }}</td>
                                                     <td>
-                                                        <input type="hidden" name="endorser_active[{{ $row->employee_id }}]" value="0">
-                                                        <input type="checkbox" class="checkbox" name="endorser_active[{{ $row->employee_id }}]" value="1" @checked($row->is_active)>
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <input type="hidden" name="endorser_active[{{ $row->employee_id }}]" value="0">
+                                                            <input type="checkbox" class="checkbox" name="endorser_active[{{ $row->employee_id }}]" value="1" @checked($row->is_active)>
+                                                            <button type="button" class="btn-outline-danger btn-sm" @click="$el.closest('tr')?.remove()" aria-label="Remove {{ $row->employee?->fullName() }}">Remove</button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -233,7 +237,7 @@
                                     </table>
                                 </div>
                             @endif
-                            <p class="mt-2 text-xs text-muted">Order follows the list below (first added = first in sequence). Remove and re-add to reorder, or add new endorsers via search.</p>
+                            <p class="mt-2 text-xs text-muted">Order follows the list below (first added = first in sequence). Use Remove or the chips below to drop endorsers, or add new ones via search.</p>
                             <div class="mt-2 flex flex-wrap gap-2">
                                 <template x-for="(person, index) in selected" :key="person.id">
                                     <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-sm">
@@ -300,6 +304,7 @@
                         </div>
 
                         <div x-data="travelEmployeePicker({ selected: @js($selectedSecondaryEndorsers), searchUrl: @js($employeeSearchUrl), inputName: 'secondary_endorser_ids' })">
+                            <input type="hidden" name="secondary_endorser_list_submitted" value="1">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <label class="label mb-0">Second endorsers</label>
                                 <button type="button" class="btn-outline btn-sm" @click="$refs.secondaryEndorserSearch.focus()">Add endorser</button>
@@ -327,8 +332,11 @@
                                                     </td>
                                                     <td class="font-semibold">{{ $row->employee?->fullName() }}</td>
                                                     <td>
-                                                        <input type="hidden" name="secondary_endorser_active[{{ $row->employee_id }}]" value="0">
-                                                        <input type="checkbox" class="checkbox" name="secondary_endorser_active[{{ $row->employee_id }}]" value="1" @checked($row->is_active)>
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <input type="hidden" name="secondary_endorser_active[{{ $row->employee_id }}]" value="0">
+                                                            <input type="checkbox" class="checkbox" name="secondary_endorser_active[{{ $row->employee_id }}]" value="1" @checked($row->is_active)>
+                                                            <button type="button" class="btn-outline-danger btn-sm" @click="$el.closest('tr')?.remove()" aria-label="Remove {{ $row->employee?->fullName() }}">Remove</button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -336,7 +344,7 @@
                                     </table>
                                 </div>
                             @endif
-                            <p class="mt-2 text-xs text-muted">Order follows the list below (first added = first in sequence). Remove and re-add to reorder, or add new endorsers via search.</p>
+                            <p class="mt-2 text-xs text-muted">Order follows the list below (first added = first in sequence). Use Remove or the chips below to drop endorsers, or add new ones via search.</p>
                             <div class="mt-2 flex flex-wrap gap-2">
                                 <template x-for="(person, index) in selected" :key="person.id">
                                     <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-sm">
