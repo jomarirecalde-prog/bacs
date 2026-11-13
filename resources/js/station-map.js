@@ -49,11 +49,23 @@ function popupHtml(station) {
     `;
 }
 
+/** @type {null | (() => void)} */
+let destroyStationMap = null;
+
+export function teardownStationMap() {
+    if (destroyStationMap) {
+        destroyStationMap();
+        destroyStationMap = null;
+    }
+}
+
 function initStationMap(config) {
     const root = document.getElementById('station-location-map');
     if (!root) {
         return;
     }
+
+    teardownStationMap();
 
     const map = L.map(root, { scrollWheelZoom: true }).setView(PH_CENTER, DEFAULT_ZOOM);
 
@@ -157,10 +169,9 @@ function initStationMap(config) {
         setTimeout(() => map.invalidateSize(), 0);
     });
 
-    window.addEventListener('resize', () => map.invalidateSize());
-
+    let refreshTimer = null;
     if (config.locationsUrl) {
-        setInterval(async () => {
+        refreshTimer = setInterval(async () => {
             try {
                 const res = await fetch(config.locationsUrl, {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -178,12 +189,25 @@ function initStationMap(config) {
         }, 60000);
     }
 
-    setTimeout(() => map.invalidateSize(), 100);
+    const onResize = () => map.invalidateSize();
+    window.addEventListener('resize', onResize);
+
+    const invalidateTimer = setTimeout(() => map.invalidateSize(), 100);
+
+    destroyStationMap = () => {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+        }
+        clearTimeout(invalidateTimer);
+        window.removeEventListener('resize', onResize);
+        map.remove();
+        markers.clear();
+    };
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+export function bootStationMapFromDom() {
     const el = document.getElementById('station-map-config');
-    if (!el) {
+    if (!el || !document.getElementById('station-location-map')) {
         return;
     }
     let config = {};
@@ -193,4 +217,4 @@ document.addEventListener('DOMContentLoaded', () => {
         config = {};
     }
     initStationMap(config);
-});
+}

@@ -1057,6 +1057,30 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+function bootStationMapPage() {
+    if (!document.getElementById('station-location-map')) {
+        return;
+    }
+    import('./station-map.js')
+        .then((mod) => mod.bootStationMapFromDom())
+        .catch(() => {
+            // Map assets failed to load; leave the list/sidebar usable.
+        });
+}
+
+window.addEventListener('bacs:pagehide', () => {
+    import('./station-map.js')
+        .then((mod) => mod.teardownStationMap())
+        .catch(() => {});
+});
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootStationMapPage);
+} else {
+    bootStationMapPage();
+}
+window.addEventListener('bacs:pageshow', bootStationMapPage);
+
 Alpine.start();
 bootNavigation();
 bootResponsive();

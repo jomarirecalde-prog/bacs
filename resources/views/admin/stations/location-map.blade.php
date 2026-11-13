@@ -4,10 +4,6 @@
 @section('page-title', 'Station Locations')
 @section('page-subtitle', 'Last known GPS from attendance station devices')
 
-@push('head')
-    @vite(['resources/js/station-map.js'])
-@endpush
-
 @section('content')
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
