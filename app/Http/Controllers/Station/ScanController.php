@@ -9,8 +9,10 @@ use App\Http\Controllers\Controller;
 use App\Services\AttendanceService;
 use App\Services\EmployeeQrService;
 use App\Services\QrCrossStationGuard;
+use App\Services\StationBindingService;
 use App\Services\StationScanSideEffects;
 use App\Support\ManilaTime;
+use App\Support\StationGeoCoordinates;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -21,12 +23,19 @@ class ScanController extends Controller
         private readonly AttendanceService $attendance,
         private readonly StationScanSideEffects $sideEffects,
         private readonly QrCrossStationGuard $crossStationGuard,
+        private readonly StationBindingService $bindings,
     ) {}
 
     public function store(Request $request)
     {
         $station = $request->user('station');
         $request->validate(['token' => ['required', 'string', 'max:200']]);
+
+        if ($station) {
+            $coords = StationGeoCoordinates::validate($request);
+            StationGeoCoordinates::record($this->bindings, $station, $coords);
+            $station = $station->fresh();
+        }
 
         if (! $station || $station->status !== StationStatus::Active) {
             $this->deferActivity($request, $station, null, null, 'scan', StationActivityResult::Failure, 'station_locked');

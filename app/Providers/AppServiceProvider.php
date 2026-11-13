@@ -14,6 +14,7 @@ use App\Policies\DesignationPolicy;
 use App\Policies\PayrollEmployeePolicy;
 use App\Models\OfficialTimeRequest;
 use App\Models\OvertimeAttachmentReport;
+use App\Models\OfficialBusinessRequest;
 use App\Models\TravelOrder;
 use App\Models\LeaveBalance;
 use App\Policies\PayrollPolicy;
@@ -22,11 +23,13 @@ use App\Policies\EmployeePolicy;
 use App\Policies\LeaveApplicationPolicy;
 use App\Policies\OfficialTimeRequestPolicy;
 use App\Policies\OvertimeAttachmentReportPolicy;
+use App\Policies\OfficialBusinessPolicy;
 use App\Policies\TravelOrderPolicy;
 use App\Policies\LeaveBalancePolicy;
 use App\Services\DirectoryCatalog;
 use App\Services\HolidayResolver;
 use App\Services\LeaveResolver;
+use App\Services\OfficialBusinessResolver;
 use App\Services\TravelOrderResolver;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Gate;
@@ -46,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(HolidayResolver::class);
         $this->app->singleton(LeaveResolver::class);
         $this->app->singleton(TravelOrderResolver::class);
+        $this->app->singleton(OfficialBusinessResolver::class);
         $this->app->singleton(DirectoryCatalog::class);
     }
 
@@ -71,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Employee::class, EmployeePolicy::class);
         Gate::policy(LeaveApplication::class, LeaveApplicationPolicy::class);
         Gate::policy(TravelOrder::class, TravelOrderPolicy::class);
+        Gate::policy(OfficialBusinessRequest::class, OfficialBusinessPolicy::class);
         Gate::policy(OfficialTimeRequest::class, OfficialTimeRequestPolicy::class);
         Gate::policy(OvertimeAttachmentReport::class, OvertimeAttachmentReportPolicy::class);
         Gate::policy(LeaveBalance::class, LeaveBalancePolicy::class);

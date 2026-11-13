@@ -30,6 +30,9 @@ use App\Models\OvertimeRequest;
 use App\Enums\OfficialTimeStatus;
 use App\Enums\OvertimeRequestStatus;
 use App\Models\LeaveApprovalAssignment;
+use App\Enums\OfficialBusinessStatus;
+use App\Models\OfficialBusinessApprovalAssignment;
+use App\Models\OfficialBusinessRequest;
 use App\Models\TravelOrder;
 use App\Models\TravelOrderApprovalAssignment;
 use App\Models\Department;
@@ -84,7 +87,7 @@ class CentralApprovalWorkflowService
 
     public function configurationFor(ApprovalTransactionType $type): ApprovalWorkflowConfiguration
     {
-        return ApprovalWorkflowConfiguration::forType($type)
+        return ApprovalWorkflowConfiguration::forType($type->centralWorkflowType())
             ->load(['assignees.employee.department', 'assignees.department', 'departmentSettings']);
     }
 
@@ -746,6 +749,22 @@ class CentralApprovalWorkflowService
         $this->createTravelAssignments($order, $config, $requester, $snapshot);
     }
 
+    public function bootstrapOfficialBusiness(OfficialBusinessRequest $request, Employee $requester): void
+    {
+        $config = $this->configurationFor(ApprovalTransactionType::TravelOrder);
+        $snapshot = $this->endorsement->snapshotForRequest($config, $requester->department_id);
+        $request->update([
+            'central_approval_config_id' => $config->id,
+            'central_approval_config_version' => $config->version,
+            'parallel_rule' => $snapshot['parallel_rule'],
+            'endorsement_mode' => $snapshot['endorsement_mode'],
+            'secondary_endorsement_mode' => $snapshot['secondary_endorsement_mode'],
+            'secondary_parallel_rule' => $snapshot['secondary_parallel_rule'],
+        ]);
+
+        $this->createOfficialBusinessAssignments($request, $config, $requester, $snapshot);
+    }
+
     public function bootstrapPardon(AttendanceCorrectionRequest $request, Employee $requester): void
     {
         $config = $this->configurationFor(ApprovalTransactionType::Pardon);
@@ -977,6 +996,10 @@ class CentralApprovalWorkflowService
         }
 
         if ($entity instanceof TravelOrder) {
+            return $entity->assignments()->where('stage', $stage->value)->get();
+        }
+
+        if ($entity instanceof OfficialBusinessRequest) {
             return $entity->assignments()->where('stage', $stage->value)->get();
         }
 
@@ -1217,6 +1240,84 @@ class CentralApprovalWorkflowService
     ): void {
         TravelOrderApprovalAssignment::query()->create([
             'travel_order_id' => $order->id,
+            'stage' => $stage,
+            'user_id' => $user->id,
+            'employee_id' => $user->employee?->id,
+            'approver_name' => $user->employee?->fullName() ?: $user->name,
+            'approver_position' => $user->employee?->position,
+            'approver_role' => $user->role?->value,
+            'status' => $status,
+            'sort_order' => $sort,
+        ]);
+    }
+
+    /**
+     * @param  array{endorsement_mode: EndorsementMode, secondary_endorsement_mode: EndorsementMode}  $snapshot
+     */
+    private function createOfficialBusinessAssignments(
+        OfficialBusinessRequest $request,
+        ApprovalWorkflowConfiguration $config,
+        Employee $requester,
+        array $snapshot,
+    ): void {
+        $departmentId = $requester->department_id;
+        $primaryMode = $snapshot['endorsement_mode'];
+        $secondaryMode = $snapshot['secondary_endorsement_mode'];
+
+        if ($config->endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOfficialBusinessAssignment(
+                    $request,
+                    LeaveApprovalStage::ImmediateSupervisor,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($primaryMode, $sort),
+                );
+                $sort++;
+            }
+        }
+
+        if ($config->secondary_endorsement_enabled && $departmentId) {
+            $sort = 0;
+            foreach ($config->activeSecondaryEndorsers($departmentId)->orderBy('sequence_order')->get() as $row) {
+                $user = $row->employee?->user;
+                if (! $user || $user->employee?->id === $requester->id) {
+                    continue;
+                }
+                $this->createOfficialBusinessAssignment(
+                    $request,
+                    LeaveApprovalStage::DepartmentHead,
+                    $user,
+                    $sort,
+                    $this->endorsement->initialAssignmentStatus($secondaryMode, $sort),
+                );
+                $sort++;
+            }
+        }
+
+        if ($config->final_approval_enabled && $departmentId) {
+            $final = $config->activeFinalApprover($departmentId);
+            $user = $final?->employee?->user;
+            if ($user && $user->employee?->id !== $requester->id) {
+                $this->createOfficialBusinessAssignment($request, LeaveApprovalStage::CeoFinalApproval, $user, 0);
+            }
+        }
+    }
+
+    private function createOfficialBusinessAssignment(
+        OfficialBusinessRequest $request,
+        LeaveApprovalStage $stage,
+        User $user,
+        int $sort,
+        string $status = 'pending',
+    ): void {
+        OfficialBusinessApprovalAssignment::query()->create([
+            'official_business_request_id' => $request->id,
             'stage' => $stage,
             'user_id' => $user->id,
             'employee_id' => $user->employee?->id,
@@ -1712,7 +1813,7 @@ class CentralApprovalWorkflowService
         $order->load('assignments');
 
         $config = $this->configurationFor(ApprovalTransactionType::TravelOrder);
-        $meta = $this->initialStageMeta($config);
+        $meta = $this->initialStageMeta($config, $requester->department_id);
 
         if ($meta['stage'] === null) {
             $order->update([
@@ -1726,6 +1827,57 @@ class CentralApprovalWorkflowService
         $first = $order->firstActiveApprovalStage();
         $order->update([
             'status' => $first?->pendingStatusForTravel() ?? TravelOrderStatus::Approved,
+            'current_stage' => $first,
+        ]);
+
+        return true;
+    }
+
+    public function resyncOfficialBusinessToCentralSettings(OfficialBusinessRequest $request): bool
+    {
+        if ($request->status !== OfficialBusinessStatus::PendingApproverAssignment
+            && ! ($request->status?->isOpen() && $request->assignments()->doesntExist())) {
+            return false;
+        }
+
+        if ($request->assignments()->whereNotNull('acted_at')->exists()) {
+            return false;
+        }
+
+        $request->loadMissing('employee');
+        $requester = $request->employee;
+        if (! $requester) {
+            return false;
+        }
+
+        $request->assignments()->delete();
+        $this->bootstrapOfficialBusiness($request, $requester);
+        $request->load('assignments');
+
+        $config = $this->configurationFor(ApprovalTransactionType::TravelOrder);
+        $meta = $this->initialStageMeta($config, $requester->department_id);
+
+        if ($this->missingActionableApprovers($request)) {
+            $request->update([
+                'status' => OfficialBusinessStatus::PendingApproverAssignment,
+                'current_stage' => null,
+            ]);
+
+            return false;
+        }
+
+        if ($meta['stage'] === null) {
+            $request->update([
+                'status' => OfficialBusinessStatus::Approved,
+                'current_stage' => null,
+            ]);
+
+            return true;
+        }
+
+        $first = $request->firstActiveApprovalStage();
+        $request->update([
+            'status' => OfficialBusinessStatus::from($first?->pendingStatusForTravel()->value ?? OfficialBusinessStatus::Approved->value),
             'current_stage' => $first,
         ]);
 

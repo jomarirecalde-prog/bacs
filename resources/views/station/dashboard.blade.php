@@ -19,9 +19,15 @@
             </div>
         </div>
         <div class="flex items-center justify-between gap-4 sm:block sm:text-right">
-            <div class="flex items-center gap-2 text-sm font-bold" :class="locked ? 'text-critical-300' : 'text-brand-300'">
-                <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="locked ? 'bg-critical-400' : 'bg-brand-400 animate-pulse'"></span>
-                <span x-text="locked ? 'Station Locked' : 'Station Active'"></span>
+            <div class="flex flex-col items-start gap-1 sm:items-end">
+                <div class="flex items-center gap-2 text-sm font-bold" :class="locked ? 'text-critical-300' : 'text-brand-300'">
+                    <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="locked ? 'bg-critical-400' : 'bg-brand-400 animate-pulse'"></span>
+                    <span x-text="locked ? 'Station Locked' : 'Station Active'"></span>
+                </div>
+                <div class="flex items-center gap-2 text-xs font-semibold" :class="geoReady ? 'text-brand-200/80' : 'text-warn-300'">
+                    <span class="h-2 w-2 shrink-0 rounded-full" :class="geoReady ? 'bg-brand-300' : 'bg-warn-400 animate-pulse'"></span>
+                    <span x-text="geoReady ? 'Location enabled' : 'Location required'"></span>
+                </div>
             </div>
             <div class="text-right">
                 <div class="text-sm text-brand-100/70" x-text="dateLabel">{{ $now->format('F j, Y') }}</div>
@@ -41,7 +47,24 @@
                 <video x-ref="video" class="aspect-4/3 w-full object-cover" playsinline webkit-playsinline muted autoplay></video>
                 <div class="pointer-events-none absolute inset-0 border-[6px] border-brand-500/40"></div>
                 <div class="pointer-events-none absolute inset-6 rounded-2xl border-2 border-gold-400/50"></div>
-                <div x-show="cameraNeedsTap" x-cloak class="absolute inset-0 flex items-center justify-center bg-shell-950/80 p-4 backdrop-blur-sm">
+                <div x-show="geoNeedsTap" x-cloak class="absolute inset-0 z-20 flex items-center justify-center bg-shell-950/85 p-4 backdrop-blur-sm">
+                    <div class="max-w-sm text-center">
+                        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-warn-500/20 text-warn-300">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <p class="text-sm font-bold text-white">Location access is required</p>
+                        <p class="mt-2 text-xs leading-relaxed text-brand-100/80" x-text="geoStatus"></p>
+                        <button
+                            type="button"
+                            @click="requestGeoAccess()"
+                            class="mt-4 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-warn-500 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-warn-400"
+                            x-show="!geoUnsupported"
+                        >
+                            Allow Location
+                        </button>
+                    </div>
+                </div>
+                <div x-show="cameraNeedsTap && geoReady" x-cloak class="absolute inset-0 flex items-center justify-center bg-shell-950/80 p-4 backdrop-blur-sm">
                     <button
                         type="button"
                         @click="requestCameraStart()"
@@ -64,7 +87,8 @@
                     <span x-text="facingMode === 'environment' ? 'Front Camera' : 'Back Camera'"></span>
                 </button>
             </div>
-            <p class="mt-3 text-center text-xs text-brand-200/70" x-text="cameraStatus">Point the camera at the employee QR code.</p>
+            <p class="mt-2 text-center text-xs" :class="geoReady ? 'text-brand-200/70' : 'font-semibold text-warn-300'" x-text="geoReady ? geoStatus : geoStatus"></p>
+            <p class="mt-1 text-center text-xs text-brand-200/70" x-text="cameraStatus">Point the camera at the employee QR code.</p>
         </section>
 
         <section class="shell-panel flex min-h-[280px] items-center justify-center p-4 sm:min-h-[420px] sm:p-6">
@@ -77,7 +101,15 @@
                 <p class="mt-1 text-brand-200/60">Please contact the administrator.</p>
             </div>
 
-            <div x-show="!locked && !result" class="text-center">
+            <div x-show="!locked && !result && !geoReady" x-cloak class="text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-warn-500/15 text-warn-300">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <p class="text-lg font-bold text-warn-300">Enable device location</p>
+                <p class="mt-2 max-w-sm text-sm text-brand-200/70" x-text="geoStatus"></p>
+            </div>
+
+            <div x-show="!locked && !result && geoReady" class="text-center">
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300">
                     <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2z"/></svg>
                 </div>

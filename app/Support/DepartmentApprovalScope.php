@@ -18,7 +18,7 @@ class DepartmentApprovalScope
         ?ApprovalAssigneeType $approvalType = null,
     ): array {
         $configId = ApprovalWorkflowConfiguration::query()
-            ->where('transaction_type', $type->value)
+            ->where('transaction_type', $type->centralWorkflowType()->value)
             ->value('id');
 
         if (! $configId) {

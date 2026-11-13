@@ -14,7 +14,6 @@
         'employeeSearchUrl' => $employeeSearchUrl,
         'workflowUpdateKey' => 'unified',
         'workflowHistoryKey' => 'unified',
-        'showOutOfSyncWarning' => true,
     ])
 
     @include('admin.settings.partials.approval-workflow-section', [
@@ -28,6 +27,5 @@
         'employeeSearchUrl' => $employeeSearchUrl,
         'workflowUpdateKey' => ApprovalTransactionType::Pardon->value,
         'workflowHistoryKey' => ApprovalTransactionType::Pardon->value,
-        'showOutOfSyncWarning' => false,
     ])
 </div>

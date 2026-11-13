@@ -76,6 +76,44 @@ class PayrollAttendanceAggregator
         $schedule = $employee->schedule();
         $warnings = [];
 
+        if (! $employee->requiresTimekeeping()) {
+            $dates = $this->datesInRange($start, $end);
+            $scheduledDays = 0;
+            foreach ($dates as $date) {
+                if ($schedule->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
+                    $scheduledDays++;
+                }
+            }
+
+            if (! $employee->designation_id) {
+                $warnings[] = 'Missing designation';
+            }
+
+            if (! app(EmployeeSalaryService::class)->effectiveForDate($employee, $end)) {
+                $warnings[] = 'No salary configuration effective for period end';
+            }
+
+            return [
+                'scheduled_days' => $scheduledDays,
+                'worked_days' => $scheduledDays,
+                'paid_days' => round((float) $scheduledDays, 2),
+                'absent_days' => 0,
+                'regular_hours' => 0,
+                'late_minutes' => 0,
+                'undertime_minutes' => 0,
+                'approved_ot_hours' => 0,
+                'recorded_ot_hours' => 0,
+                'holiday_hours' => 0,
+                'rest_day_hours' => 0,
+                'leave_days' => 0,
+                'paid_leave_days' => 0,
+                'unpaid_leave_days' => 0,
+                'travel_order_days' => 0,
+                'warnings' => $warnings === [] ? null : $warnings,
+                'computed_at' => now(),
+            ];
+        }
+
         if (! $employee->designation_id) {
             $warnings[] = 'Missing designation';
         }
@@ -124,6 +162,14 @@ class PayrollAttendanceAggregator
 
             if ($status === AttendanceStatus::TravelOrder) {
                 $travelOrderDays += 1;
+                if (config('payroll.travel_order_counts_as_paid_day', true)) {
+                    $workedDays++;
+                }
+
+                continue;
+            }
+
+            if ($status === AttendanceStatus::OfficialBusiness) {
                 if (config('payroll.travel_order_counts_as_paid_day', true)) {
                     $workedDays++;
                 }

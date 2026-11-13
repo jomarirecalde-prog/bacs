@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/station.js', 'resources/js/qrcode-page.js'],
+            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/station.js', 'resources/js/station-map.js', 'resources/js/qrcode-page.js'],
             refresh: true,
         }),
         tailwindcss(),

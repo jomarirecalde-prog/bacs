@@ -116,6 +116,22 @@ class DtrDayPresenterTest extends TestCase
         $this->assertSame(AttendanceStatus::TravelOrder, $day->status);
     }
 
+    public function test_official_business_shows_ob_in_all_punch_columns(): void
+    {
+        $ob = new Attendance([
+            'attendance_date' => '2026-08-19',
+            'status' => AttendanceStatus::OfficialBusiness,
+        ]);
+
+        $day = $this->presenter->present($ob, $this->schedule);
+
+        $this->assertSame('OB', $day->amIn);
+        $this->assertSame('OB', $day->amOut);
+        $this->assertSame('OB', $day->pmIn);
+        $this->assertSame('OB', $day->pmOut);
+        $this->assertSame(AttendanceStatus::OfficialBusiness, $day->status);
+    }
+
     public function test_cutoff_containing_mid_month_is_the_11_to_25_period(): void
     {
         $period = DtrPeriod::cutoffContaining(ManilaTime::parse('2026-08-20'));

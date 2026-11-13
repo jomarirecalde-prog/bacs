@@ -20,9 +20,12 @@ class SecurityHeaders
         $cameraPolicy = $request->is('attendance-station', 'attendance-station/*')
             ? 'camera=(self)'
             : 'camera=()';
+        $geolocationPolicy = $request->is('attendance-station', 'attendance-station/*')
+            ? 'geolocation=(self)'
+            : 'geolocation=()';
         $response->headers->set(
             'Permissions-Policy',
-            "{$cameraPolicy}, microphone=(), geolocation=()"
+            "{$cameraPolicy}, microphone=(), {$geolocationPolicy}"
         );
         $response->headers->set(
             'Content-Security-Policy',

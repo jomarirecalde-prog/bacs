@@ -1,14 +1,21 @@
 /* eslint-disable no-restricted-globals */
-const SW_VERSION = 'bacs-app-v1.0.0';
+const SW_VERSION = 'bacs-app-v1.0.1';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 
-const PRECACHE_URLS = [
-    '/offline.html',
-    '/app.webmanifest',
-    '/images/bacs_logo_no_bg.png',
-    '/images/icon-192.png',
-    '/images/icon-512.png',
-    '/images/icon-maskable-512.png',
+/** Resolve paths relative to this script (e.g. /BACS/public/), not the site root. */
+function resolveFromSw(path) {
+    const clean = path.startsWith('/') ? path.slice(1) : path;
+
+    return new URL(clean, new URL('.', self.location.href)).href;
+}
+
+const PRECACHE_PATHS = [
+    'offline.html',
+    'app.webmanifest',
+    'images/bacs_logo_no_bg.png',
+    'images/icon-192.png',
+    'images/icon-512.png',
+    'images/icon-maskable-512.png',
 ];
 
 const NO_CACHE_PREFIXES = [
@@ -71,7 +78,7 @@ function isNavigationRequest(request) {
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
-            .then((cache) => cache.addAll(PRECACHE_URLS))
+            .then((cache) => cache.addAll(PRECACHE_PATHS.map(resolveFromSw)))
             .then(() => self.skipWaiting()),
     );
 });
@@ -99,7 +106,7 @@ async function networkFirstNavigation(request) {
         const response = await fetch(request);
         return response;
     } catch {
-        const cached = await caches.match('/offline.html');
+        const cached = await caches.match(resolveFromSw('offline.html'));
         if (cached) {
             return cached;
         }

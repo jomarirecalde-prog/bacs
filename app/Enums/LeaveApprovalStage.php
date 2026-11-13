@@ -84,6 +84,17 @@ enum LeaveApprovalStage: string
         };
     }
 
+    public function pendingStatusForOfficialBusiness(): OfficialBusinessStatus
+    {
+        return match ($this) {
+            self::ImmediateSupervisor => OfficialBusinessStatus::PendingSupervisor,
+            self::DepartmentHead => OfficialBusinessStatus::PendingDepartmentHead,
+            self::AdministrativeHead => OfficialBusinessStatus::PendingAdministrativeHead,
+            self::CeoFinalApproval => OfficialBusinessStatus::PendingCeoFinalApproval,
+            self::HrOfficer => OfficialBusinessStatus::Approved,
+        };
+    }
+
     public function pendingStatusForOfficialTime(): OfficialTimeStatus
     {
         return match ($this) {

@@ -76,13 +76,16 @@ class DtrController extends Controller
         return view('admin.dtr.show', compact('attendance'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $this->authorize('create', Attendance::class);
+
+        $employeeId = $request->integer('employee_id') ?: null;
 
         return view('admin.dtr.create', [
             'employees' => $this->catalog->employeeOptions(),
             'statuses' => AttendanceStatus::cases(),
+            'preselectedEmployeeId' => $employeeId,
         ]);
     }
 
@@ -135,6 +138,7 @@ class DtrController extends Controller
             'forced_status' => ['nullable', Rule::in([
                 AttendanceStatus::OnLeave->value,
                 AttendanceStatus::TravelOrder->value,
+                AttendanceStatus::OfficialBusiness->value,
                 AttendanceStatus::RestDay->value,
                 AttendanceStatus::Holiday->value,
                 AttendanceStatus::Absent->value,

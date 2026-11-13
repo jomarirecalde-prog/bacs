@@ -24,6 +24,9 @@
                 ['Presence', $station->presenceLabel()],
                 ['Idle timeout', $station->idleTimeoutLabel()],
                 ['Last seen', $station->last_seen_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?? '—'],
+                ['Last GPS', $station->last_location_at
+                    ? $station->last_location_at->timezone('Asia/Manila')->format('M j, Y g:i A').' ('.number_format((float) $station->last_latitude, 5).', '.number_format((float) $station->last_longitude, 5).')'
+                    : '—'],
                 ['Last scan', $station->last_scan_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?? '—'],
                 ['Bound at', $binding?->bound_at?->timezone('Asia/Manila')->format('M j, Y g:i A') ?? '—'],
             ] as [$term, $definition])

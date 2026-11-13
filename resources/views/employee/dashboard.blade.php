@@ -57,6 +57,18 @@
         nextActionLabel: @js($nextAction?->label()),
     })">
 
+    @if (! $timekeepingRequired)
+        <div class="alert-success shadow-soft" role="status">
+            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700" aria-hidden="true">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </span>
+            <span class="min-w-0 flex-1 text-sm text-brand-900">
+                <strong class="font-bold">Daily time in/out not required.</strong>
+                <span class="text-brand-900/90"> You do not need to scan at a station or record punches on this dashboard (executive arrangement).</span>
+            </span>
+        </div>
+    @endif
+
     @if ($pendingCorrection)
         <div class="alert-warning shadow-soft" role="status">
             <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warn-100 text-warn-800" aria-hidden="true">
@@ -156,6 +168,15 @@
                     <p class="text-xs font-bold uppercase tracking-wide text-muted">Overtime</p>
                     <p class="mt-0.5 text-sm font-bold text-ink">OT Attachment Reports</p>
                     <p class="mt-0.5 text-xs text-muted">Document activities for DTR overtime; payroll reviews on the period OT page.</p>
+                </div>
+                <span class="btn-outline btn-sm shrink-0">Open</span>
+            </a>
+
+            <a href="{{ route('employee.official-business.index') }}" class="card flex items-center justify-between gap-3 p-4 shadow-soft transition hover:border-brand-200">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wide text-muted">Administrative</p>
+                    <p class="mt-0.5 text-sm font-bold text-ink">Official Business</p>
+                    <p class="mt-0.5 text-xs text-muted">File, track, and print official business requests; approved trips show on your DTR calendar.</p>
                 </div>
                 <span class="btn-outline btn-sm shrink-0">Open</span>
             </a>

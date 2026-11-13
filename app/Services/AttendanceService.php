@@ -35,6 +35,7 @@ class AttendanceService
         private readonly NotificationService $notifications,
         private readonly LeaveResolver $leaves,
         private readonly TravelOrderResolver $travelOrders,
+        private readonly OfficialBusinessResolver $officialBusiness,
         private readonly HolidayResolver $holidays,
     ) {}
 
@@ -47,6 +48,17 @@ class AttendanceService
         }
 
         return 'You are on official travel ('.$order->travel_order_number.'). Time in/out is not required.';
+    }
+
+    public function officialBusinessBlockMessage(Employee $employee, string $date): ?string
+    {
+        $request = $this->officialBusiness->approvedOn($employee->id, $date);
+
+        if (! $request) {
+            return null;
+        }
+
+        return 'You are on official business ('.$request->reference_number.'). Time in/out is not required.';
     }
 
     public function clockIn(User $user): Attendance
@@ -78,10 +90,36 @@ class AttendanceService
         $now = ManilaTime::now();
         $date = $now->toDateString();
 
+        if (! $employee->requiresTimekeeping()) {
+            return $this->stationResult(
+                'TIMEKEEPING_NOT_REQUIRED',
+                false,
+                new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
+                $employee,
+                $now,
+                $employee->schedule(),
+                null,
+                'This employee is not required to time in or out.'
+            );
+        }
+
         return DB::transaction(function () use ($station, $employee, $now, $date) {
             if ($message = $this->travelOrderBlockMessage($employee, $date)) {
                 return $this->stationResult(
                     'TRAVEL_ORDER',
+                    false,
+                    $record ?? new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
+                    $employee,
+                    $now,
+                    $schedule,
+                    null,
+                    $message
+                );
+            }
+
+            if ($message = $this->officialBusinessBlockMessage($employee, $date)) {
+                return $this->stationResult(
+                    'OFFICIAL_BUSINESS',
                     false,
                     $record ?? new Attendance(['employee_id' => $employee->id, 'attendance_date' => $date]),
                     $employee,
@@ -138,6 +176,10 @@ class AttendanceService
 
     public function nextExpectedFor(Employee $employee, ?Attendance $today = null): ?AttendancePunchType
     {
+        if (! $employee->requiresTimekeeping()) {
+            return null;
+        }
+
         return $this->sequence->nextExpected($today ?? $this->todayFor($employee));
     }
 
@@ -293,6 +335,7 @@ class AttendanceService
 
         $this->leaves->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
         $this->travelOrders->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
+        $this->officialBusiness->loadForEmployee($employee->id, $start->toDateString(), $end->toDateString());
         $this->holidays->rememberEmployees([$employee]);
 
         $rows = [];
@@ -380,6 +423,7 @@ class AttendanceService
         $attendance = $this->attendanceForDate($date);
         $this->leaves->loadForDate($employees->pluck('id'), $date);
         $this->travelOrders->loadForDate($employees->pluck('id'), $date);
+        $this->officialBusiness->loadForDate($employees->pluck('id'), $date);
         $this->holidays->rememberEmployees($employees);
 
         $summary = [
@@ -444,18 +488,20 @@ class AttendanceService
         $present = $late = $absent = $missing = 0;
         $lateMinutes = $undertime = $overtime = 0;
 
+        $exempt = ! $employee->requiresTimekeeping();
+
         foreach ($rows as $row) {
             if ($row->attendance_date->gt($today)) {
                 continue;
             }
 
-            if ($row->hasTimeIn()) {
+            if ($row->hasTimeIn() || ($exempt && $row->status === AttendanceStatus::Present)) {
                 $present++;
             }
             if ($row->late_minutes > 0) {
                 $late++;
             }
-            if ($row->status === AttendanceStatus::Absent) {
+            if (! $exempt && $row->status === AttendanceStatus::Absent) {
                 $absent++;
             }
             if ($row->hasTimeIn() && ! $row->isRegularComplete()) {
@@ -486,6 +532,12 @@ class AttendanceService
         $date = $now->toDateString();
 
         return DB::transaction(function () use ($employee, $station, $user, $now, $date) {
+            if (! $employee->requiresTimekeeping()) {
+                throw ValidationException::withMessages([
+                    'attendance' => 'Your role does not require daily time in or out.',
+                ]);
+            }
+
             if ($message = $this->pendingCorrectionMessage($employee, $date)) {
                 throw ValidationException::withMessages([
                     'attendance' => $message,
@@ -493,6 +545,12 @@ class AttendanceService
             }
 
             if ($message = $this->travelOrderBlockMessage($employee, $date)) {
+                throw ValidationException::withMessages([
+                    'attendance' => $message,
+                ]);
+            }
+
+            if ($message = $this->officialBusinessBlockMessage($employee, $date)) {
                 throw ValidationException::withMessages([
                     'attendance' => $message,
                 ]);
@@ -585,12 +643,20 @@ class AttendanceService
             return AttendanceStatus::TravelOrder;
         }
 
+        if ($this->officialBusiness->approvedOn($employee->id, $date)) {
+            return AttendanceStatus::OfficialBusiness;
+        }
+
         if ($this->holidays->isNonWorking($date, $employee)) {
             return AttendanceStatus::Holiday;
         }
 
         if (! $schedule->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
             return AttendanceStatus::RestDay;
+        }
+
+        if (! $employee->requiresTimekeeping()) {
+            return AttendanceStatus::Present;
         }
 
         return AttendanceStatus::Absent;
@@ -771,7 +837,15 @@ class AttendanceService
                 return $flags;
             }
 
+            if ($this->officialBusiness->approvedOn($employee->id, $date)) {
+                return $flags;
+            }
+
             if ($this->holidays->isNonWorking($date, $employee) || ! $employee->schedule()->isWorkDay((int) ManilaTime::parse($date)->isoWeekday())) {
+                return $flags;
+            }
+
+            if (! $employee->requiresTimekeeping()) {
                 return $flags;
             }
 
@@ -787,6 +861,10 @@ class AttendanceService
         }
 
         if ($row->status === AttendanceStatus::TravelOrder) {
+            return $flags;
+        }
+
+        if ($row->status === AttendanceStatus::OfficialBusiness) {
             return $flags;
         }
 

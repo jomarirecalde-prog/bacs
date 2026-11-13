@@ -6,7 +6,7 @@ window.Alpine = Alpine;
 
 function toneFor(code) {
     if (['AM_TIME_IN', 'AM_TIME_OUT', 'PM_TIME_IN', 'PM_TIME_OUT', 'OVERTIME'].includes(code)) return 'text-brand-300';
-    if (['DUPLICATE_SCAN', 'ATTENDANCE_COMPLETED', 'TRAVEL_ORDER'].includes(code)) return 'text-warn-300';
+    if (['DUPLICATE_SCAN', 'ATTENDANCE_COMPLETED', 'TRAVEL_ORDER', 'LOCATION_REQUIRED'].includes(code)) return 'text-warn-300';
     return 'text-critical-300';
 }
 
@@ -31,13 +31,103 @@ document.addEventListener('alpine:init', () => {
         lastScanAt: 0,
         raf: null,
         resultTimer: null,
+        lastGeo: null,
+        geoWatchId: null,
+        geoReady: false,
+        geoDenied: false,
+        geoNeedsTap: false,
+        geoUnsupported: false,
+        geoStatus: 'Device location is required before scanning.',
         async init() {
             this.tick();
             setInterval(() => this.tick(), 1000);
             setInterval(() => this.heartbeat(), 45000);
             await this.$nextTick();
+            await this.requestGeoAccess();
             await this.startCamera();
             this.heartbeat();
+        },
+        applyGeoPosition(position) {
+            const { latitude, longitude } = position.coords;
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+                this.lastGeo = { latitude, longitude };
+                this.geoReady = true;
+                this.geoDenied = false;
+            }
+        },
+        handleGeoError(error) {
+            this.geoReady = false;
+            this.geoDenied = true;
+            this.geoNeedsTap = true;
+            if (!navigator.geolocation) {
+                this.geoUnsupported = true;
+                this.geoStatus = 'This device does not support location. Use a phone or tablet with GPS.';
+                return;
+            }
+            if (error?.code === 1) {
+                this.geoStatus = 'Location access is blocked. Allow location for this site in browser settings, then tap Allow Location below.';
+            } else if (error?.code === 2) {
+                this.geoStatus = 'Location unavailable. Turn on GPS / location services for this device.';
+            } else {
+                this.geoStatus = 'Could not read device location. Tap Allow Location to try again.';
+            }
+        },
+        ensureGeoWatch() {
+            if (!navigator.geolocation || this.geoWatchId != null) {
+                return;
+            }
+            const options = { enableHighAccuracy: true, maximumAge: 120000, timeout: 20000 };
+            try {
+                this.geoWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        this.applyGeoPosition(position);
+                        if (this.geoReady) {
+                            this.geoNeedsTap = false;
+                            this.geoStatus = 'Device location active. You can scan employee QR codes.';
+                        }
+                    },
+                    (error) => {
+                        if (this.geoReady) {
+                            this.handleGeoError(error);
+                        }
+                    },
+                    options,
+                );
+            } catch {
+                this.geoNeedsTap = true;
+            }
+        },
+        async requestGeoAccess() {
+            if (!navigator.geolocation) {
+                this.handleGeoError({ code: 0 });
+                return false;
+            }
+            this.geoStatus = 'Requesting device location…';
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        this.applyGeoPosition(position);
+                        this.geoNeedsTap = false;
+                        this.geoStatus = 'Device location active. You can scan employee QR codes.';
+                        this.ensureGeoWatch();
+                        resolve(true);
+                    },
+                    (error) => {
+                        this.handleGeoError(error);
+                        resolve(false);
+                    },
+                    { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 },
+                );
+            });
+        },
+        geoPayload() {
+            if (!this.geoReady || !this.lastGeo) {
+                return null;
+            }
+            return {
+                latitude: this.lastGeo.latitude,
+                longitude: this.lastGeo.longitude,
+            };
         },
         tick() {
             const now = new Date(Date.now() + this.offset);
@@ -46,13 +136,33 @@ document.addEventListener('alpine:init', () => {
             this.timeLabel = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, ...opts });
         },
         async heartbeat() {
+            if (!this.geoReady) {
+                await this.requestGeoAccess();
+            }
+            const geo = this.geoPayload();
+            if (!geo) {
+                return;
+            }
             try {
+                const headers = {
+                    'X-CSRF-TOKEN': this.csrf,
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                };
                 const res = await fetch(this.heartbeatUrl, {
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': this.csrf, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    headers,
+                    body: JSON.stringify(geo),
                 });
                 if (res.status === 401) {
                     window.location.href = '/attendance-station/login';
+                    return;
+                }
+                if (res.status === 422) {
+                    this.geoReady = false;
+                    this.geoNeedsTap = true;
+                    this.geoStatus = 'Location is required. Tap Allow Location on this device.';
                     return;
                 }
                 const data = await res.json();
@@ -253,10 +363,20 @@ document.addEventListener('alpine:init', () => {
         async onCode(value) {
             const now = Date.now();
             if (this.busy || this.locked) return;
+            if (!this.geoReady) {
+                this.showResult({
+                    code: 'LOCATION_REQUIRED',
+                    title: 'Location Required',
+                    message: 'Allow location access on this device before recording attendance.',
+                });
+                this.geoNeedsTap = true;
+                return;
+            }
             if (value === this.lastScan && now - this.lastScanAt < 2500) return;
             this.lastScan = value;
             this.lastScanAt = now;
             this.busy = true;
+            const geo = this.geoPayload();
             try {
                 const res = await fetch(this.scanUrl, {
                     method: 'POST',
@@ -266,8 +386,22 @@ document.addEventListener('alpine:init', () => {
                         'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: JSON.stringify({ token: value }),
+                    body: JSON.stringify({ token: value, ...geo }),
                 });
+                if (res.status === 422) {
+                    const data = await res.json().catch(() => ({}));
+                    const geoMissing = data?.errors?.latitude || data?.errors?.longitude;
+                    if (geoMissing) {
+                        this.geoReady = false;
+                        this.geoNeedsTap = true;
+                        this.showResult({
+                            code: 'LOCATION_REQUIRED',
+                            title: 'Location Required',
+                            message: 'Allow location access on this device before recording attendance.',
+                        });
+                        return;
+                    }
+                }
                 const data = await res.json();
                 this.showResult(data);
             } catch {

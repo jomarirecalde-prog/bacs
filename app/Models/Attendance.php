@@ -222,6 +222,10 @@ class Attendance extends Model
             return DtrDayPresenter::TRAVEL_ORDER_PUNCH_LABEL;
         }
 
+        if ($this->status === AttendanceStatus::OfficialBusiness && ! $this->hasLeaveOrTravelPunchConflict()) {
+            return DtrDayPresenter::OFFICIAL_BUSINESS_PUNCH_LABEL;
+        }
+
         if ($this->status === AttendanceStatus::OnLeave && ! $this->hasLeaveOrTravelPunchConflict()) {
             return DtrDayPresenter::ON_LEAVE_PUNCH_LABEL;
         }

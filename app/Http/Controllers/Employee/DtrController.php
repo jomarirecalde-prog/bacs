@@ -6,6 +6,7 @@ use App\Enums\OvertimeAttachmentReportStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\OvertimeAttachmentReport;
+use App\Services\OfficialBusinessAttendanceService;
 use App\Services\OfficialDtrPdfService;
 use App\Services\OfficialDtrService;
 use App\Support\DtrPeriod;
@@ -22,6 +23,7 @@ class DtrController extends Controller
     {
         $employee = $this->ownEmployee($request);
         $period = DtrPeriod::fromRequest($request);
+        app(OfficialBusinessAttendanceService::class)->reconcileForEmployee($employee, $period->start, $period->end);
         $sheet = $this->dtr->sheet($employee, $period);
 
         $otAttachmentSummaries = OvertimeAttachmentReport::query()
@@ -61,6 +63,7 @@ class DtrController extends Controller
     {
         $employee = $this->ownEmployee($request);
         $period = DtrPeriod::fromRequest($request);
+        app(OfficialBusinessAttendanceService::class)->reconcileForEmployee($employee, $period->start, $period->end);
         $sheet = $this->dtr->sheet($employee, $period);
         $format = $request->string('format')->toString() ?: 'pdf';
         $stamp = $period->start.'_'.$period->end;
@@ -79,6 +82,7 @@ class DtrController extends Controller
     {
         $employee = $this->ownEmployee($request);
         $period = DtrPeriod::fromRequest($request);
+        app(OfficialBusinessAttendanceService::class)->reconcileForEmployee($employee, $period->start, $period->end);
         $sheet = $this->dtr->sheet($employee, $period);
 
         return $this->pdf->stream($employee, $period, $sheet['days']);

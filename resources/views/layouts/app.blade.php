@@ -52,6 +52,7 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('head')
 </head>
 <body class="min-h-screen" x-data="{ sidebar: false }" :class="sidebar ? 'overflow-hidden' : ''">
     <div id="nav-progress" class="nav-progress" hidden></div>
@@ -88,6 +89,7 @@
                         'calendar-events' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zm7-8v3m0 0h-1.5m1.5 0H13',
                         'list' => 'M4 6h16M4 10h16M4 14h10M4 18h7',
                         'qr' => 'M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 4h2v2h-2v-2zm0-4h2v2h-2v-2z',
+                        'map' => 'M9 20l-5.447-2.724A2 2 0 013 15.382V6.618a2 2 0 011.553-1.944L9 2l5.447 2.724A2 2 0 0116 6.618v8.764a2 2 0 01-1.553 1.944L9 20zM12 12a3 3 0 100-6 3 3 0 000 6z',
                         'shield' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
                         'cog' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
                         'user' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
@@ -103,6 +105,7 @@
                             $stationLinks = [
                                 ['admin.stations.index', 'Attendance Stations', $icons['device']],
                                 ['admin.stations.monitoring', 'Station Monitoring', $icons['monitor']],
+                                ['admin.stations.locations', 'Station Locations', $icons['map']],
                             ];
                         }
 
@@ -139,8 +142,9 @@
                         $navGroups[] = ['label' => 'Leave Management', 'items' => $leaveAdminItems];
 
                         if ($isFullAdmin) {
-                            $navGroups[] = ['label' => 'Travel Orders', 'items' => [
+                            $navGroups[] = ['label' => 'Travel & OB', 'items' => [
                                 ['admin.travel-orders.index', 'Travel Order Management', $icons['document'], 'admin.travel-orders.*'],
+                                ['admin.official-business.index', 'Official Business Management', $icons['list'], 'admin.official-business.*'],
                             ]];
                             $navGroups[] = ['label' => 'Official Time', 'items' => [
                                 ['admin.official-time.index', 'Official Time Management', $icons['clock'], 'admin.official-time.*'],
@@ -176,6 +180,7 @@
                                 ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
                                 ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
                                 ['employee.travel-orders.index', 'Travel Orders', $icons['document'], 'employee.travel-orders.*'],
+                                ['employee.official-business.index', 'Official Business', $icons['list'], 'employee.official-business.*'],
                                 ['employee.official-time.index', 'My Official Time', $icons['clock'], 'employee.official-time.index'],
                                 ['employee.official-time.create', 'Request Official Time', $icons['document'], 'employee.official-time.create'],
                                 ['employee.overtime-attachment.index', 'OT Attachment Reports', $icons['list'], 'employee.overtime-attachment.*'],
@@ -226,9 +231,11 @@
                                 ['employee.leave.balances', 'My Leave Balances', $icons['calendar'], 'employee.leave.balances'],
                                 ['employee.leave.calendar', 'Leave Calendar / History', $icons['calendar'], 'employee.leave.calendar'],
                             ]],
-                            ['label' => 'Travel Orders', 'items' => [
+                            ['label' => 'Travel & Official Business', 'items' => [
                                 ['employee.travel-orders.create', 'New Travel Order', $icons['document'], 'employee.travel-orders.create'],
                                 ['employee.travel-orders.index', 'Travel Order Dashboard', $icons['list'], 'employee.travel-orders.*'],
+                                ['employee.official-business.create', 'New OB Request', $icons['document'], 'employee.official-business.create'],
+                                ['employee.official-business.index', 'Official Business Dashboard', $icons['list'], 'employee.official-business.*'],
                             ]],
                             ['label' => 'Official Time', 'items' => [
                                 ['employee.official-time.index', 'My Official Time', $icons['list'], 'employee.official-time.index'],

@@ -25,6 +25,9 @@ class AttendanceStation extends Authenticatable
         'station_name',
         'password',
         'location',
+        'last_latitude',
+        'last_longitude',
+        'last_location_at',
         'description',
         'status',
         'device_status',
@@ -54,6 +57,9 @@ class AttendanceStation extends Authenticatable
             'login_locked_until' => 'datetime',
             'last_seen_at' => 'datetime',
             'last_scan_at' => 'datetime',
+            'last_latitude' => 'float',
+            'last_longitude' => 'float',
+            'last_location_at' => 'datetime',
         ];
     }
 

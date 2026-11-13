@@ -37,6 +37,7 @@ class Employee extends Model
         'date_hired',
         'photo',
         'work_schedule_id',
+        'requires_timekeeping',
     ];
 
     protected function casts(): array
@@ -45,7 +46,13 @@ class Employee extends Model
             'date_hired' => 'date',
             'birth_date' => 'date',
             'employment_status' => EmploymentStatus::class,
+            'requires_timekeeping' => 'boolean',
         ];
+    }
+
+    public function requiresTimekeeping(): bool
+    {
+        return (bool) ($this->requires_timekeeping ?? true);
     }
 
     public static function nextEmployeeNumber(?int $year = null): string

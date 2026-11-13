@@ -30,4 +30,13 @@ abstract class TestCase extends BaseTestCase
 
         return $result;
     }
+
+    /** @return array{latitude: float, longitude: float} */
+    protected function stationGeoPayload(): array
+    {
+        return [
+            'latitude' => 14.5995124,
+            'longitude' => 120.9842195,
+        ];
+    }
 }

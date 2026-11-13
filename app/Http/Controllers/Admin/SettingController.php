@@ -26,6 +26,8 @@ class SettingController extends Controller
 
         $departments = Department::query()->active()->ordered()->get();
 
+        $approvalWorkflows->synchronizeAllTransactionTypesFromCanonical();
+
         return view('admin.settings.index', [
             'company' => Setting::get('company_name', 'BACS'),
             'address' => Setting::get('company_address', ''),

@@ -125,7 +125,7 @@ class PerformanceAuditTest extends TestCase
         DB::flushQueryLog();
         DB::enableQueryLog();
 
-        $response = $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $response = $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'AM_TIME_IN');
 

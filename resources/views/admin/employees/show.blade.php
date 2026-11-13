@@ -27,6 +27,7 @@
                     ['Position', $employee->position ?? '—'],
                     ['Employment Status', $employee->employment_status?->label()],
                     ['Account Status', $employee->account_status?->label()],
+                    ['Timekeeping', $employee->requiresTimekeeping() ? 'QR / DTR required' : 'Not required (executive)'],
                     ['Username', $employee->user?->username],
                     ['Email', $employee->email],
                 ] as [$term, $definition])
@@ -40,6 +41,19 @@
 
         <div class="card-footer flex flex-wrap gap-2">
             <a class="btn-primary btn-sm" href="{{ route('admin.dtr.monthly', ['employee_id' => $employee->id]) }}">View Complete DTR</a>
+            @if (auth()->user()->canManageEmployees())
+                @if ($employee->requiresTimekeeping())
+                    <form method="POST" action="{{ route('admin.employees.exempt-timekeeping', $employee) }}" onsubmit="return confirm('Exempt this employee from QR scans and time in/out (like executives)? They will not be marked absent when no punches exist.')">
+                        @csrf
+                        <button type="submit" class="btn-outline btn-sm">Exempt from DTR</button>
+                    </form>
+                @else
+                    <form method="POST" action="{{ route('admin.employees.require-timekeeping', $employee) }}" onsubmit="return confirm('Require this employee to use station QR scans or web time in/out again?')">
+                        @csrf
+                        <button type="submit" class="btn-gold btn-sm">Require DTR</button>
+                    </form>
+                @endif
+            @endif
             @if (auth()->user()->canManagePayroll())
                 <a class="btn-outline btn-sm" href="{{ route('admin.payroll.employees.salary.index', $employee) }}">Salary history</a>
             @endif

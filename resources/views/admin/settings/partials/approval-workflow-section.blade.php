@@ -1,12 +1,9 @@
 @php
     use App\Enums\ApprovalAssigneeType;
     use App\Enums\ApprovalTransactionType;
-    use App\Services\CentralApprovalWorkflowService;
 
     $defaultDeptId = (int) old('department_id', $approvalDepartments->first()?->id ?? 0);
     $config = $approvalWorkflowConfiguration;
-    $workflowService = app(CentralApprovalWorkflowService::class);
-    $showOutOfSyncWarning = $showOutOfSyncWarning ?? false;
 @endphp
 <div id="{{ $sectionId }}" class="scroll-mt-28 card overflow-hidden" x-data="{ dept: @js($defaultDeptId), stage: 'first' }">
     <div class="card-header">
@@ -53,7 +50,6 @@
             $selectedSecondaryEndorsers = collect([]);
             // Existing final approver is submitted via hidden input; Alpine picker only tracks a replacement.
             $selectedFinal = collect([]);
-            $outOfSync = $showOutOfSyncWarning ? $workflowService->outOfSyncTransactionTypes($department->id) : [];
             $firstEndorsementSummary = match (true) {
                 ! $config->endorsement_enabled => ['label' => 'Skipped', 'state' => 'skip'],
                 $endorsers->isEmpty() => ['label' => 'Needs endorsers', 'state' => 'warn'],
@@ -114,17 +110,6 @@
                     <button type="button" class="shrink-0 whitespace-nowrap" :class="stage === 'final' ? 'pill-tab-active' : 'pill-tab'" @click="stage = 'final'">3 · Final</button>
                 </div>
             </nav>
-
-            @if ($outOfSync !== [])
-                <div class="alert-warning text-sm">
-                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-warn-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
-                    <span>
-                        <strong class="font-semibold">Out of sync:</strong>
-                        {{ collect($outOfSync)->map(fn (ApprovalTransactionType $type) => $type->label())->join(', ') }} still use different approvers.
-                        Save below to unify all request types in this workflow.
-                    </span>
-                </div>
-            @endif
 
             <form method="POST" action="{{ route('admin.settings.approval-workflow.update', $workflowUpdateKey) }}" class="space-y-5 sm:space-y-6">
                 @csrf

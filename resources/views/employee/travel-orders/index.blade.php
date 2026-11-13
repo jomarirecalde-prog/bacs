@@ -29,7 +29,11 @@
                    class="{{ $tab === $key ? 'pill-tab-active' : 'pill-tab' }}">{{ $label }}</a>
             @endforeach
         </nav>
-        <a href="{{ route('employee.travel-orders.create') }}" class="btn btn-primary shrink-0">New Travel Order</a>
+        <div class="flex flex-wrap gap-2 shrink-0">
+            <a href="{{ route('employee.official-business.index') }}" class="btn btn-secondary">Official Business</a>
+            <a href="{{ route('employee.official-business.create') }}" class="btn btn-secondary">New OB Request</a>
+            <a href="{{ route('employee.travel-orders.create') }}" class="btn btn-primary">New Travel Order</a>
+        </div>
     </div>
 
     <div class="card overflow-hidden">

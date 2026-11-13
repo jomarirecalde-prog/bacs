@@ -22,7 +22,7 @@
                 <select id="employee_id" class="select @error('employee_id') input-error @enderror" name="employee_id" required>
                     <option value="">Select employee</option>
                     @foreach ($employees as $emp)
-                        <option value="{{ $emp->id }}" @selected(old('employee_id') == $emp->id)>{{ $emp->fullName() }} ({{ $emp->employee_number }})</option>
+                        <option value="{{ $emp->id }}" @selected(old('employee_id', $preselectedEmployeeId ?? null) == $emp->id)>{{ $emp->fullName() }} ({{ $emp->employee_number }})</option>
                     @endforeach
                 </select>
                 @error('employee_id')<p class="error-text">{{ $message }}</p>@enderror

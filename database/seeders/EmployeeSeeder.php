@@ -94,6 +94,9 @@ class EmployeeSeeder extends Seeder
                     'employment_status' => $employee?->employment_status ?? EmploymentStatus::Regular,
                     'date_hired' => $employee?->date_hired?->toDateString() ?? '2026-01-01',
                     'work_schedule_id' => $employee?->work_schedule_id ?? $schedule?->id,
+                    'requires_timekeeping' => $departmentName === 'BOARD OF DIRECTORS AND CORPORATE OFFICERS'
+                        ? false
+                        : ($employee?->requires_timekeeping ?? true),
                 ]
             );
 

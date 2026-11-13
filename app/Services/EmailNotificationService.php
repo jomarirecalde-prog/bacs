@@ -14,6 +14,7 @@ use App\Models\AttendanceCorrectionRequest;
 use App\Models\EmailNotificationLog;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
+use App\Models\OfficialBusinessRequest;
 use App\Models\TravelOrder;
 use App\Models\User;
 use App\Support\ManilaTime;
@@ -242,6 +243,16 @@ class EmailNotificationService
                 meta: ['travel_order_id' => $order->id],
             );
         });
+    }
+
+    public function officialBusinessApproved(OfficialBusinessRequest $request, User $approver): void
+    {
+        // Reserved for official business approval email notifications.
+    }
+
+    public function officialBusinessRejected(OfficialBusinessRequest $request, User $approver, string $reason): void
+    {
+        // Reserved for official business rejection email notifications.
     }
 
     public function correctionApproved(AttendanceCorrectionRequest $request, User $reviewer): void

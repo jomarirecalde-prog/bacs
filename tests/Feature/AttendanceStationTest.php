@@ -239,24 +239,24 @@ class AttendanceStationTest extends TestCase
         $date = ManilaTime::todayDate();
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'AM_TIME_IN')
             ->assertJsonPath('next_action', 'AM_TIME_OUT')
             ->assertJsonPath('employee.name', $employee->fullName());
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '12:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'AM_TIME_OUT');
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '13:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'PM_TIME_IN');
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '17:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'PM_TIME_OUT');
 
@@ -268,15 +268,35 @@ class AttendanceStationTest extends TestCase
         $this->assertSame($station->id, $record->punch_stations['am_time_in']['station_id'] ?? null);
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '18:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'OVERTIME');
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '18:30'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'ATTENDANCE_COMPLETED')
             ->assertJsonPath('ok', false);
+    }
+
+    public function test_station_scan_accepts_punches_outside_schedule_windows(): void
+    {
+        $employee = $this->makeEmployee('night');
+        $token = $this->qr->issue($employee);
+        $this->loginNewStation();
+        $date = ManilaTime::todayDate();
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '02:15'));
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'AM_TIME_IN')
+            ->assertJsonPath('ok', true);
+
+        $this->travelTo(ManilaTime::combineDateAndTime($date, '02:16'));
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
+            ->assertOk()
+            ->assertJsonPath('code', 'AM_TIME_OUT')
+            ->assertJsonPath('ok', true);
     }
 
     public function test_immediate_second_scan_is_duplicate_protection(): void
@@ -287,20 +307,31 @@ class AttendanceStationTest extends TestCase
         $date = ManilaTime::todayDate();
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertJsonPath('code', 'AM_TIME_IN');
 
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertJsonPath('code', 'DUPLICATE_SCAN');
 
         $this->assertNull(Attendance::query()->first()->am_time_out);
+    }
+
+    public function test_scan_requires_device_location(): void
+    {
+        $this->loginNewStation();
+        $employee = $this->makeEmployee('georeq');
+        $token = $this->qr->issue($employee);
+
+        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
     public function test_invalid_and_inactive_qr_scans_are_rejected(): void
     {
         $this->loginNewStation();
 
-        $this->postJson(route('station.scan'), ['token' => 'not-a-bacs-token'])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => 'not-a-bacs-token'])
             ->assertStatus(422)
             ->assertJsonPath('code', 'INVALID_QR');
 
@@ -308,7 +339,7 @@ class AttendanceStationTest extends TestCase
         $old = $this->qr->issue($employee);
         $this->qr->regenerate($employee);
 
-        $this->postJson(route('station.scan'), ['token' => $old->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $old->plainToken()])
             ->assertStatus(422)
             ->assertJsonPath('code', 'INVALID_QR');
 
@@ -316,7 +347,7 @@ class AttendanceStationTest extends TestCase
         $inactive->user->update(['status' => AccountStatus::Inactive]);
         $qr = $this->qr->issue($inactive);
 
-        $this->postJson(route('station.scan'), ['token' => $qr->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $qr->plainToken()])
             ->assertStatus(422)
             ->assertJsonPath('code', 'ACCOUNT_INACTIVE');
     }
@@ -328,7 +359,7 @@ class AttendanceStationTest extends TestCase
         $station = $this->loginNewStation();
         $station->update(['status' => StationStatus::Locked]);
 
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertStatus(403)
             ->assertJsonPath('code', 'STATION_LOCKED');
 
@@ -398,10 +429,33 @@ class AttendanceStationTest extends TestCase
         $station = $this->loginNewStation();
         $this->assertNotNull($station->fresh()->last_seen_at);
 
-        $this->postJson(route('station.heartbeat'))
+        $this->postJson(route('station.heartbeat'), $this->stationGeoPayload())
             ->assertOk()
             ->assertJsonPath('ok', true)
             ->assertJsonPath('locked', false);
+    }
+
+    public function test_heartbeat_requires_device_location(): void
+    {
+        $this->loginNewStation();
+
+        $this->postJson(route('station.heartbeat'), [])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['latitude', 'longitude']);
+    }
+
+    public function test_heartbeat_can_store_last_known_location(): void
+    {
+        $station = $this->loginNewStation();
+
+        $this->postJson(route('station.heartbeat'), $this->stationGeoPayload())
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $station->refresh();
+        $this->assertSame(14.5995124, (float) $station->last_latitude);
+        $this->assertSame(120.9842195, (float) $station->last_longitude);
+        $this->assertNotNull($station->last_location_at);
     }
 
     public function test_wrong_password_is_rate_limited_and_logged(): void

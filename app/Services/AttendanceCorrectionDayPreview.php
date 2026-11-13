@@ -187,6 +187,10 @@ class AttendanceCorrectionDayPreview
             $tags[] = ['key' => 'travel', 'label' => 'Travel order', 'tone' => 'info'];
         }
 
+        if ($dayStatus === AttendanceStatus::OfficialBusiness && $missing) {
+            $tags[] = ['key' => 'official_business', 'label' => 'Official business', 'tone' => 'info'];
+        }
+
         return [
             'type' => $type->value,
             'label' => $type->label(),
@@ -226,6 +230,8 @@ class AttendanceCorrectionDayPreview
             $lines[] = 'You are marked on leave for this date.';
         } elseif ($status === AttendanceStatus::TravelOrder) {
             $lines[] = 'You have an approved travel order for this date.';
+        } elseif ($status === AttendanceStatus::OfficialBusiness) {
+            $lines[] = 'You have an approved official business request for this date.';
         } elseif ($status === AttendanceStatus::RestDay) {
             $lines[] = 'This is a rest day on your record.';
         } elseif ($status === AttendanceStatus::Holiday) {

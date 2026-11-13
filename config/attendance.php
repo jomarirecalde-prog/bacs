@@ -15,4 +15,15 @@ return [
 
     'qr_cross_station_window_seconds' => (int) env('QR_CROSS_STATION_WINDOW_SECONDS', 90),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Punch time windows (schedule-based)
+    |--------------------------------------------------------------------------
+    |
+    | Punches are accepted in order (AM in → AM out → PM in → PM out → overtime)
+    | at any time of day. Late/undertime are still computed from the work schedule
+    | when punches are saved.
+    |
+    */
+
 ];

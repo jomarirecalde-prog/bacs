@@ -221,7 +221,7 @@ class AttendanceCorrectionTest extends TestCase
         $this->actingAs($station->fresh(), 'station');
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'PENDING_CORRECTION')
             ->assertJsonPath('ok', false);
@@ -256,7 +256,7 @@ class AttendanceCorrectionTest extends TestCase
         $this->actingAs($station->fresh(), 'station');
 
         $this->travelTo(ManilaTime::combineDateAndTime($date, '08:00'));
-        $this->postJson(route('station.scan'), ['token' => $token->plainToken()])
+        $this->postJson(route('station.scan'), array_merge($this->stationGeoPayload(), ['token' => $token->plainToken()])
             ->assertOk()
             ->assertJsonPath('code', 'PENDING_CORRECTION')
             ->assertJsonPath('ok', false);

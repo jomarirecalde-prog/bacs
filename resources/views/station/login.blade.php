@@ -80,7 +80,7 @@
                 @enderror
                 <button type="submit" class="btn-primary btn-block btn-lg">Login to Station</button>
             </form>
-            <p class="mt-6 border-t border-line pt-5 text-center text-xs leading-relaxed text-muted">Do not use private or incognito browsing. Install this page as an app on the dedicated station device. Device binding is permanent until the Super Admin resets it.</p>
+            <p class="mt-6 border-t border-line pt-5 text-center text-xs leading-relaxed text-muted">Do not use private or incognito browsing. Install this page as an app on the dedicated station device. After login you must allow <strong>camera</strong> and <strong>location</strong> so scans can be recorded and mapped. Device binding is permanent until the Super Admin resets it.</p>
         </div>
     </div>
 </div>

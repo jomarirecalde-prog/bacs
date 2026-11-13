@@ -18,6 +18,8 @@ use App\Models\OfficialTimeRequest;
 use App\Enums\OfficialTimeStatus;
 use App\Enums\OvertimeAttachmentReportStatus;
 use App\Models\OvertimeAttachmentReport;
+use App\Enums\OfficialBusinessStatus;
+use App\Models\OfficialBusinessRequest;
 use App\Models\TravelOrder;
 use App\Models\TravelOrderApprovalAssignment;
 use App\Models\User;
@@ -124,6 +126,30 @@ class CentralApprovalDutyService
             );
         }
 
+        if ($this->isConfiguredEndorser($employeeId, ApprovalTransactionType::TravelOrder)) {
+            $obEndorsement = $this->countOfficialBusinessEndorsement($user);
+            if ($obEndorsement > 0) {
+                $modules[] = $this->module(
+                    'Official Business Endorsement',
+                    'official-business.approvals.index',
+                    ['scope' => 'endorsement'],
+                    $obEndorsement
+                );
+            }
+        }
+
+        if ($this->isConfiguredFinalApprover($employeeId, ApprovalTransactionType::TravelOrder)) {
+            $obFinal = $this->countOfficialBusinessFinal($user);
+            if ($obFinal > 0) {
+                $modules[] = $this->module(
+                    'Official Business Final Approval',
+                    'official-business.approvals.index',
+                    ['scope' => 'final'],
+                    $obFinal
+                );
+            }
+        }
+
         return $modules;
     }
 
@@ -186,6 +212,22 @@ class CentralApprovalDutyService
     {
         return TravelOrder::query()
             ->where('status', TravelOrderStatus::PendingCeoFinalApproval)
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOfficialBusinessEndorsement(User $user): int
+    {
+        return OfficialBusinessRequest::query()
+            ->where('status', OfficialBusinessStatus::PendingSupervisor)
+            ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::ImmediateSupervisor->value)->where('status', 'pending'))
+            ->count();
+    }
+
+    private function countOfficialBusinessFinal(User $user): int
+    {
+        return OfficialBusinessRequest::query()
+            ->where('status', OfficialBusinessStatus::PendingCeoFinalApproval)
             ->whereHas('assignments', fn ($q) => $q->where('user_id', $user->id)->where('stage', LeaveApprovalStage::CeoFinalApproval->value)->where('status', 'pending'))
             ->count();
     }

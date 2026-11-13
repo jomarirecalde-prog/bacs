@@ -29,6 +29,7 @@ use App\Http\Controllers\Employee\PayrollController as EmployeePayrollController
 use App\Http\Controllers\Employee\SalaryController as EmployeeSalaryController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\PardonApprovalController;
+use App\Http\Controllers\Admin\StationLocationMapController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\AccountPasswordSetupController;
 use App\Http\Controllers\Auth\LoginController;
@@ -47,8 +48,11 @@ use App\Http\Controllers\Admin\LeaveReportController;
 use App\Http\Controllers\Admin\LeaveWorkflowController;
 use App\Http\Controllers\Employee\LeaveApplicationController as EmployeeLeaveApplicationController;
 use App\Http\Controllers\EmployeePhotoController;
+use App\Http\Controllers\Admin\OfficialBusinessController as AdminOfficialBusinessController;
 use App\Http\Controllers\Admin\TravelOrderController as AdminTravelOrderController;
+use App\Http\Controllers\Employee\OfficialBusinessController as EmployeeOfficialBusinessController;
 use App\Http\Controllers\Employee\TravelOrderController as EmployeeTravelOrderController;
+use App\Http\Controllers\OfficialBusinessApprovalController;
 use App\Http\Controllers\LeaveApprovalController;
 use App\Http\Controllers\TravelOrderApprovalController;
 use App\Http\Controllers\OfficialTimeApprovalController;
@@ -190,6 +194,18 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::get('/travel-orders/{travelOrder}/pdf', [EmployeeTravelOrderController::class, 'pdf'])->name('travel-orders.pdf');
         Route::get('/travel-orders/{travelOrder}/print', [EmployeeTravelOrderController::class, 'print'])->name('travel-orders.print');
 
+        Route::get('/official-business', [EmployeeOfficialBusinessController::class, 'index'])->name('official-business.index');
+        Route::get('/official-business/create', [EmployeeOfficialBusinessController::class, 'create'])->name('official-business.create');
+        Route::get('/official-business/employees/search', [EmployeeOfficialBusinessController::class, 'searchEmployees'])->name('official-business.employees.search');
+        Route::post('/official-business', [EmployeeOfficialBusinessController::class, 'store'])->name('official-business.store');
+        Route::get('/official-business/{officialBusinessRequest}', [EmployeeOfficialBusinessController::class, 'show'])->name('official-business.show');
+        Route::get('/official-business/{officialBusinessRequest}/edit', [EmployeeOfficialBusinessController::class, 'edit'])->name('official-business.edit');
+        Route::put('/official-business/{officialBusinessRequest}', [EmployeeOfficialBusinessController::class, 'update'])->name('official-business.update');
+        Route::post('/official-business/{officialBusinessRequest}/cancel', [EmployeeOfficialBusinessController::class, 'cancel'])->name('official-business.cancel');
+        Route::get('/official-business/{officialBusinessRequest}/pdf', [EmployeeOfficialBusinessController::class, 'pdf'])->name('official-business.pdf');
+        Route::get('/official-business/{officialBusinessRequest}/preview', [EmployeeOfficialBusinessController::class, 'preview'])->name('official-business.preview');
+        Route::get('/official-business/{officialBusinessRequest}/print', [EmployeeOfficialBusinessController::class, 'print'])->name('official-business.print');
+
         Route::get('/official-time', [EmployeeOfficialTimeController::class, 'index'])->name('official-time.index');
         Route::get('/official-time/create', [EmployeeOfficialTimeController::class, 'create'])->name('official-time.create');
         Route::post('/official-time', [EmployeeOfficialTimeController::class, 'store'])->name('official-time.store');
@@ -256,6 +272,16 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::get('/{travelOrder}/print', [TravelOrderApprovalController::class, 'print'])->name('print');
     });
 
+    Route::prefix('official-business/approvals')->name('official-business.approvals.')->group(function () {
+        Route::get('/', [OfficialBusinessApprovalController::class, 'index'])->name('index');
+        Route::get('/history', [OfficialBusinessApprovalController::class, 'history'])->name('history');
+        Route::get('/{officialBusinessRequest}', [OfficialBusinessApprovalController::class, 'show'])->name('show');
+        Route::post('/{officialBusinessRequest}/decide', [OfficialBusinessApprovalController::class, 'decide'])->name('decide');
+        Route::get('/{officialBusinessRequest}/pdf', [OfficialBusinessApprovalController::class, 'pdf'])->name('pdf');
+        Route::get('/{officialBusinessRequest}/preview', [OfficialBusinessApprovalController::class, 'preview'])->name('preview');
+        Route::get('/{officialBusinessRequest}/print', [OfficialBusinessApprovalController::class, 'print'])->name('print');
+    });
+
     Route::prefix('leave/approvals')->name('leave.approvals.')->group(function () {
         Route::get('/', [LeaveApprovalController::class, 'index'])->name('index');
         Route::get('/history', [LeaveApprovalController::class, 'history'])->name('history');
@@ -277,6 +303,8 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::put('/employees/{employee}', [EmployeeController::class, 'update'])->middleware('role:admin')->name('employees.update');
         Route::post('/employees/{employee}/deactivate', [EmployeeController::class, 'deactivate'])->middleware('role:admin')->name('employees.deactivate');
         Route::post('/employees/{employee}/activate', [EmployeeController::class, 'activate'])->middleware('role:admin')->name('employees.activate');
+        Route::post('/employees/{employee}/exempt-timekeeping', [EmployeeController::class, 'exemptTimekeeping'])->middleware('role:admin')->name('employees.exempt-timekeeping');
+        Route::post('/employees/{employee}/require-timekeeping', [EmployeeController::class, 'requireTimekeeping'])->middleware('role:admin')->name('employees.require-timekeeping');
         Route::get('/employees/{employee}/qr', [EmployeeQrController::class, 'show'])->middleware('role:admin')->name('employees.qr');
         Route::post('/employees/{employee}/qr/generate', [EmployeeQrController::class, 'generate'])->middleware('role:admin')->name('employees.qr.generate');
         Route::post('/employees/{employee}/qr/regenerate', [EmployeeQrController::class, 'regenerate'])->middleware('role:admin')->name('employees.qr.regenerate');
@@ -304,6 +332,8 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
             Route::get('/attendance-stations/create', [AttendanceStationController::class, 'create'])->name('stations.create');
             Route::post('/attendance-stations', [AttendanceStationController::class, 'store'])->name('stations.store');
             Route::get('/station-monitoring', [StationMonitoringController::class, 'index'])->name('stations.monitoring');
+            Route::get('/station-locations', [StationLocationMapController::class, 'index'])->name('stations.locations');
+            Route::get('/station-locations/data', [StationLocationMapController::class, 'data'])->name('stations.locations.data');
             Route::get('/attendance-stations/{station}', [AttendanceStationController::class, 'show'])->name('stations.show');
             Route::get('/attendance-stations/{station}/edit', [AttendanceStationController::class, 'edit'])->name('stations.edit');
             Route::put('/attendance-stations/{station}', [AttendanceStationController::class, 'update'])->name('stations.update');
@@ -408,6 +438,11 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
         Route::post('/travel-orders/{travelOrder}/cancel', [AdminTravelOrderController::class, 'cancelApproved'])->middleware('role:admin')->name('travel-orders.cancel');
         Route::get('/travel-orders/{travelOrder}/pdf', [AdminTravelOrderController::class, 'pdf'])->middleware('role:admin')->name('travel-orders.pdf');
         Route::get('/travel-orders/{travelOrder}/print', [AdminTravelOrderController::class, 'print'])->middleware('role:admin')->name('travel-orders.print');
+
+        Route::get('/official-business', [AdminOfficialBusinessController::class, 'index'])->middleware('role:admin')->name('official-business.index');
+        Route::get('/official-business/{officialBusinessRequest}', [AdminOfficialBusinessController::class, 'show'])->middleware('role:admin')->name('official-business.show');
+        Route::get('/official-business/{officialBusinessRequest}/pdf', [AdminOfficialBusinessController::class, 'pdf'])->middleware('role:admin')->name('official-business.pdf');
+        Route::get('/official-business/{officialBusinessRequest}/preview', [AdminOfficialBusinessController::class, 'preview'])->middleware('role:admin')->name('official-business.preview');
 
         Route::prefix('payroll')->name('payroll.')->group(function () {
             Route::get('/', [PayrollDashboardController::class, 'index'])->name('dashboard');

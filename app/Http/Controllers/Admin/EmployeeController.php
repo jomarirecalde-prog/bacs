@@ -211,6 +211,36 @@ class EmployeeController extends Controller
         return back()->with('success', 'Employee account activated.');
     }
 
+    public function exemptTimekeeping(Request $request, Employee $employee)
+    {
+        $this->authorize('update', $employee);
+        $employee->update(['requires_timekeeping' => false]);
+        $this->auditLogger->log(
+            $request->user(),
+            'employee_timekeeping_exempt',
+            'Employees',
+            $employee->id,
+            "Employee {$employee->fullName()} exempted from QR/DTR timekeeping."
+        );
+
+        return back()->with('success', 'Employee is exempt from station scans and time in/out. Absences will not be counted.');
+    }
+
+    public function requireTimekeeping(Request $request, Employee $employee)
+    {
+        $this->authorize('update', $employee);
+        $employee->update(['requires_timekeeping' => true]);
+        $this->auditLogger->log(
+            $request->user(),
+            'employee_timekeeping_required',
+            'Employees',
+            $employee->id,
+            "Employee {$employee->fullName()} must record attendance via QR or web punch again."
+        );
+
+        return back()->with('success', 'Employee must record attendance again via QR station or web time in/out.');
+    }
+
     private function formData(): array
     {
         return [

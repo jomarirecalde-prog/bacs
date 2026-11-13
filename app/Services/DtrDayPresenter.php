@@ -14,6 +14,8 @@ class DtrDayPresenter
 {
     public const TRAVEL_ORDER_PUNCH_LABEL = 'TRAVEL';
 
+    public const OFFICIAL_BUSINESS_PUNCH_LABEL = 'OB';
+
     public const ON_LEAVE_PUNCH_LABEL = 'LEAVE';
 
     public function present(Attendance $row, WorkSchedule $schedule): DtrDayRow
@@ -52,6 +54,28 @@ class DtrDayPresenter
                 amOut: $to,
                 pmIn: $to,
                 pmOut: $to,
+                overtime: null,
+                totalHours: null,
+                overtimeMinutes: 0,
+                totalMinutes: 0,
+                status: $status,
+                incomplete: false,
+                isFuture: $isFuture,
+                source: $row->exists ? $row : null,
+            );
+        }
+
+        if ($status === AttendanceStatus::OfficialBusiness && ! $this->hasLeaveOrTravelPunchConflict($row)) {
+            $ob = self::OFFICIAL_BUSINESS_PUNCH_LABEL;
+
+            return new DtrDayRow(
+                date: $date,
+                dateLabel: $day->format('m/d/Y'),
+                dayName: $day->format('l'),
+                amIn: $ob,
+                amOut: $ob,
+                pmIn: $ob,
+                pmOut: $ob,
                 overtime: null,
                 totalHours: null,
                 overtimeMinutes: 0,

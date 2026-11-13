@@ -45,6 +45,12 @@ if (key && host && userId && reverbHostIsUsable(host)) {
     const port = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
     const useTls = scheme === 'https';
 
+    const appBase = document.head.querySelector('meta[name="app-base"]')?.content?.replace(/\/$/, '')
+        || (typeof window.appUrl === 'function' ? window.appUrl() : '');
+    const authEndpoint = appBase
+        ? `${appBase}/broadcasting/auth`
+        : new URL('broadcasting/auth', `${window.location.origin}/`).href;
+
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key,
@@ -53,7 +59,7 @@ if (key && host && userId && reverbHostIsUsable(host)) {
         wssPort: port,
         forceTLS: useTls,
         enabledTransports: useTls ? ['wss'] : ['ws'],
-        authEndpoint: window.appUrl ? `${window.appUrl('/broadcasting/auth')}` : '/broadcasting/auth',
+        authEndpoint,
         auth: {
             headers: {
                 'X-CSRF-TOKEN': csrf || '',

@@ -168,4 +168,13 @@ class StationBindingService
         $station->update(['last_seen_at' => $now]);
         $binding?->update(['last_seen_at' => $now]);
     }
+
+    public function recordLastKnownLocation(AttendanceStation $station, float $latitude, float $longitude): void
+    {
+        $station->update([
+            'last_latitude' => round($latitude, 7),
+            'last_longitude' => round($longitude, 7),
+            'last_location_at' => ManilaTime::now(),
+        ]);
+    }
 }

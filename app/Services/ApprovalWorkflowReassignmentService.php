@@ -6,6 +6,7 @@ use App\Enums\ApprovalTransactionType;
 use App\Enums\AttendanceCorrectionStatus;
 use App\Enums\LeaveApprovalStage;
 use App\Enums\LeaveStatus;
+use App\Enums\OfficialBusinessStatus;
 use App\Enums\OfficialTimeStatus;
 use App\Enums\OvertimeRequestStatus;
 use App\Enums\TravelOrderStatus;
@@ -16,6 +17,8 @@ use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
 use App\Models\LeaveApprovalAssignment;
+use App\Models\OfficialBusinessApprovalAssignment;
+use App\Models\OfficialBusinessRequest;
 use App\Models\OfficialTimeApprovalAssignment;
 use App\Models\OfficialTimeRequest;
 use App\Models\OvertimeApprovalAssignment;
@@ -531,14 +534,24 @@ class ApprovalWorkflowReassignmentService
                 ]],
             ],
             ApprovalTransactionType::TravelOrder->value => [
-                'handlers' => [[
-                    'query' => fn (int $departmentId) => TravelOrder::query()
-                        ->whereIn('status', $this->openTravelStatuses())
-                        ->whereHas('employee', fn ($q) => $q->where('department_id', $departmentId)),
-                    'assignment_model' => TravelOrderApprovalAssignment::class,
-                    'parent_fk' => 'travel_order_id',
-                    'stage_column' => 'current_stage',
-                ]],
+                'handlers' => [
+                    [
+                        'query' => fn (int $departmentId) => TravelOrder::query()
+                            ->whereIn('status', $this->openTravelStatuses())
+                            ->where('department_id', $departmentId),
+                        'assignment_model' => TravelOrderApprovalAssignment::class,
+                        'parent_fk' => 'travel_order_id',
+                        'stage_column' => 'current_stage',
+                    ],
+                    [
+                        'query' => fn (int $departmentId) => OfficialBusinessRequest::query()
+                            ->whereIn('status', $this->openOfficialBusinessStatuses())
+                            ->where('department_id', $departmentId),
+                        'assignment_model' => OfficialBusinessApprovalAssignment::class,
+                        'parent_fk' => 'official_business_request_id',
+                        'stage_column' => 'current_stage',
+                    ],
+                ],
             ],
             ApprovalTransactionType::OvertimeRequest->value => [
                 'handlers' => [[
@@ -579,6 +592,12 @@ class ApprovalWorkflowReassignmentService
     private function openTravelStatuses(): array
     {
         return collect(TravelOrderStatus::cases())->filter->isOpen()->map->value->values()->all();
+    }
+
+    /** @return list<string> */
+    private function openOfficialBusinessStatuses(): array
+    {
+        return collect(OfficialBusinessStatus::cases())->filter->isOpen()->map->value->values()->all();
     }
 
     /** @return list<string> */
