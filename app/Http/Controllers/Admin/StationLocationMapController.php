@@ -16,8 +16,8 @@ class StationLocationMapController extends Controller
         return view('admin.stations.location-map', [
             'stations' => $this->stationsPayload(),
             'locationsUrl' => route('admin.stations.locations.data'),
-            'mapboxToken' => config('services.mapbox.access_token'),
-            'mapStyle' => config('services.mapbox.style'),
+            'mapboxToken' => $this->mapboxAccessToken(),
+            'mapStyle' => $this->mapboxStyle(),
         ]);
     }
 
@@ -29,6 +29,36 @@ class StationLocationMapController extends Controller
             'stations' => $this->stationsPayload(),
             'server_time' => ManilaTime::now()->toIso8601String(),
         ]);
+    }
+
+    private function mapboxAccessToken(): ?string
+    {
+        $fromConfig = config('services.mapbox.access_token');
+        if (is_string($fromConfig) && trim($fromConfig) !== '') {
+            return trim($fromConfig);
+        }
+
+        $fromEnv = $_ENV['MAPBOX_ACCESS_TOKEN'] ?? getenv('MAPBOX_ACCESS_TOKEN');
+        if (is_string($fromEnv) && trim($fromEnv) !== '') {
+            return trim($fromEnv);
+        }
+
+        return null;
+    }
+
+    private function mapboxStyle(): string
+    {
+        $fromConfig = config('services.mapbox.style');
+        if (is_string($fromConfig) && trim($fromConfig) !== '') {
+            return trim($fromConfig);
+        }
+
+        $fromEnv = $_ENV['MAPBOX_STYLE'] ?? getenv('MAPBOX_STYLE');
+        if (is_string($fromEnv) && trim($fromEnv) !== '') {
+            return trim($fromEnv);
+        }
+
+        return 'mapbox://styles/mapbox/streets-v12';
     }
 
     /**

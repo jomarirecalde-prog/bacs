@@ -26,6 +26,7 @@ echo "==> Running migrations"
 $PHP artisan migrate --force
 
 echo "==> Caching config, routes, and views"
+$PHP artisan config:clear
 $PHP artisan config:cache
 $PHP artisan route:cache
 $PHP artisan view:cache
