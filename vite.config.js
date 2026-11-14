@@ -40,6 +40,8 @@ export default defineConfig(({ mode }) => {
             tailwindcss(),
         ],
         server: {
+            // IPv6 [::1] is not a valid CSP host in Chromium; bind loopback explicitly.
+            host: '127.0.0.1',
             watch: {
                 ignored: ['**/storage/framework/views/**'],
             },

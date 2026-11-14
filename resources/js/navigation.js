@@ -123,6 +123,26 @@ function mountPartial(html, url) {
         sub.textContent = fragment.dataset.pageSubtitle;
     }
 
+    const back = document.getElementById('page-back');
+    if (back) {
+        const show = fragment.dataset.backShow !== '0';
+        back.hidden = !show;
+        back.classList.toggle('hidden', !show);
+        const backUrl = (fragment.dataset.backUrl || '').trim();
+        if (backUrl) {
+            back.dataset.backUrl = backUrl;
+        } else {
+            delete back.dataset.backUrl;
+        }
+        const backFallback = (fragment.dataset.backFallback || '').trim();
+        if (backFallback) {
+            back.dataset.backFallback = backFallback;
+        }
+        const backLabel = (fragment.dataset.backLabel || 'Back').trim() || 'Back';
+        back.setAttribute('aria-label', backLabel);
+        back.setAttribute('title', backLabel);
+    }
+
     updateNav(url);
     activateScripts(main);
 
@@ -212,7 +232,46 @@ export async function navigate(url, { replace = false, push = true } = {}) {
     }
 }
 
+function samePath(left, right) {
+    try {
+        const a = new URL(left, window.location.origin);
+        const b = new URL(right, window.location.origin);
+        return a.pathname === b.pathname && a.search === b.search;
+    } catch {
+        return false;
+    }
+}
+
+function handlePageBackClick(event) {
+    const button = event.target.closest('#page-back');
+    if (!button) {
+        return false;
+    }
+    event.preventDefault();
+    const explicit = (button.dataset.backUrl || '').trim();
+    if (explicit) {
+        navigate(explicit);
+        return true;
+    }
+    const fallback = (button.dataset.backFallback || '').trim();
+    if (fallback && !samePath(fallback, window.location.href)) {
+        navigate(fallback);
+        return true;
+    }
+    if (window.history.state?.spa) {
+        window.history.back();
+        return true;
+    }
+    if (window.history.length > 1) {
+        window.history.back();
+    }
+    return true;
+}
+
 function onClick(event) {
+    if (handlePageBackClick(event)) {
+        return;
+    }
     const anchor = event.target.closest('a[href]');
     if (!anchor || !shouldInterceptClick(event, anchor)) {
         return;

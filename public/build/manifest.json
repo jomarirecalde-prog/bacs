@@ -16,7 +16,7 @@
     "name": "pwa"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CIGh2f7W.css",
+    "file": "assets/app-C8Jm6LYV.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -25,7 +25,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-DHFyHljK.js",
+    "file": "assets/app-CqiOrdIn.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

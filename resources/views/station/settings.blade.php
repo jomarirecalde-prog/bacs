@@ -5,12 +5,7 @@
 @section('content')
 <div class="min-h-screen bg-gradient-to-b from-shell-950 to-shell-900">
     <div class="mx-auto max-w-xl p-6">
-        <a href="{{ route('station.dashboard') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-200/70 transition hover:text-white">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            Back to scanner
-        </a>
-
-        <h1 class="mt-6 text-3xl font-extrabold text-white">Station Settings</h1>
+        <h1 class="text-3xl font-extrabold text-white">Station Settings</h1>
         <p class="mt-1 text-sm text-brand-200/70">Read-only device and station information.</p>
 
         <div class="shell-panel mt-6 divide-y divide-white/10 text-sm">

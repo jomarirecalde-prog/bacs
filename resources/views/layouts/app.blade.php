@@ -1,11 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 @if (request()->headers->get('X-BACS-Partial') === '1')
+@php
+    extract(\App\Support\PageBackContext::forLayout(
+        (string) $__env->yieldContent('back-url'),
+        (string) $__env->yieldContent('back-label'),
+    ));
+@endphp
 <body>
 <div id="bacs-partial"
      data-title="@yield('title', 'Dashboard') · {{ config('app.name') }}"
      data-page-title="@yield('page-title', 'Dashboard')"
      data-page-subtitle="@yield('page-subtitle', 'Philippine Standard Time')"
+     data-back-url="{{ $pageBackUrl ?? '' }}"
+     data-back-fallback="{{ $pageBackFallback ?? '' }}"
+     data-back-label="{{ $pageBackLabel ?? 'Back' }}"
+     data-back-show="{{ ($pageBackShow ?? false) ? '1' : '0' }}"
      data-route="{{ optional(request()->route())->getName() }}">
     @if (session('success'))
         <div class="alert-success mb-4">
@@ -304,11 +314,18 @@
         </aside>
 
         <div class="min-h-screen min-w-0 flex-1 lg:pl-72">
+            @php
+                extract(\App\Support\PageBackContext::forLayout(
+                    (string) $__env->yieldContent('back-url'),
+                    (string) $__env->yieldContent('back-label'),
+                ));
+            @endphp
             <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur-md safe-top sm:gap-4 sm:px-4 lg:px-8">
                 <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                     <button type="button" class="icon-btn shrink-0 lg:hidden" @click="sidebar = true" aria-label="Open menu">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
+                    <x-page-back-button :url="$pageBackUrl" :label="$pageBackLabel" :fallback="$pageBackFallback" :show="$pageBackShow" />
                     <div class="min-w-0">
                         <h1 id="page-heading" class="truncate text-base font-extrabold tracking-tight text-ink">@yield('page-title', 'Dashboard')</h1>
                         <p id="page-subheading" class="truncate text-xs text-muted">@yield('page-subtitle', 'Philippine Standard Time')</p>

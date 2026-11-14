@@ -14,6 +14,21 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-canvas">
+    @php
+        $guestBackUrl = trim((string) $__env->yieldContent('back-url'));
+        $guestBackLabel = trim((string) $__env->yieldContent('back-label'));
+        $guestBackLabel = $guestBackLabel !== '' ? $guestBackLabel : 'Back';
+        if ($guestBackUrl === '') {
+            if (request()->routeIs('login', 'station.login')) {
+                $guestBackUrl = route('landing');
+                $guestBackLabel = 'Back to home';
+            } else {
+                $guestBackUrl = request()->routeIs('station.*') ? route('station.login') : route('login');
+                $guestBackLabel = 'Back to sign in';
+            }
+        }
+    @endphp
+    <x-guest-back-button :url="$guestBackUrl" :label="$guestBackLabel" />
     @yield('content')
     @include('partials.pwa-ui')
 </body>

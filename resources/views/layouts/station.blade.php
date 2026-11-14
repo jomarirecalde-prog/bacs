@@ -16,6 +16,22 @@
     @vite(['resources/css/app.css', 'resources/js/station.js'])
 </head>
 <body class="min-h-screen bg-shell-950 text-white antialiased">
+    @unless (request()->routeIs('station.dashboard'))
+        @php
+            $stationBackUrl = trim((string) $__env->yieldContent('back-url'));
+            $stationBackUrl = $stationBackUrl !== '' ? $stationBackUrl : route('station.dashboard');
+            $stationBackLabel = trim((string) $__env->yieldContent('back-label'));
+            $stationBackLabel = $stationBackLabel !== '' ? $stationBackLabel : 'Back';
+        @endphp
+        <div class="safe-top px-4 pt-4 sm:px-5">
+            <a href="{{ $stationBackUrl }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-200/70 transition hover:text-white">
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                {{ $stationBackLabel === 'Back' ? 'Back to scanner' : $stationBackLabel }}
+            </a>
+        </div>
+    @endunless
     @yield('content')
     <script>
         if ('serviceWorker' in navigator) {

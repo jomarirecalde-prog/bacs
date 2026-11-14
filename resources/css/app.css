@@ -270,6 +270,9 @@
     .icon-btn {
         @apply inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted transition hover:bg-brand-50 hover:text-brand-700;
     }
+    .page-back-btn {
+        @apply w-auto min-w-11 gap-1.5 border border-line-strong bg-canvas px-2.5 text-brand-800 shadow-soft transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20 sm:px-3;
+    }
 
     /* ----------------------------------------------------------------- Links */
     .link {
