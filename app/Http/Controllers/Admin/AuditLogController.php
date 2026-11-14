@@ -11,6 +11,7 @@ class AuditLogController extends Controller
     public function index(Request $request)
     {
         $logs = AuditLog::query()
+            ->visibleInAdminTrail()
             ->with(['user.employee'])
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = '%'.$request->string('q').'%';
@@ -25,7 +26,12 @@ class AuditLogController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $modules = AuditLog::query()->select('module')->distinct()->orderBy('module')->pluck('module');
+        $modules = AuditLog::query()
+            ->visibleInAdminTrail()
+            ->select('module')
+            ->distinct()
+            ->orderBy('module')
+            ->pluck('module');
 
         return view('admin.audit.index', compact('logs', 'modules'));
     }

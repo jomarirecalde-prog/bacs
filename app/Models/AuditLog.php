@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuditLog extends Model
 {
+    /** Modules omitted from the admin audit trail (routine UI assets, not security events). */
+    public const TRAIL_HIDDEN_MODULES = [
+        'EmployeePhotos',
+    ];
     public $timestamps = false;
 
     protected $fillable = [
@@ -32,6 +37,11 @@ class AuditLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeVisibleInAdminTrail(Builder $query): Builder
+    {
+        return $query->whereNotIn('module', self::TRAIL_HIDDEN_MODULES);
     }
 
     public function actorDisplayName(): string
