@@ -1,14 +1,19 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-import shadow from 'leaflet/dist/images/marker-shadow.png';
+
+function leafletPublicImage(file) {
+    if (typeof window.appUrl === 'function') {
+        return window.appUrl(`images/leaflet/${file}`);
+    }
+    const base = document.head.querySelector('meta[name="app-base"]')?.content?.replace(/\/$/, '') || '';
+    return `${base}/images/leaflet/${file}`;
+}
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: iconRetina,
-    iconUrl: icon,
-    shadowUrl: shadow,
+    iconRetinaUrl: leafletPublicImage('marker-icon-2x.png'),
+    iconUrl: leafletPublicImage('marker-icon.png'),
+    shadowUrl: leafletPublicImage('marker-shadow.png'),
 });
 
 const PH_CENTER = [12.8797, 121.774];
