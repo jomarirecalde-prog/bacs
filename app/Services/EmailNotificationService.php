@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Enums\TravelOrderStatus;
 use App\Mail\AccountCreatedMail;
 use App\Mail\AccountUpdatedMail;
+use App\Mail\PasswordResetMail;
 use App\Mail\TransactionApprovedMail;
 use App\Mail\TransactionRejectedMail;
 use App\Mail\TransactionUpdateMail;
@@ -74,6 +75,47 @@ class EmailNotificationService
                 meta: ['employee_id' => $employee->id],
             );
         });
+    }
+
+    public function passwordResetRequested(User $user): bool
+    {
+        $user->loadMissing('employee');
+        $employee = $user->employee;
+
+        if (! filter_var((string) $user->email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $resetUrl = app(PasswordResetLinkService::class)->signedResetUrl($user);
+
+        $payload = [
+            'greeting_name' => $employee?->first_name ?: $user->name,
+            'username' => $user->username,
+            'reset_url' => $resetUrl,
+            'requested_at' => now()->timezone(ManilaTime::TIMEZONE)->format('F j, Y g:i A'),
+            'status_badge' => 'account_created',
+            'status_label' => 'PASSWORD RESET',
+            'cta_label' => 'RESET PASSWORD',
+            'cta_url' => $resetUrl,
+        ];
+
+        $dedupeKey = 'password_reset:user:'.$user->id.':'.now()->timestamp;
+
+        $this->deliver(
+            type: EmailNotificationType::PasswordReset,
+            recipient: $user->email,
+            subject: 'BACS | Reset Your Password',
+            mailable: new PasswordResetMail($payload),
+            dedupeKey: $dedupeKey,
+            userId: $user->id,
+            notifiable: $employee ?? $user,
+            meta: $employee ? ['employee_id' => $employee->id] : null,
+        );
+
+        return EmailNotificationLog::query()
+            ->where('dedupe_key', $dedupeKey)
+            ->where('delivery_status', 'sent')
+            ->exists();
     }
 
     public function accountAccessUpdated(User $user, Employee $employee, bool $passwordReset = false): void

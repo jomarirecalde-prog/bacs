@@ -32,7 +32,10 @@ use App\Http\Controllers\PardonApprovalController;
 use App\Http\Controllers\Admin\StationLocationMapController;
 use App\Http\Controllers\Admin\StationMonitoringController;
 use App\Http\Controllers\Auth\AccountPasswordSetupController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\DataPrivacyConsentController;
 use App\Http\Controllers\ClockController;
 use App\Http\Controllers\Employee\AttendanceCorrectionController as EmployeeAttendanceCorrectionController;
@@ -72,13 +75,7 @@ use App\Http\Controllers\Station\ScanController as StationScanController;
 use App\Http\Controllers\Station\SettingsController as StationSettingsController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    if (auth()->check()) {
-        return redirect()->route('home');
-    }
-
-    return redirect()->route('login');
-});
+Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 Route::get('/employee-photos/{path}', [EmployeePhotoController::class, 'show'])
     ->where('path', '.*')
@@ -110,6 +107,18 @@ Route::middleware('guest')->group(function () {
     Route::post('/welcome/set-password/{user}', [AccountPasswordSetupController::class, 'store'])
         ->middleware('signed')
         ->name('password.setup.store');
+
+    Route::get('/forgot-password', [ForgotPasswordController::class, 'show'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])
+        ->middleware('throttle:password-reset')
+        ->name('password.email');
+
+    Route::get('/reset-password/{user}', [PasswordResetController::class, 'show'])
+        ->middleware('signed')
+        ->name('password.reset.show');
+    Route::post('/reset-password/{user}', [PasswordResetController::class, 'store'])
+        ->middleware('signed')
+        ->name('password.reset.store');
 });
 
 Route::middleware(['auth', 'account.active', 'password.changed'])->group(function () {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\LandingController;
 use App\Services\AuditLogger;
 use App\Services\DataPrivacyConsentService;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class LoginController extends Controller
             return redirect()->route('home');
         }
 
-        return view('auth.login');
+        return view('landing.index', app(LandingController::class)->viewData());
     }
 
     public function store(Request $request)

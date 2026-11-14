@@ -883,6 +883,144 @@
             @apply mb-1;
         }
     }
+
+    /* ----------------------------------------------------- Public landing (dark) */
+    .landing-nav {
+        @apply sticky top-0 z-50 border-b border-white/10 bg-shell-950/85 shadow-soft backdrop-blur-md;
+    }
+    .landing-nav-link {
+        @apply rounded-lg px-3 py-2 text-sm font-semibold text-brand-100/80 transition duration-200 hover:bg-white/5 hover:text-brand-50;
+    }
+    .landing-kicker {
+        @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-brand-200/90;
+    }
+    .landing-kicker::before {
+        content: '';
+        @apply h-px w-8 bg-gold-500/60;
+    }
+    .landing-hero {
+        @apply relative isolate overflow-hidden border-b border-white/10 bg-shell-950;
+        background-image:
+            radial-gradient(ellipse 80% 55% at 20% 0%, rgb(4 120 87 / 0.22), transparent 55%),
+            radial-gradient(ellipse 70% 50% at 90% 20%, rgb(16 185 129 / 0.12), transparent 50%),
+            linear-gradient(180deg, var(--color-shell-950) 0%, var(--color-shell-900) 100%);
+    }
+    .landing-hero__grid {
+        @apply pointer-events-none absolute inset-0 opacity-[0.14];
+        background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.12) 1px, transparent 0);
+        background-size: 28px 28px;
+        mask-image: radial-gradient(ellipse 85% 70% at 50% 30%, #000 25%, transparent 100%);
+    }
+    .landing-hero__beam {
+        @apply pointer-events-none absolute -left-32 top-24 h-72 w-72 rounded-full bg-brand-600/15 blur-3xl;
+    }
+    .landing-hero__beam--gold {
+        @apply -right-20 bottom-0 top-auto h-64 w-64 bg-gold-500/10;
+    }
+    .landing-hero__line {
+        @apply pointer-events-none absolute left-[8%] top-32 hidden h-28 w-px bg-gradient-to-b from-gold-500/40 to-transparent lg:block;
+    }
+    .landing-trust {
+        @apply flex items-center gap-3 rounded-xl border border-white/10 bg-shell-800/40 px-4 py-3 transition duration-200 hover:border-brand-500/30 hover:bg-shell-800/60;
+    }
+    .landing-auth-card {
+        @apply scroll-mt-28 rounded-2xl border border-white/10 bg-shell-800/90 p-6 shadow-float sm:p-8;
+        border-top-color: rgb(212 175 55 / 0.35);
+        border-top-width: 2px;
+    }
+    .landing-label {
+        @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-brand-200/75;
+    }
+    .landing-input {
+        @apply w-full rounded-xl border border-white/10 bg-shell-900/70 py-2.5 text-sm text-brand-50 shadow-soft transition outline-none placeholder:text-brand-200/35 hover:border-white/15 focus:border-brand-500 focus:ring-4 focus:ring-brand-600/25 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+    .landing-input-wrap {
+        @apply relative;
+    }
+    .landing-input-icon {
+        @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-300/70;
+    }
+    .landing-input-wrap .landing-input {
+        @apply pl-10;
+    }
+    .landing-input-error {
+        @apply border-critical-500/50 focus:border-critical-500 focus:ring-critical-600/20;
+    }
+    .landing-check {
+        @apply h-4 w-4 cursor-pointer rounded border-white/20 bg-shell-900 text-brand-500 focus:ring-2 focus:ring-brand-600/30;
+    }
+    .landing-link {
+        @apply font-semibold text-info-400 underline-offset-2 transition hover:text-info-300 hover:underline;
+    }
+    .landing-link-muted {
+        @apply font-semibold text-brand-300 underline-offset-2 transition hover:text-brand-200 hover:underline;
+    }
+    .landing-btn-outline {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-transparent px-5 py-2.5 text-sm font-semibold text-brand-50 transition duration-200 hover:border-brand-400/40 hover:bg-white/5;
+    }
+    .landing-alert-error {
+        @apply flex items-start gap-3 rounded-xl border border-critical-500/30 bg-critical-800/25 px-4 py-3 text-sm text-critical-100;
+    }
+    .landing-alert-success {
+        @apply rounded-xl border border-brand-500/30 bg-brand-800/25 px-4 py-3 text-sm text-brand-100;
+    }
+    .landing-section {
+        @apply border-b border-white/10 py-16 sm:py-20;
+    }
+    .landing-section--deep {
+        @apply bg-shell-950;
+    }
+    .landing-section--lift {
+        background: linear-gradient(180deg, var(--color-shell-900) 0%, var(--color-shell-800) 100%);
+    }
+    .landing-section-title {
+        @apply text-xs font-bold uppercase tracking-[0.2em] text-brand-300/80;
+    }
+    .landing-feature-card {
+        @apply flex h-full flex-col rounded-2xl border border-white/10 bg-shell-800/50 p-6 transition duration-200 hover:border-brand-500/25 hover:bg-shell-800/70;
+    }
+    .landing-feature-icon {
+        @apply flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-shell-900/60 text-brand-300;
+    }
+    .landing-about-panel {
+        @apply rounded-2xl border border-gold-500/25 bg-shell-800/40 p-6 sm:p-8;
+    }
+    .landing-announce {
+        @apply overflow-hidden rounded-2xl border border-white/10 bg-shell-800/40 shadow-soft;
+    }
+    .landing-footer {
+        @apply border-t border-white/10 bg-shell-950 text-brand-200/70;
+    }
+    .landing-footer-link {
+        @apply text-sm text-brand-200/70 transition hover:text-brand-50;
+    }
+    .landing-divider-gold {
+        @apply h-px w-12 bg-gradient-to-r from-gold-500/60 to-transparent;
+    }
+    .landing-reveal {
+        @apply opacity-100;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .landing-reveal {
+            animation: landing-rise 0.75s ease-out both;
+        }
+        .landing-reveal-delay {
+            animation-delay: 0.12s;
+        }
+        .landing-reveal-delay-2 {
+            animation-delay: 0.22s;
+        }
+    }
+    @keyframes landing-rise {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 }
 
 @layer utilities {
