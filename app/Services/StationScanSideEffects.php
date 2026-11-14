@@ -90,7 +90,7 @@ class StationScanSideEffects
 
         if ($punchType && $attendanceId) {
             $this->auditLogger->log(
-                null,
+                $employee->user,
                 'station_'.$punchType->value,
                 'Attendance',
                 $attendanceId,

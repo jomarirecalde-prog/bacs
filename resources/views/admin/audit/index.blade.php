@@ -31,7 +31,7 @@
                     @forelse ($logs as $log)
                         <tr>
                             <td class="whitespace-nowrap text-muted">{{ $log->created_at?->format('M d, Y g:i A') }}</td>
-                            <td class="font-medium text-ink">{{ $log->user?->name ?? 'System' }}</td>
+                            <td class="font-medium text-ink">{{ $log->actorDisplayName() }}</td>
                             <td><span class="badge-info">{{ str_replace('_', ' ', $log->action) }}</span></td>
                             <td><span class="chip">{{ $log->module }}</span></td>
                             <td class="text-muted tabular-nums">{{ $log->record_id ?? '—' }}</td>

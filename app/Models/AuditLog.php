@@ -33,4 +33,38 @@ class AuditLog extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function actorDisplayName(): string
+    {
+        if ($this->user) {
+            $this->user->loadMissing('employee');
+
+            return $this->user->employee?->fullName()
+                ?: ($this->user->name ?: '—');
+        }
+
+        $description = trim((string) $this->description);
+
+        if ($description === '') {
+            return 'System';
+        }
+
+        if (preg_match('/^(.+?)\s+logged\s+(?:in|out)\.\s*$/i', $description, $matches)) {
+            return trim($matches[1]);
+        }
+
+        if (preg_match('/\brecorded for (.+?) at /i', $description, $matches)) {
+            return trim($matches[1]);
+        }
+
+        if (preg_match('/^Station\s+(.+?)\s+(?:logged\s+(?:in|out)|was bound)/i', $description, $matches)) {
+            return 'Station '.trim($matches[1]);
+        }
+
+        if (stripos($description, 'Failed attendance station login') !== false) {
+            return 'Attendance station';
+        }
+
+        return 'System';
+    }
 }

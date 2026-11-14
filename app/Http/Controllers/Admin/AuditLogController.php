@@ -11,7 +11,7 @@ class AuditLogController extends Controller
     public function index(Request $request)
     {
         $logs = AuditLog::query()
-            ->with('user')
+            ->with(['user.employee'])
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = '%'.$request->string('q').'%';
                 $q->where(function ($inner) use ($term) {
