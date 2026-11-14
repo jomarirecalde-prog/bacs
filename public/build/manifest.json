@@ -11,6 +11,10 @@
     "file": "assets/module.esm-BYHJV1xy.js",
     "name": "module.esm"
   },
+  "_pwa-D5vb8TUY.js": {
+    "file": "assets/pwa-D5vb8TUY.js",
+    "name": "pwa"
+  },
   "node_modules/leaflet/dist/images/layers-2x.png": {
     "file": "assets/layers-2x-Bpkbi35X.png",
     "src": "node_modules/leaflet/dist/images/layers-2x.png"
@@ -32,7 +36,7 @@
     "src": "node_modules/leaflet/dist/images/marker-shadow.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CdQInq21.css",
+    "file": "assets/app-0A01Efaq.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -41,12 +45,13 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CyOnPmMr.js",
+    "file": "assets/app-B6CVX5Z6.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_module.esm-BYHJV1xy.js"
+      "_module.esm-BYHJV1xy.js",
+      "_pwa-D5vb8TUY.js"
     ],
     "dynamicImports": [
       "_browser-MjPNSDX0.js"
@@ -60,6 +65,16 @@
       "assets/marker-shadow-f7SaPCxT.png",
       "assets/layers-BWBAp2CZ.png",
       "assets/layers-2x-Bpkbi35X.png"
+    ]
+  },
+  "resources/js/landing.js": {
+    "file": "assets/landing-CbFB8DLL.js",
+    "name": "landing",
+    "src": "resources/js/landing.js",
+    "isEntry": true,
+    "imports": [
+      "_module.esm-BYHJV1xy.js",
+      "_pwa-D5vb8TUY.js"
     ]
   },
   "resources/js/qrcode-page.js": {

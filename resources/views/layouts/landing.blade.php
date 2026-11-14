@@ -11,7 +11,7 @@
     @include('partials.pwa-head')
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800" rel="stylesheet" />
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/landing.js'])
 </head>
 <body class="landing-page min-h-screen bg-shell-950 text-brand-50 antialiased" data-full-page-nav="1">
     @yield('content')

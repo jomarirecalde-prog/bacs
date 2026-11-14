@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\LandingController;
 use App\Services\AuditLogger;
 use App\Services\DataPrivacyConsentService;
+use App\Models\User;
 use App\Services\UserLoginLookupService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +26,7 @@ class LoginController extends Controller
     public function show()
     {
         if (Auth::check()) {
-            return redirect()->route('home');
+            return redirect()->to($this->defaultDashboardUrl(Auth::user()));
         }
 
         return view('landing.index', app(LandingController::class)->viewData());
@@ -73,8 +75,15 @@ class LoginController extends Controller
 
         RateLimiter::clear($key);
         $request->session()->regenerate();
-        $user->update(['last_login_at' => now()]);
-        $this->auditLogger->log($user, 'login', 'Auth', $user->id, "{$user->name} logged in.");
+        $loginUserId = $user->id;
+        $loginUserName = $user->name;
+        dispatch(function () use ($loginUserId, $loginUserName, $request): void {
+            User::query()->whereKey($loginUserId)->update(['last_login_at' => now()]);
+            $actor = User::query()->find($loginUserId);
+            if ($actor) {
+                app(AuditLogger::class)->log($actor, 'login', 'Auth', $loginUserId, "{$loginUserName} logged in.", $request);
+            }
+        })->afterResponse();
 
         if ($user->must_change_password) {
             return redirect()->route('profile.password')->with('error', 'Please change your temporary password before continuing.');
@@ -84,7 +93,19 @@ class LoginController extends Controller
             return redirect()->route('privacy.consent.show');
         }
 
-        return redirect()->intended(route('home'));
+        return $this->redirectAfterLogin($user);
+    }
+
+    private function defaultDashboardUrl(User $user): string
+    {
+        return $user->isManagement()
+            ? route('admin.dashboard')
+            : route('employee.dashboard');
+    }
+
+    private function redirectAfterLogin(User $user): RedirectResponse
+    {
+        return redirect()->intended($this->defaultDashboardUrl($user));
     }
 
     public function destroy(Request $request)
