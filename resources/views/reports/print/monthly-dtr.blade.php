@@ -1,57 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dtr-print-root">
 <head>
     <meta charset="utf-8">
-    <title>Print DTR</title>
+    <title>Print DTR — {{ $employee->fullName() }}</title>
     @include('reports.partials.print-theme', ['font' => 'serif'])
+    @include('reports.partials.monthly-dtr-print-css')
 </head>
-<body>
-    <p class="no-print"><button type="button" onclick="window.print()">Print this DTR</button></p>
-
-    <div class="doc-header">
-        <h1>{{ $company }}</h1>
-        <div class="muted">{{ $address }}</div>
-    </div>
-    <div class="doc-rule-gold"></div>
-
-    <h3>DAILY TIME RECORD</h3>
-    <p class="meta">
-        <strong>{{ $employee->fullName() }}</strong> ({{ $employee->employee_number }})<br>
-        {{ $employee->department?->name }} · {{ $employee->position }}<br>
-        {{ DateTime::createFromFormat('!m', $month)->format('F') }} {{ $year }}
+<body class="dtr-print">
+    <p class="no-print print-actions">
+        <button type="button" onclick="window.bacsDtrPrint ? window.bacsDtrPrint() : window.print()">Print this DTR</button>
+        <a class="btn-link" href="{{ route('admin.dtr.monthly', ['employee_id' => $employee->id, 'month' => $month, 'year' => $year]) }}">Back to monthly DTR</a>
     </p>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th><th>Time In</th><th>Time Out</th><th>Hours</th><th>Late</th><th>Undertime</th><th>Overtime</th><th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($rows as $row)
-                <tr>
-                    @php $holiday = app(\App\Services\HolidayResolver::class)->forDate(optional($row->attendance_date)->toDateString() ?: now()->toDateString(), $employee); @endphp
-                    <td>
-                        {{ optional($row->attendance_date)->format('M d, Y D') }}
-                        @if ($holiday)<br><span class="muted">{{ $holiday->name }}</span>@endif
-                    </td>
-                    <td>{{ $row->time_in?->format('h:i A') }}</td>
-                    <td>{{ $row->time_out?->format('h:i A') }}</td>
-                    <td class="num">{{ $row->totalHoursLabel() }}</td>
-                    <td class="num">{{ $row->late_minutes }}</td>
-                    <td class="num">{{ $row->undertime_minutes }}</td>
-                    <td class="num">{{ $row->overtimeHoursLabel() }}</td>
-                    <td>{{ $row->status?->label() }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-
-    <table class="sign">
-        <tr>
-            <td><div class="line">Employee Signature</div></td>
-            <td><div class="line">Authorized Official</div></td>
-        </tr>
-    </table>
+    @include('reports.partials.monthly-dtr-sheet', [
+        'employee' => $employee,
+        'rows' => $rows,
+        'year' => $year,
+        'month' => $month,
+        'company' => $company,
+        'address' => $address,
+    ])
 </body>
 </html>

@@ -1,6 +1,9 @@
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
+import { syncPwaVersion } from './scripts/sync-pwa-version.mjs';
+
+syncPwaVersion();
 
 function viteBuildBase(env) {
   const raw =

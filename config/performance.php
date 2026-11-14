@@ -41,4 +41,7 @@ return [
     /* Hard cap for report Excel/CSV/PDF exports to protect memory. */
     'report_export_max_rows' => (int) env('PERF_REPORT_EXPORT_MAX_ROWS', 5000),
 
+    /* Max employees in one monthly DTR batch print preview. */
+    'dtr_batch_print_max' => (int) env('PERF_DTR_BATCH_PRINT_MAX', 100),
+
 ];

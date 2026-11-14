@@ -364,6 +364,8 @@ Route::middleware(['auth', 'account.active', 'password.changed', 'data.privacy.c
 
         Route::get('/dtr', [AdminDtrController::class, 'index'])->name('dtr.index');
         Route::get('/dtr/monthly', [AdminDtrController::class, 'monthly'])->name('dtr.monthly');
+        Route::get('/dtr/monthly/print', [AdminDtrController::class, 'monthlyPrint'])->name('dtr.monthly.print');
+        Route::get('/dtr/monthly/batch', [AdminDtrController::class, 'monthlyBatch'])->name('dtr.monthly.batch');
         Route::get('/dtr/create', [AdminDtrController::class, 'create'])->middleware('role:admin')->name('dtr.create');
         Route::post('/dtr', [AdminDtrController::class, 'store'])->middleware('role:admin')->name('dtr.store');
         Route::get('/dtr/{attendance}', [AdminDtrController::class, 'show'])->name('dtr.show');

@@ -11,8 +11,8 @@
     "file": "assets/module.esm-BDIKnCfd.js",
     "name": "module.esm"
   },
-  "_pwa-D5vb8TUY.js": {
-    "file": "assets/pwa-D5vb8TUY.js",
+  "_pwa-BhLw98td.js": {
+    "file": "assets/pwa-BhLw98td.js",
     "name": "pwa"
   },
   "resources/css/app.css": {
@@ -25,13 +25,13 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-hnjSiZZt.js",
+    "file": "assets/app-aJhoMXzq.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
       "_module.esm-BDIKnCfd.js",
-      "_pwa-D5vb8TUY.js"
+      "_pwa-BhLw98td.js"
     ],
     "dynamicImports": [
       "_browser-zXtKSa7G.js",
@@ -39,13 +39,13 @@
     ]
   },
   "resources/js/landing.js": {
-    "file": "assets/landing-BCU4sNnD.js",
+    "file": "assets/landing-CPQohG_5.js",
     "name": "landing",
     "src": "resources/js/landing.js",
     "isEntry": true,
     "imports": [
       "_module.esm-BDIKnCfd.js",
-      "_pwa-D5vb8TUY.js"
+      "_pwa-BhLw98td.js"
     ]
   },
   "resources/js/qrcode-page.js": {

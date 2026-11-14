@@ -19,7 +19,7 @@
         @endif
     </div>
 
-    <form class="filter-bar">
+    <form class="filter-bar" method="get" action="{{ route('admin.dtr.monthly') }}">
         <div class="sm:min-w-[14rem] flex-[2]">
             <label class="label" for="monthly-employee">Employee</label>
             <select id="monthly-employee" name="employee_id" class="select" required>
@@ -48,6 +48,46 @@
         <button type="submit" class="btn-primary">Generate</button>
     </form>
 
+    <div class="card no-print">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title text-sm">Batch DTR preview &amp; print</h2>
+                <p class="mt-0.5 text-xs text-muted">Open a print-ready preview for every active employee in a department (one DTR per page).</p>
+            </div>
+        </div>
+        <form class="filter-bar border-0 p-4 pt-0" method="get" action="{{ route('admin.dtr.monthly.batch') }}" target="_blank">
+            <div class="sm:min-w-[12rem] flex-[2]">
+                <label class="label" for="batch-department">Department</label>
+                <select id="batch-department" name="department_id" class="select" required>
+                    <option value="">— Select department —</option>
+                    @foreach ($departments as $dept)
+                        <option value="{{ $dept->id }}" @selected(($batchDepartmentId ?? null) == $dept->id)>{{ $dept->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="sm:min-w-[9rem] flex-1">
+                <label class="label" for="batch-month">Month</label>
+                <select id="batch-month" name="month" class="select">
+                    @for ($m = 1; $m <= 12; $m++)
+                        <option value="{{ $m }}" @selected($month == $m)>{{ DateTime::createFromFormat('!m', $m)->format('F') }}</option>
+                    @endfor
+                </select>
+            </div>
+            <div class="sm:min-w-[7rem] flex-1">
+                <label class="label" for="batch-year">Year</label>
+                <select id="batch-year" name="year" class="select">
+                    @for ($y = now()->year; $y >= now()->year - 5; $y--)
+                        <option value="{{ $y }}" @selected($year == $y)>{{ $y }}</option>
+                    @endfor
+                </select>
+            </div>
+            <button type="submit" class="btn-secondary">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-12h.01M7 7h.01"/></svg>
+                Preview &amp; print batch
+            </button>
+        </form>
+    </div>
+
     @if ($employee)
         <div class="card card-accent-brand overflow-hidden">
             <div class="card-header">
@@ -55,10 +95,16 @@
                     <div class="text-sm font-bold text-ink">{{ $employee->fullName() }}</div>
                     <div class="mt-0.5 text-xs text-muted">{{ $employee->department?->name }} · {{ DateTime::createFromFormat('!m', $month)->format('F') }} {{ $year }}</div>
                 </div>
-                <a class="btn-secondary btn-sm" href="{{ route('admin.reports.monthly', ['employee_id' => $employee->id, 'month' => $month, 'year' => $year, 'export' => 'pdf']) }}">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Export PDF
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a class="btn-secondary btn-sm" href="{{ route('admin.dtr.monthly.print', ['employee_id' => $employee->id, 'month' => $month, 'year' => $year]) }}" target="_blank">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        Preview &amp; print
+                    </a>
+                    <a class="btn-secondary btn-sm" href="{{ route('admin.reports.monthly', ['employee_id' => $employee->id, 'month' => $month, 'year' => $year, 'export' => 'pdf']) }}">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export PDF
+                    </a>
+                </div>
             </div>
             <div class="table-wrap">
                 <table class="data-table">

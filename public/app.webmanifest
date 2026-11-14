@@ -6,11 +6,17 @@
     "start_url": "/home",
     "scope": "/",
     "display": "standalone",
-    "display_override": ["standalone", "minimal-ui"],
+    "display_override": [
+        "standalone",
+        "minimal-ui"
+    ],
     "orientation": "any",
     "theme_color": "#047857",
     "background_color": "#04140f",
-    "categories": ["business", "productivity"],
+    "categories": [
+        "business",
+        "productivity"
+    ],
     "icons": [
         {
             "src": "images/icon-192.png",
@@ -30,5 +36,6 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ]
+    ],
+    "version": "1.0.1"
 }

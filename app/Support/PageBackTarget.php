@@ -86,6 +86,7 @@ final class PageBackTarget
             'admin.leave.workflow.history' => self::withModel('admin.leave.workflow.show', $parameters, ['department'], 'Back to configuration'),
             'admin.leave.workflow.show' => self::fixed('admin.settings.index', 'Back to settings', '#approval-workflow'),
             'admin.employees.qr', 'admin.employees.qr.print' => self::withModel('admin.employees.show', $parameters, ['employee'], 'Back to employee'),
+            'admin.dtr.monthly.print', 'admin.dtr.monthly.batch' => self::fixed('admin.dtr.monthly', 'Back to monthly DTR'),
             'admin.stations.locations', 'admin.stations.monitoring' => self::fixed('admin.stations.index', 'Back to stations'),
             'admin.stations.activity', 'admin.stations.attendance' => self::withModel('admin.stations.show', $parameters, ['station'], 'Back to station'),
             'admin.payroll.settings.index' => self::fixed('admin.payroll.dashboard', 'Back to payroll dashboard'),

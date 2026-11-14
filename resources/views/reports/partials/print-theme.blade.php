@@ -80,6 +80,25 @@
     }
     .no-print button:hover { background: #065f46; }
 
+    .dtr-sheet { margin-bottom: 8px; }
+    .dtr-sheet.page-break { page-break-before: always; break-before: page; }
+
+    .no-print.print-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 16px;
+        font-family: DejaVu Sans, sans-serif;
+    }
+    .no-print .btn-link {
+        color: #047857;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .no-print .btn-link:hover { text-decoration: underline; }
+
     @media print {
         .no-print { display: none !important; }
         tbody tr:nth-child(even) td { background: #ffffff; }

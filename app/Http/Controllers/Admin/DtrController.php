@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Setting;
 use App\Services\AttendanceService;
 use App\Services\DirectoryCatalog;
 use App\Support\ManilaTime;
@@ -65,6 +67,94 @@ class DtrController extends Controller
             'year' => $year,
             'month' => $month,
             'employees' => $this->catalog->employeeOptions(),
+            'departments' => $this->catalog->departments(),
+            'batchDepartmentId' => $request->integer('department_id') ?: null,
+        ]);
+    }
+
+    public function monthlyPrint(Request $request)
+    {
+        $employeeId = $request->integer('employee_id');
+        abort_unless($employeeId, 404);
+
+        $year = $request->integer('year') ?: (int) ManilaTime::now()->year;
+        $month = $request->integer('month') ?: (int) ManilaTime::now()->month;
+        $employee = Employee::query()->with(['department', 'user', 'workSchedule'])->findOrFail($employeeId);
+        $rows = $this->attendanceService->monthlyDtr($employee, $year, $month);
+
+        return view('reports.print.monthly-dtr', [
+            'employee' => $employee,
+            'rows' => $rows,
+            'year' => $year,
+            'month' => $month,
+            'company' => Setting::get('company_name', 'BACS'),
+            'address' => Setting::get('company_address', ''),
+        ]);
+    }
+
+    public function monthlyBatch(Request $request)
+    {
+        $year = $request->integer('year') ?: (int) ManilaTime::now()->year;
+        $month = $request->integer('month') ?: (int) ManilaTime::now()->month;
+        $departmentId = $request->integer('department_id') ?: null;
+        $employeeIds = array_values(array_filter(array_map('intval', (array) $request->input('employee_ids', []))));
+
+        if (! $departmentId && $employeeIds === []) {
+            return redirect()
+                ->route('admin.dtr.monthly', ['month' => $month, 'year' => $year])
+                ->with('error', 'Choose a department or at least one employee for batch print.');
+        }
+
+        $max = (int) config('performance.dtr_batch_print_max', 100);
+
+        $query = Employee::query()
+            ->active()
+            ->with(['department', 'workSchedule'])
+            ->orderBy('last_name')
+            ->orderBy('first_name');
+
+        if ($employeeIds !== []) {
+            $query->whereIn('id', $employeeIds);
+        }
+
+        if ($departmentId) {
+            $query->where('department_id', $departmentId);
+        }
+
+        $employees = $query->limit($max + 1)->get();
+
+        if ($employees->count() > $max) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', "Batch print is limited to {$max} employees at a time. Narrow the department filter or select fewer employees.");
+        }
+
+        if ($employees->isEmpty()) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'No active employees matched the selected filters.');
+        }
+
+        $sheets = [];
+        foreach ($employees as $employee) {
+            $sheets[] = [
+                'employee' => $employee,
+                'rows' => $this->attendanceService->monthlyDtr($employee, $year, $month),
+            ];
+        }
+
+        $department = $departmentId ? Department::query()->find($departmentId) : null;
+
+        return view('reports.print.monthly-dtr-batch', [
+            'sheets' => $sheets,
+            'year' => $year,
+            'month' => $month,
+            'departmentId' => $departmentId,
+            'departmentName' => $department?->name,
+            'company' => Setting::get('company_name', 'BACS'),
+            'address' => Setting::get('company_address', ''),
         ]);
     }
 

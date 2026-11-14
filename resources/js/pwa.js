@@ -1,4 +1,15 @@
-export const PWA_VERSION = '1.0.0';
+import packageJson from '../../package.json';
+
+export const PWA_VERSION = packageJson.version;
+
+function resolvePwaVersion() {
+    const fromMeta = document
+        .querySelector('meta[name="bacs-pwa-version"]')
+        ?.getAttribute('content')
+        ?.trim();
+
+    return fromMeta || PWA_VERSION;
+}
 
 const DISMISS_KEY = 'bacs-pwa-install-dismissed';
 const DISMISS_DAYS = 14;
@@ -111,7 +122,7 @@ async function registerServiceWorker() {
 
 export function bootPwa(Alpine) {
     Alpine.store('pwa', {
-        version: PWA_VERSION,
+        version: resolvePwaVersion(),
         online: navigator.onLine,
         installed: isStandalone(),
         canInstall: false,
