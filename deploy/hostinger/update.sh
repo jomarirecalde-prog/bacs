@@ -30,4 +30,10 @@ $PHP artisan config:cache
 $PHP artisan route:cache
 $PHP artisan view:cache
 
+MAPBOX_LEN="$($PHP artisan tinker --execute="echo strlen(trim((string) config('services.mapbox.access_token')));" 2>/dev/null || echo 0)"
+if [ "${MAPBOX_LEN:-0}" = "0" ]; then
+    echo "WARNING: MAPBOX_ACCESS_TOKEN is empty in cached config — Station Locations map will show \"Map unavailable\"."
+    echo "         Add MAPBOX_ACCESS_TOKEN=pk.... to .env on this server, then: $PHP artisan config:clear && $PHP artisan config:cache"
+fi
+
 echo "==> Deployed $(git rev-parse --short HEAD)"

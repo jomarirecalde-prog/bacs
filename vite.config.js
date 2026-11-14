@@ -3,7 +3,12 @@ import laravel from 'laravel-vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 
 function viteBuildBase(env) {
-    const raw = env.ASSET_URL || env.APP_URL || '';
+  const raw =
+    process.env.ASSET_URL ||
+    process.env.APP_URL ||
+    env.ASSET_URL ||
+    env.APP_URL ||
+    '';
     if (!raw) {
         return '/build/';
     }
