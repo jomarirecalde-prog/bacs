@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AccountStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
@@ -46,6 +47,27 @@ class WorkSchedule extends Model
     public function isWorkDay(int $isoDayOfWeek): bool
     {
         return in_array($isoDayOfWeek, $this->workDays(), true);
+    }
+
+    public function effectiveRequiredMinutes(): int
+    {
+        if ((int) $this->required_minutes > 0) {
+            return (int) $this->required_minutes;
+        }
+
+        $start = Carbon::parse((string) $this->start_time);
+        $end = Carbon::parse((string) $this->end_time);
+        $span = (int) floor(($end->getTimestamp() - $start->getTimestamp()) / 60);
+
+        $break = 0;
+        if ($this->break_start && $this->break_end) {
+            $break = (int) floor(
+                (Carbon::parse((string) $this->break_end)->getTimestamp()
+                    - Carbon::parse((string) $this->break_start)->getTimestamp()) / 60
+            );
+        }
+
+        return max(0, $span - $break);
     }
 
     public function scopeActive($query)

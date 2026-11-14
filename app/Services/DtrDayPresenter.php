@@ -35,9 +35,21 @@ class DtrDayPresenter
             $amOut = $row->am_time_out;
             $pmIn = $row->pm_time_in;
             $pmOut = $row->pm_time_out;
-            $totalMinutes = $this->totalMinutesFromPunches($amIn, $amOut, $pmIn, $pmOut);
+            $rendered = $this->totalMinutesFromPunches($amIn, $amOut, $pmIn, $pmOut);
+            $totalMinutes = $this->creditedTotalMinutes(
+                $row,
+                $schedule,
+                $rendered,
+                $row->isRegularComplete() || ($amIn && $amOut && $pmIn && $pmOut),
+            );
         } elseif ($row->time_in || $row->time_out) {
-            [$amIn, $amOut, $pmIn, $pmOut, $totalMinutes] = $this->splitPunches($date, $row->time_in, $row->time_out, $schedule);
+            [$amIn, $amOut, $pmIn, $pmOut, $rendered] = $this->splitPunches($date, $row->time_in, $row->time_out, $schedule);
+            $totalMinutes = $this->creditedTotalMinutes(
+                $row,
+                $schedule,
+                $rendered,
+                $row->isRegularComplete() || ($amIn && $amOut && $pmIn && $pmOut),
+            );
         }
 
         $incomplete = $this->isIncomplete($row, $isFuture);
@@ -224,6 +236,24 @@ class DtrDayPresenter
         }
 
         return (bool) $row->time_in && ! $row->time_out;
+    }
+
+    private function creditedTotalMinutes(
+        Attendance $row,
+        WorkSchedule $schedule,
+        int $rendered,
+        bool $regularComplete,
+    ): int {
+        $stored = (int) ($row->total_minutes ?? 0);
+        $base = $stored > 0 ? $stored : $rendered;
+
+        return Attendance::creditDisplayMinutes(
+            $base,
+            (int) ($row->late_minutes ?? 0),
+            (int) ($row->undertime_minutes ?? 0),
+            $schedule->effectiveRequiredMinutes(),
+            $regularComplete,
+        );
     }
 
     private function totalMinutesFromPunches(?Carbon $amIn, ?Carbon $amOut, ?Carbon $pmIn, ?Carbon $pmOut): int

@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\AttendancePunchType;
 use App\Enums\AttendanceStatus;
+use App\Models\Attendance;
 use App\Models\Leave;
 use App\Models\OfficialBusinessRequest;
 use App\Models\TravelOrder;
@@ -111,7 +113,17 @@ class AttendanceCalculator
             $undertimeMinutes = 0;
         }
 
-        $required = (int) ($schedule->required_minutes ?: $this->defaultRequiredMinutes($schedule));
+        $required = $schedule->effectiveRequiredMinutes();
+
+        $regularComplete = $this->hasAllRegularPunches($amIn, $amOut, $pmIn, $pmOut);
+
+        $totalMinutes = Attendance::creditDisplayMinutes(
+            $totalMinutes,
+            max(0, $lateMinutes),
+            max(0, $undertimeMinutes),
+            $required,
+            $regularComplete,
+        );
 
         $status = $this->resolveStatus(
             $lateMinutes,
@@ -187,18 +199,23 @@ class AttendanceCalculator
         return AttendanceStatus::Present;
     }
 
-    private function defaultRequiredMinutes(WorkSchedule $schedule): int
+    private function hasAllRegularPunches(?Carbon $amIn, ?Carbon $amOut, ?Carbon $pmIn, ?Carbon $pmOut): bool
     {
-        $start = Carbon::parse((string) $schedule->start_time);
-        $end = Carbon::parse((string) $schedule->end_time);
-        $span = (int) floor(($end->getTimestamp() - $start->getTimestamp()) / 60);
+        foreach (AttendancePunchType::regularSequence() as $type) {
+            $present = match ($type) {
+                AttendancePunchType::AmTimeIn => $amIn,
+                AttendancePunchType::AmTimeOut => $amOut,
+                AttendancePunchType::PmTimeIn => $pmIn,
+                AttendancePunchType::PmTimeOut => $pmOut,
+                default => null,
+            };
 
-        $break = 0;
-        if ($schedule->break_start && $schedule->break_end) {
-            $break = (int) floor((Carbon::parse((string) $schedule->break_end)->getTimestamp() - Carbon::parse((string) $schedule->break_start)->getTimestamp()) / 60);
+            if (! $present) {
+                return false;
+            }
         }
 
-        return max(0, $span - $break);
+        return true;
     }
 
     private function emptyResult(AttendanceStatus $status): array

@@ -49,7 +49,7 @@ class DtrDayPresenterTest extends TestCase
         $this->assertSame('12:00 PM', $day->amOut);
         $this->assertSame('1:00 PM', $day->pmIn);
         $this->assertSame('6:00 PM', $day->pmOut);
-        $this->assertSame('9', $day->totalHours);
+        $this->assertSame('8', $day->totalHours);
         $this->assertSame('1 hour', $day->overtime);
     }
 

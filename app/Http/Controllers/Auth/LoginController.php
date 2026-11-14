@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\LandingController;
 use App\Services\AuditLogger;
 use App\Services\DataPrivacyConsentService;
+use App\Services\UserLoginLookupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
@@ -16,6 +18,7 @@ class LoginController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly DataPrivacyConsentService $consentService,
+        private readonly UserLoginLookupService $loginLookup,
     ) {}
 
     public function show()
@@ -48,14 +51,9 @@ class LoginController extends Controller
             ]);
         }
 
-        $field = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $user = $this->loginLookup->findByLogin($credentials['login']);
 
-        $attempt = Auth::attempt(
-            [$field => $credentials['login'], 'password' => $credentials['password']],
-            $request->boolean('remember')
-        );
-
-        if (! $attempt) {
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             RateLimiter::hit($key, 60);
 
             throw ValidationException::withMessages([
@@ -63,7 +61,7 @@ class LoginController extends Controller
             ]);
         }
 
-        $user = $request->user();
+        Auth::login($user, $request->boolean('remember'));
 
         if (! $user->isActive()) {
             Auth::logout();

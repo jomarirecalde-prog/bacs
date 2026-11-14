@@ -202,7 +202,7 @@ class PayrollAttendanceAggregator
             if ($status === AttendanceStatus::HalfDay) {
                 $absentDays += $halfDayFraction;
                 $workedDays += $halfDayFraction;
-                $regularHours += ($row->total_minutes ?? 0) / 60;
+                $regularHours += $row->creditedTotalMinutes($schedule) / 60;
                 $lateMinutes += (int) $row->late_minutes;
                 $undertimeMinutes += (int) $row->undertime_minutes;
                 $recordedOtHours += ($row->overtime_minutes ?? 0) / 60;
@@ -220,7 +220,7 @@ class PayrollAttendanceAggregator
                 if ($status !== AttendanceStatus::Incomplete || $row->hasTimeIn()) {
                     $workedDays++;
                 }
-                $regularHours += ($row->total_minutes ?? 0) / 60;
+                $regularHours += $row->creditedTotalMinutes($schedule) / 60;
                 $lateMinutes += (int) $row->late_minutes;
                 $undertimeMinutes += (int) $row->undertime_minutes;
                 $recordedOtHours += ($row->overtime_minutes ?? 0) / 60;

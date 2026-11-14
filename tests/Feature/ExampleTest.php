@@ -6,13 +6,13 @@ use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    public function test_the_application_redirects_guests_to_login(): void
+    public function test_the_application_shows_landing_page_for_guests(): void
     {
-        $this->get('/')->assertRedirect(route('login'));
+        $this->get('/')->assertOk()->assertSee('Welcome Back');
     }
 
     public function test_login_page_renders(): void
     {
-        $this->get(route('login'))->assertOk()->assertSee('Welcome back');
+        $this->get(route('login'))->assertOk()->assertSee('Welcome Back');
     }
 }

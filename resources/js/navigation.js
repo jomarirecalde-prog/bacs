@@ -34,6 +34,12 @@ function sameOrigin(url) {
 }
 
 function shouldInterceptClick(event, anchor) {
+    if (!document.getElementById('app-main')) {
+        return false;
+    }
+    if (document.body.classList.contains('landing-page')) {
+        return false;
+    }
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
         return false;
     }
@@ -216,6 +222,9 @@ function onClick(event) {
 }
 
 function onSubmit(event) {
+    if (!document.getElementById('app-main') || document.body.classList.contains('landing-page')) {
+        return;
+    }
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) {
         return;
@@ -240,6 +249,9 @@ export function bootNavigation() {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     window.addEventListener('popstate', () => {
+        if (!document.getElementById('app-main') || document.body.classList.contains('landing-page')) {
+            return;
+        }
         navigate(window.location.href, { push: false });
     });
 }

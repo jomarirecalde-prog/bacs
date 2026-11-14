@@ -6,8 +6,8 @@ $host = '127.0.0.1';
 $user = 'root';
 $pass = 'password';
 $database = 'bacs_db';
-$sqlFile = __DIR__ . '/../docs/u899628465_bacs (2).sql';
-$newPassword = '12345678';
+$sqlFile = __DIR__ . '/../docs/u899628465_bacs.sql';
+$newPassword = 'password';
 
 if (! is_file($sqlFile)) {
     fwrite(STDERR, "SQL file not found: {$sqlFile}\n");
@@ -41,19 +41,35 @@ if ($sql === false) {
     exit(1);
 }
 
-if (! $mysqli->multi_query($sql)) {
-    fwrite(STDERR, 'Import failed: ' . $mysqli->error . "\n");
+$importSql = dirname($sqlFile) . '/' . pathinfo($sqlFile, PATHINFO_FILENAME) . '.import.sql';
+$sql = preg_replace('/\/\*M![\s\S]*?\*\//', '', $sql) ?? $sql;
+if (file_put_contents($importSql, $sql) === false) {
+    fwrite(STDERR, "Failed to write prepared SQL: {$importSql}\n");
     exit(1);
 }
 
-do {
-    if ($result = $mysqli->store_result()) {
-        $result->free();
-    }
-} while ($mysqli->more_results() && $mysqli->next_result());
+$mysqlBin = 'c:/xampp/mysql/bin/mysql.exe';
+if (! is_file($mysqlBin)) {
+    fwrite(STDERR, "mysql client not found: {$mysqlBin}\n");
+    exit(1);
+}
 
-if ($mysqli->errno) {
-    fwrite(STDERR, 'Import error after queries: ' . $mysqli->error . "\n");
+$cmd = sprintf(
+    '%s -u %s -p%s %s < %s',
+    escapeshellarg($mysqlBin),
+    escapeshellarg($user),
+    escapeshellarg($pass),
+    escapeshellarg($database),
+    escapeshellarg($importSql)
+);
+
+echo "Running mysql import via CLI...\n";
+exec('cmd /c ' . $cmd, $output, $code);
+if ($code !== 0) {
+    fwrite(STDERR, "Import failed (exit {$code}).\n");
+    if ($output !== []) {
+        fwrite(STDERR, implode("\n", $output) . "\n");
+    }
     exit(1);
 }
 

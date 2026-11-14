@@ -161,7 +161,7 @@ class Attendance extends Model
             'attendance_date' => $this->attendance_date?->toDateString(),
             'day' => $this->attendance_date?->format('l'),
             'total_hours' => $this->totalHoursLabel(),
-            'regular_hours' => self::minutesToLabel($this->total_minutes),
+            'regular_hours' => self::minutesToLabel($this->creditedTotalMinutes()),
             'overtime_hours' => $this->overtimeHoursLabel(),
             'attendance_status' => $this->displayStatus(),
             'status_value' => $this->status?->value,
@@ -173,9 +173,53 @@ class Attendance extends Model
         ];
     }
 
+    /**
+     * Hours credited for DTR / reports: full required shift when on time and complete;
+     * actual rendered minutes when late or undertime.
+     */
+    public static function creditDisplayMinutes(
+        int $rendered,
+        int $lateMinutes,
+        int $undertimeMinutes,
+        int $requiredMinutes,
+        bool $regularComplete,
+    ): int {
+        if ($rendered <= 0) {
+            return 0;
+        }
+
+        if ($lateMinutes > 0 || $undertimeMinutes > 0) {
+            return $rendered;
+        }
+
+        if ($regularComplete && $requiredMinutes > 0) {
+            return $requiredMinutes;
+        }
+
+        return $rendered;
+    }
+
+    public function creditedTotalMinutes(?WorkSchedule $schedule = null): int
+    {
+        $rendered = (int) ($this->total_minutes ?? 0);
+        if ($rendered <= 0) {
+            return 0;
+        }
+
+        $schedule ??= $this->employee?->schedule();
+
+        return self::creditDisplayMinutes(
+            $rendered,
+            (int) ($this->late_minutes ?? 0),
+            (int) ($this->undertime_minutes ?? 0),
+            $schedule?->effectiveRequiredMinutes() ?? 0,
+            $this->isRegularComplete(),
+        );
+    }
+
     public function totalHoursLabel(): string
     {
-        return self::minutesToLabel($this->total_minutes);
+        return self::minutesToLabel($this->creditedTotalMinutes());
     }
 
     public function overtimeHoursLabel(): string
