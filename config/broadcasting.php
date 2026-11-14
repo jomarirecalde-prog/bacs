@@ -19,6 +19,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Browser Echo client (Reverb WebSocket)
+    |--------------------------------------------------------------------------
+    |
+    | When false, authenticated pages skip opening ws://… to Reverb (no console
+    | noise when `php artisan reverb:start` is not running). When true, start
+    | Reverb locally or via `composer run dev`.
+    |
+    */
+
+    'client_enabled' => filter_var(
+        env('REVERB_CLIENT_ENABLED', env('BROADCAST_CONNECTION') === 'reverb'),
+        FILTER_VALIDATE_BOOL
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Broadcast Connections
     |--------------------------------------------------------------------------
     |

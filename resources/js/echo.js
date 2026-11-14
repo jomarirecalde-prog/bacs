@@ -2,6 +2,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
+Pusher.logToConsole = false;
 window.Echo = null;
 
 const key = import.meta.env.VITE_REVERB_APP_KEY;
@@ -39,7 +40,10 @@ function reverbHostIsUsable(candidate) {
         || pageHost === '::1';
 }
 
-if (key && host && userId && reverbHostIsUsable(host)) {
+const reverbEnabled =
+    document.head.querySelector('meta[name="reverb-enabled"]')?.content === '1';
+
+if (key && host && userId && reverbEnabled && reverbHostIsUsable(host)) {
     const csrf = document.head.querySelector('meta[name="csrf-token"]')?.content;
     const scheme = import.meta.env.VITE_REVERB_SCHEME ?? 'http';
     const port = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);

@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'mapbox' => [
+        'access_token' => env('MAPBOX_ACCESS_TOKEN'),
+        'style' => env('MAPBOX_STYLE', 'mapbox://styles/mapbox/streets-v12'),
+    ],
+
 ];

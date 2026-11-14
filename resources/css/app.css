@@ -1079,6 +1079,34 @@
     to { background-position: -100% 0; }
 }
 
+/* Station location map (Mapbox GL) */
+#station-location-map.mapboxgl-map {
+    /* Mapbox sets position:relative; absolute inset-0 would collapse to 0 height */
+    height: 100%;
+    width: 100%;
+    min-height: inherit;
+}
+#station-location-map .mapboxgl-popup-content {
+    padding: 0.75rem 0.875rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+}
+#station-location-map .mapboxgl-popup-close-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1;
+}
+
+.station-map-basemap-btn.station-map-basemap-active,
+#station-map-toggle-3d.station-map-3d-active {
+    background-color: var(--color-brand-600);
+    color: white;
+}
+.station-map-basemap-btn:not(.station-map-basemap-active):hover,
+#station-map-toggle-3d:not(.station-map-3d-active):hover {
+    background-color: color-mix(in srgb, var(--color-brand-50) 80%, transparent);
+}
+
 /* PWA standalone — native-app-like chrome on installed devices */
 @media (display-mode: standalone) {
     html {

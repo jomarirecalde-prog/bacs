@@ -4,7 +4,8 @@ import { bootNavigation } from './navigation';
 import { bootResponsive } from './responsive';
 import { bootPwa } from './pwa';
 import { bootSession } from './session';
-import { bootStationMapFromDom, teardownStationMap } from './station-map';
+/** @type {null | import('./station-map')} */
+let stationMapModule = null;
 
 window.Alpine = Alpine;
 
@@ -1058,15 +1059,18 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function bootStationMapPage() {
+async function bootStationMapPage() {
     if (!document.getElementById('station-location-map')) {
         return;
     }
-    bootStationMapFromDom();
+    if (!stationMapModule) {
+        stationMapModule = await import('./station-map');
+    }
+    stationMapModule.bootStationMapFromDom();
 }
 
 window.addEventListener('bacs:pagehide', () => {
-    teardownStationMap();
+    stationMapModule?.teardownStationMap();
 });
 
 if (document.readyState === 'loading') {

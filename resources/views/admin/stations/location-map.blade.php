@@ -18,8 +18,8 @@
     </div>
 
     <div class="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
-        <div class="relative min-h-0 min-h-[min(45vh,20rem)] lg:min-h-0">
-            <div id="station-location-map" class="absolute inset-0 z-0 bg-shell-100" role="region" aria-label="Map of attendance station locations"></div>
+        <div class="relative h-full min-h-[min(45vh,20rem)] overflow-hidden">
+            <div id="station-location-map" class="size-full bg-shell-100" role="region" aria-label="Map of attendance station locations"></div>
         </div>
 
         <aside class="flex max-h-[min(40vh,16rem)] min-h-0 flex-col overflow-hidden border-t border-line bg-surface lg:max-h-none lg:border-t-0 lg:border-l">
@@ -36,6 +36,8 @@
     $mapConfig = [
         'stations' => $stations,
         'locationsUrl' => $locationsUrl,
+        'mapboxToken' => $mapboxToken ?? null,
+        'mapStyle' => $mapStyle ?? null,
     ];
 @endphp
 <script id="station-map-config" type="application/json">@json($mapConfig)</script>

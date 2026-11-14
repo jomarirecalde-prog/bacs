@@ -16,6 +16,8 @@ class StationLocationMapController extends Controller
         return view('admin.stations.location-map', [
             'stations' => $this->stationsPayload(),
             'locationsUrl' => route('admin.stations.locations.data'),
+            'mapboxToken' => config('services.mapbox.access_token'),
+            'mapStyle' => config('services.mapbox.style'),
         ]);
     }
 
