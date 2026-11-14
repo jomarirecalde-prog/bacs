@@ -29,10 +29,16 @@ class LoginController extends Controller
 
     public function store(Request $request)
     {
-        $credentials = $request->validate([
-            'login' => ['required', 'string'],
-            'password' => ['required', 'string'],
-        ]);
+        $credentials = $request->validate(
+            [
+                'login' => ['required', 'string'],
+                'password' => ['required', 'string'],
+            ],
+            [
+                'login.required' => 'Enter your employee number, username, or email.',
+                'password.required' => 'Enter your password.',
+            ],
+        );
 
         $key = 'login:'.$request->ip();
 

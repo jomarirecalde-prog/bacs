@@ -23,7 +23,7 @@
     <h2 class="text-2xl font-extrabold tracking-tight text-brand-50">Welcome Back</h2>
     <p class="mt-1 text-sm text-brand-200/75">Sign in to access your account.</p>
 
-    <form method="POST" action="{{ route('login') }}" class="mt-7 space-y-4" @submit="submitLogin" novalidate>
+    <form method="POST" action="{{ route('login') }}" class="mt-7 space-y-4" @submit="submitLogin">
         @csrf
         <div>
             <label class="landing-label" for="login">Employee ID / email address</label>
@@ -41,6 +41,9 @@
                     :disabled="submitting"
                 >
             </div>
+            @error('login')
+                <p class="mt-2 text-xs text-critical-400" role="alert">{{ $message }}</p>
+            @enderror
         </div>
         <div>
             <div class="mb-1.5 flex items-center justify-between gap-2">
@@ -58,7 +61,7 @@
                 <svg class="landing-input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 <input
                     id="password"
-                    class="landing-input @error('login') landing-input-error @enderror"
+                    class="landing-input @error('password') landing-input-error @enderror"
                     :type="showPassword ? 'text' : 'password'"
                     name="password"
                     required
@@ -67,6 +70,9 @@
                     :disabled="submitting"
                 >
             </div>
+            @error('password')
+                <p class="mt-2 text-xs text-critical-400" role="alert">{{ $message }}</p>
+            @enderror
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <label class="flex cursor-pointer items-center gap-2 text-sm text-brand-100/85">
@@ -74,12 +80,6 @@
             </label>
             <a href="{{ route('password.request') }}" class="landing-link text-xs">Forgot password?</a>
         </div>
-        @error('login')
-            <p class="landing-alert-error" role="alert">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-critical-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
-                <span>{{ $message }}</span>
-            </p>
-        @enderror
         <button type="submit" class="btn-primary btn-block btn-lg" :disabled="submitting" :aria-busy="submitting">
             <span x-show="!submitting">Sign In to Your Account</span>
             <span x-show="submitting" x-cloak class="inline-flex items-center justify-center gap-2">
