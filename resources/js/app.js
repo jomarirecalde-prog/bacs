@@ -740,6 +740,11 @@ document.addEventListener('alpine:init', () => {
                 this.$nextTick(() => document.getElementById('password')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
             }
         },
+        personalInfoReminderFields: payload.personalInfoReminderFields ?? [
+            { key: 'contact_number', label: 'contact number' },
+            { key: 'address', label: 'address' },
+            { key: 'birth_date', label: 'birth date' },
+        ],
         get readOnlyPersonal() {
             const e = this.profile.employee || {};
             return [
@@ -752,6 +757,15 @@ document.addEventListener('alpine:init', () => {
                 { label: 'Address', value: e.address },
                 { label: 'Birth date', value: e.birth_date ? new Date(e.birth_date + 'T00:00:00').toLocaleDateString() : null },
             ];
+        },
+        get missingPersonalFieldLabels() {
+            const e = this.profile.employee || {};
+            return this.personalInfoReminderFields
+                .filter(({ key }) => !String(e[key] ?? '').trim())
+                .map(({ label }) => label);
+        },
+        get showPersonalInfoReminder() {
+            return this.missingPersonalFieldLabels.length > 0;
         },
         resetForm() {
             const e = this.profile.employee || {};

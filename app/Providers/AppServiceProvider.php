@@ -33,6 +33,7 @@ use App\Services\OfficialBusinessResolver;
 use App\Services\TravelOrderResolver;
 use App\Services\NotificationService;
 use App\Support\MailSettings;
+use App\Support\PersonalInfoReminder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -113,9 +114,23 @@ class AppServiceProvider extends ServiceProvider
                 $user->load('employee');
             }
 
+            $personalInfoReminderLabels = [];
+            $showPersonalInfoReminderBanner = false;
+
+            if ($user?->isEmployee() && $user->employee) {
+                $personalInfoReminderLabels = PersonalInfoReminder::missingFieldLabels($user->employee);
+                $showPersonalInfoReminderBanner = $personalInfoReminderLabels !== []
+                    && ! request()->routeIs('profile.show');
+            }
+
+            $personalInfoBanner = [
+                'personalInfoReminderLabels' => $personalInfoReminderLabels,
+                'showPersonalInfoReminderBanner' => $showPersonalInfoReminderBanner,
+            ];
+
             // Partial navigations keep the existing header, so skip the bell queries.
             if (request()->headers->get('X-BACS-Partial') === '1') {
-                $view->with([
+                $view->with(array_merge([
                     'unreadNotifications' => 0,
                     'latestNotifications' => collect(),
                     'notificationBell' => [
@@ -125,7 +140,7 @@ class AppServiceProvider extends ServiceProvider
                         'feedUrl' => route('notifications.index'),
                         'readAllUrl' => route('notifications.read-all'),
                     ],
-                ]);
+                ], $personalInfoBanner));
 
                 return;
             }
@@ -140,7 +155,7 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
 
-            $view->with([
+            $view->with(array_merge([
                 'unreadNotifications' => $unread,
                 'latestNotifications' => collect(),
                 'notificationBell' => [
@@ -150,7 +165,7 @@ class AppServiceProvider extends ServiceProvider
                     'feedUrl' => route('notifications.index'),
                     'readAllUrl' => route('notifications.read-all'),
                 ],
-            ]);
+            ], $personalInfoBanner));
         });
     }
 }

@@ -18,6 +18,7 @@
          'passwordUrl' => route('profile.password.update'),
          'profile' => $profileJson,
          'mustChangePassword' => (bool) $user->must_change_password,
+         'personalInfoReminderFields' => \App\Support\PersonalInfoReminder::FIELDS,
      ]))"
      @profile-updated.window="applyProfile($event.detail)">
 
@@ -88,6 +89,18 @@
             </div>
 
             <div class="p-5" x-show="!editing">
+                <div class="alert-warning mb-5" x-show="showPersonalInfoReminder" x-cloak role="status">
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-warn-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.72-3L13.72 4a2 2 0 00-3.44 0L3.35 16a2 2 0 001.72 3z"/></svg>
+                    <span class="min-w-0 flex-1">
+                        <span class="block font-bold">Please update your personal information</span>
+                        <span class="mt-1 block text-warn-900/90">
+                            Some details are still missing
+                            (<span x-text="missingPersonalFieldLabels.join(', ')"></span>).
+                            Keep your profile complete so HR and payroll records stay accurate.
+                        </span>
+                        <button type="button" class="btn btn-primary btn-sm mt-3" @click="startEdit()">Update profile</button>
+                    </span>
+                </div>
                 <dl class="grid gap-4 sm:grid-cols-2">
                     <template x-for="row in readOnlyPersonal" :key="row.label">
                         <div>

@@ -41,6 +41,7 @@
             <span>{{ $errors->first() }}</span>
         </div>
     @endif
+    @include('partials.personal-info-reminder')
     @yield('content')
 </div>
 </body>
@@ -423,6 +424,7 @@
                         <span>{{ $errors->first() }}</span>
                     </div>
                 @endif
+                @include('partials.personal-info-reminder')
                 @yield('content')
             </main>
         </div>

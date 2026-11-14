@@ -56,6 +56,38 @@ class ProfileModuleTest extends TestCase
             ->assertSee('Change Password');
     }
 
+    public function test_incomplete_personal_info_shows_reminder_on_employee_pages(): void
+    {
+        $employee = $this->makeEmployee('incompleteinfo');
+
+        $this->actingAs($employee->user)
+            ->get(route('employee.dashboard'))
+            ->assertOk()
+            ->assertSee('Please update your personal information')
+            ->assertSee('contact number');
+
+        $this->actingAs($employee->user)
+            ->get(route('profile.show'))
+            ->assertOk()
+            ->assertSee('Please update your personal information')
+            ->assertSee('Some details are still missing');
+    }
+
+    public function test_complete_personal_info_hides_global_reminder(): void
+    {
+        $employee = $this->makeEmployee('completeinfo');
+        $employee->update([
+            'contact_number' => '09171234567',
+            'address' => '123 Main St',
+            'birth_date' => '1990-05-15',
+        ]);
+
+        $this->actingAs($employee->user)
+            ->get(route('employee.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Please update your personal information');
+    }
+
     public function test_employee_can_update_permitted_fields(): void
     {
         $employee = $this->makeEmployee('profileedit');
