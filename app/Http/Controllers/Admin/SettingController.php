@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CentralApprovalWorkflowService;
 use App\Support\MailSettings;
+use App\Support\MapboxSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -42,6 +43,7 @@ class SettingController extends Controller
             'approvalDepartments' => $departments,
             'employeeSearchUrl' => route('admin.settings.approval-workflow.employees.search'),
             'mailSettings' => MailSettings::formState(),
+            'mapboxSettings' => MapboxSettings::formState(),
         ]);
     }
 
@@ -57,6 +59,47 @@ class SettingController extends Controller
         Cache::forget('app_settings');
 
         return back()->with('success', 'Settings saved.');
+    }
+
+    public function updateMapbox(Request $request)
+    {
+        $mapbox = MapboxSettings::formState();
+
+        $rules = [
+            'mapbox_access_token' => ['nullable', 'string', 'max:512'],
+            'mapbox_style' => ['nullable', 'string', 'max:255'],
+        ];
+        if (! $mapbox['token_configured']) {
+            $rules['mapbox_access_token'] = ['required', 'string', 'max:512'];
+        }
+
+        $data = $request->validate($rules);
+
+        if (filled($data['mapbox_access_token'] ?? null)) {
+            $token = trim($data['mapbox_access_token']);
+            if (! str_starts_with($token, 'pk.')) {
+                return back()
+                    ->withFragment('settings-mapbox')
+                    ->withErrors(['mapbox_access_token' => 'Use a Mapbox public token (starts with pk.). Secret sk. tokens cannot be used in the browser.']);
+            }
+            Setting::put('mapbox_access_token', $token);
+        }
+
+        if (array_key_exists('mapbox_style', $data)) {
+            $style = trim((string) ($data['mapbox_style'] ?? ''));
+            if ($style === '') {
+                Setting::query()->where('key', 'mapbox_style')->delete();
+            } else {
+                Setting::put('mapbox_style', $style);
+            }
+        }
+
+        Cache::forget('app_settings');
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->withFragment('settings-mapbox')
+            ->with('success', 'Map settings saved.');
     }
 
     public function updateSmtp(Request $request)

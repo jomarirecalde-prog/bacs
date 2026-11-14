@@ -12,6 +12,9 @@
             <p class="text-xs text-muted">Last reported GPS from station heartbeats and scans.</p>
         </div>
         <div class="flex flex-wrap gap-2">
+            @if (empty($mapboxToken))
+                <a href="{{ route('admin.settings.index') }}#settings-mapbox" class="btn-primary">Configure Mapbox token</a>
+            @endif
             <a href="{{ route('admin.stations.monitoring') }}" class="btn-outline">Station Monitoring</a>
             <a href="{{ route('admin.stations.index') }}" class="btn-outline-info">Manage Stations</a>
         </div>

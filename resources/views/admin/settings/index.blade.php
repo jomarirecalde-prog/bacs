@@ -169,6 +169,8 @@
 
     @include('admin.settings.partials.smtp')
 
+    @include('admin.settings.partials.mapbox')
+
     <section id="settings-admins" class="card scroll-mt-28 overflow-hidden">
         <div class="card-header">
             <div class="min-w-0">

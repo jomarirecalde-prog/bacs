@@ -146,9 +146,9 @@ function initStationMap(config) {
     if (!accessToken) {
         showMapError(
             root,
-            'Set MAPBOX_ACCESS_TOKEN in the server .env (public pk. token), then refresh Laravel config '
-                + '(production: php artisan config:clear && php artisan config:cache, or re-run deploy). '
-                + 'View page source and search for mapboxToken — if it is null, PHP is not reading the token yet.',
+            'Add a Mapbox public token (pk.…) under Admin → Settings → Station location map, '
+                + 'or set MAPBOX_ACCESS_TOKEN in the server .env and refresh config '
+                + '(php artisan config:clear && php artisan config:cache).',
         );
         return;
     }
