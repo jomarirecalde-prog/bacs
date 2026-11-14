@@ -31,6 +31,10 @@ $PHP artisan config:cache
 $PHP artisan route:cache
 $PHP artisan view:cache
 
+if grep -rq '/BACS/public/build/' public/build/assets/*.js 2>/dev/null; then
+    echo "WARNING: Vite bundle uses local XAMPP asset paths (/BACS/public/build/). Run npm run build in the repo and push public/build."
+fi
+
 MAPBOX_LEN="$($PHP artisan tinker --execute="echo strlen(trim((string) \\App\\Support\\MapboxSettings::accessToken()));" 2>/dev/null || echo 0)"
 if [ "${MAPBOX_LEN:-0}" = "0" ]; then
     echo "WARNING: Mapbox token not configured — Station Locations map will show \"Map unavailable\"."
