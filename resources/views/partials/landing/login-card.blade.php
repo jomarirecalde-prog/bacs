@@ -4,12 +4,6 @@
     x-data="{
         showPassword: false,
         submitting: false,
-        submitLogin() {
-            if (this.submitting) {
-                return;
-            }
-            this.submitting = true;
-        },
     }"
 >
     <div class="mb-6 flex items-center gap-3">
@@ -23,7 +17,7 @@
     <h2 class="text-2xl font-extrabold tracking-tight text-brand-50">Welcome Back</h2>
     <p class="mt-1 text-sm text-brand-200/75">Sign in to access your account.</p>
 
-    <form method="POST" action="{{ route('login') }}" class="mt-7 space-y-4" @submit="submitLogin">
+    <form method="POST" action="{{ route('login') }}" class="mt-7 space-y-4">
         @csrf
         <div>
             <label class="landing-label" for="login">Username, employee ID, or email</label>
@@ -38,7 +32,6 @@
                     autofocus
                     autocomplete="username"
                     placeholder="Employee number, username, or email"
-                    :disabled="submitting"
                 >
             </div>
             @error('login')
@@ -67,7 +60,6 @@
                     required
                     autocomplete="current-password"
                     placeholder="Enter your password"
-                    :disabled="submitting"
                 >
             </div>
             @error('password')
@@ -76,11 +68,11 @@
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <label class="flex cursor-pointer items-center gap-2 text-sm text-brand-100/85">
-                <input type="checkbox" name="remember" class="landing-check" :disabled="submitting"> Remember me
+                <input type="checkbox" name="remember" class="landing-check"> Remember me
             </label>
             <a href="{{ route('password.request') }}" class="landing-link text-xs">Forgot password?</a>
         </div>
-        <button type="submit" class="btn-primary btn-block btn-lg" :disabled="submitting" :aria-busy="submitting">
+        <button type="submit" class="btn-primary btn-block btn-lg" :disabled="submitting" :aria-busy="submitting" @click="submitting = true">
             <span x-show="!submitting">Sign In to Your Account</span>
             <span x-show="submitting" x-cloak class="inline-flex items-center justify-center gap-2">
                 <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
